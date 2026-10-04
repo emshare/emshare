@@ -2,6 +2,8 @@
 
 import argparse
 import logging
+import sys
+from pathlib import Path
 from typing import TypeVar
 
 from em.application.market_data import (
@@ -13,6 +15,8 @@ from em.application.market_data import (
     fetch_trends,
 )
 from em.channels.eastmoney.config import FQT_ADJUSTS, FUND_FLOW_FIELDS, KLT_PERIODS
+from em.core.env import load_dotenv
+from em.core.errors import EmError
 from em.domain.models import (
     BoardFundFlowSeries,
     FundFlowSeries,
@@ -228,6 +232,10 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # CWD/.env 优先，找不到则回退到项目根（src/em 的上两级），支持从任意目录调用
+    project_root = Path(__file__).resolve().parents[2]
+    for candidate in (Path(".env"), project_root / ".env"):
+        load_dotenv(candidate)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     args = _parse_args(argv)
     try:
@@ -259,6 +267,9 @@ def main(argv: list[str] | None = None) -> int:
             _render(page)
     except KeyboardInterrupt:
         return 130
+    except EmError as exc:
+        print(f"❌ 抓取失败：{exc}", file=sys.stderr)
+        return 1
     return 0
 
 

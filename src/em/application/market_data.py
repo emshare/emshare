@@ -14,7 +14,7 @@ from em.application.dataframe import (
     to_kline_dataframe,
     to_trend_dataframe,
 )
-from em.core.proxy import ProxyPool, ProxySettings
+from em.core.proxy import ProxyPool, ProxyRouter, ProxySettings
 from em.core.resilience import RetryPolicy
 from em.core.settings import Settings
 from em.core.transport import HttpClient
@@ -40,19 +40,26 @@ if TYPE_CHECKING:
 
 def _build_client(settings: Settings) -> HttpClient:
     session = requests.Session()
-    pool = ProxyPool(
-        ProxySettings(
-            api=settings.proxy_api,
-            enabled=settings.proxy_enabled,
-            num=settings.proxy_num,
-            ttl_sec=settings.proxy_ttl_sec,
-            safety_margin_sec=settings.proxy_safety_margin_sec,
-            timeout_sec=settings.proxy_timeout_sec,
-        ),
-        session,
+    ps = ProxySettings(
+        api=settings.proxy_api,
+        enabled=settings.proxy_enabled,
+        num=settings.proxy_num,
+        ttl_sec=settings.proxy_ttl_sec,
+        safety_margin_sec=settings.proxy_safety_margin_sec,
+        timeout_sec=settings.proxy_timeout_sec,
+        mode=settings.proxy_mode,
+        direct_fails=settings.proxy_direct_fails,
+        proxy_successes=settings.proxy_proxy_successes,
+        cooldown_sec=settings.proxy_cooldown_sec,
     )
-    policy = RetryPolicy(max_retries=settings.max_retries, backoff_sec=settings.backoff_sec)
-    return HttpClient(session, pool, policy, timeout_sec=settings.request_timeout_sec)
+    pool = ProxyPool(ps, session)
+    router = ProxyRouter(pool, ps)
+    policy = RetryPolicy(
+        max_retries=settings.max_retries,
+        backoff_sec=settings.backoff_sec,
+        backoff_cap_sec=settings.backoff_cap_sec,
+    )
+    return HttpClient(session, router, policy, timeout_sec=settings.request_timeout_sec)
 
 
 def fetch_board(query: BoardQuery | None = None, settings: Settings | None = None) -> QuotePage:

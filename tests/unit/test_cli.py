@@ -5,7 +5,9 @@ from em.cli import (
     _render_board_fund_flow,
     _render_fund_flow,
     _select_klines,
+    main,
 )
+from em.core.errors import NetworkError
 from em.domain.models import BoardFundFlow, BoardFundFlowSeries, FundFlow, FundFlowSeries, Kline
 
 
@@ -154,3 +156,23 @@ def test_tail_zero_means_all() -> None:
 def test_empty_items_default() -> None:
     parts = _select_klines((), head=None, tail=None)
     assert parts == [("末 20 条", ())]
+
+
+def test_main_em_error_returns_1_without_traceback(monkeypatch, capsys) -> None:
+    def boom(_query):
+        raise NetworkError("连接被断开")
+
+    monkeypatch.setattr("em.cli.fetch_kline", boom)
+    rc = main(["--preset", "kline", "--code", "000001"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "抓取失败" in err
+    assert "Traceback" not in err
+
+
+def test_main_keyboard_interrupt_returns_130(monkeypatch) -> None:
+    def boom(_query):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("em.cli.fetch_kline", boom)
+    assert main(["--preset", "kline", "--code", "000001"]) == 130
