@@ -4,13 +4,10 @@ from em.channels.eastmoney import config
 from em.channels.eastmoney.request import KlineRequest
 from em.domain.queries import KlineQuery
 
-# 市场代码 -> 东财 secid 前缀（0 深市 / 1 沪市；北交所亦为 0）
-MARKET_IDS = {"sz": "0", "sh": "1", "bj": "0"}
-
 
 def secid_of(query: KlineQuery) -> str:
     """把「市场 + 代码」拼成东财 secid；未知市场回退深市。"""
-    return f"{MARKET_IDS.get(query.market, '0')}.{query.code}"
+    return f"{config.MARKET_IDS.get(query.market, '0')}.{query.code}"
 
 
 def normalize_period(period: str) -> str:

@@ -43,3 +43,5 @@ FFLOW_FIELDS2 = "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65"
 FFLOW_UT = "b2884a393a59ad64002292a3e90d46a5"  # 资金流接口专用 ut
 # 板块（行业 / 概念 / 地域）secid 前缀，统一为 90
 BOARD_MARKET_ID = "90"
+# 沪深京市场代码 -> 东财 secid 前缀（0 深市 / 1 沪市；北交所亦为 0）
+MARKET_IDS = {"sz": "0", "sh": "1", "bj": "0"}

@@ -3,16 +3,18 @@
 新增渠道时只改这里与 ``channels/``，``market_data`` / ``cli`` 无需改动。
 """
 
-from em.channels.eastmoney.board_constituent.board_constituent_em import (
+from em.channels.eastmoney.ashare_boards.board_constituent.board_constituent_em import (
     board_constituent_request,
     flow_field,
 )
-from em.channels.eastmoney.board_fund_flow.board_fund_flow_em import board_fund_flow_request
-from em.channels.eastmoney.fund_flow.fund_flow_em import fund_flow_request
-from em.channels.eastmoney.kline.kline_em import kline_request
+from em.channels.eastmoney.ashare_boards.board_fund_flow.board_fund_flow_em import (
+    board_fund_flow_request,
+)
+from em.channels.eastmoney.ashare_stocks.fund_flow.fund_flow_em import fund_flow_request
+from em.channels.eastmoney.ashare_stocks.kline.kline_em import kline_request
+from em.channels.eastmoney.ashare_stocks.stock.stock_list_em import stock_list_request
+from em.channels.eastmoney.ashare_stocks.trends.trends_em import trends_request
 from em.channels.eastmoney.source import EastMoneySource
-from em.channels.eastmoney.stock.stock_list_em import stock_list_request
-from em.channels.eastmoney.trends.trends_em import trends_request
 
 __all__ = [
     "EastMoneySource",

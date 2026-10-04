@@ -1,9 +1,9 @@
 """默认值单一来源：渠道无关的兜底常量。"""
 
-
 DEFAULT_TIMEOUT_SEC = 15
 DEFAULT_MAX_RETRIES = 10
 DEFAULT_BACKOFF_SEC = 0.2
+DEFAULT_PROXY_API = ""
 
 # 渠道级默认值：疑似出口被封的状态码
 DEFAULT_ACTIVATE_STATUS = (403, 429)

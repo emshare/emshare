@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 
 from em.channels.eastmoney import config
+from em.channels.eastmoney.ashare_stocks.trends.trends_em import secid_of, trends_request
 from em.channels.eastmoney.mapping import to_trend_series
-from em.channels.eastmoney.trends.trends_em import secid_of, trends_request
 from em.domain.queries import TrendQuery
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "eastmoney" / "trends_intraday.json"

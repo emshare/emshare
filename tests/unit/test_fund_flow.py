@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from em.channels.eastmoney import config
-from em.channels.eastmoney.fund_flow.fund_flow_em import fund_flow_request, secid_of
+from em.channels.eastmoney.ashare_stocks.fund_flow.fund_flow_em import fund_flow_request, secid_of
 from em.channels.eastmoney.mapping import to_fund_flow_series
 from em.domain.queries import FundFlowQuery
 
