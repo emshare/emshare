@@ -1,6 +1,6 @@
 # 板块成分股资金流接口
 
-> 渠道：[eastmoney](./eastmoney.md) ｜ 源码：`src/em/channels/eastmoney/board_constituent/board_constituent_em.py`
+> 渠道：[eastmoney](../eastmoney.md) ｜ 源码：`src/em/channels/eastmoney/ashare_boards/board_constituent/board_constituent_em.py`
 
 ## 接口名称
 

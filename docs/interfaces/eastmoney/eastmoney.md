@@ -38,12 +38,12 @@ from em import (
 
 | 功能 | 接口文档 | 源码 | 公共面 |
 | --- | --- | --- | --- |
-| 板块成分股资金流 | [board_constituent_em.md](./board_constituent_em.md) | `channels/eastmoney/board_constituent/board_constituent_em.py` | `fetch_board` / `fetch_board_df` |
-| 沪深京 A 股全市场列表 | [stock_list_em.md](./stock_list_em.md) | `channels/eastmoney/stock/stock_list_em.py` | `fetch_market` / `fetch_market_df` |
-| 历史 K 线 | [kline_em.md](./kline_em.md) | `channels/eastmoney/kline/kline_em.py` | `fetch_kline` / `fetch_kline_df` |
-| 分时行情 | [trends_em.md](./trends_em.md) | `channels/eastmoney/trends/trends_em.py` | `fetch_trends` / `fetch_trends_df` |
-| 个股历史资金流 | [fund_flow_em.md](./fund_flow_em.md) | `channels/eastmoney/fund_flow/fund_flow_em.py` | `fetch_fund_flow` / `fetch_fund_flow_df` |
-| 板块（行业 / 概念 / 地域）历史资金流 | [board_fund_flow_em.md](./board_fund_flow_em.md) | `channels/eastmoney/board_fund_flow/board_fund_flow_em.py` | `fetch_board_fund_flow` / `fetch_board_fund_flow_df` |
+| 板块成分股资金流 | [board_constituent_em.md](./ashare_boards/board_constituent_em.md) | `channels/eastmoney/ashare_boards/board_constituent/board_constituent_em.py` | `fetch_board` / `fetch_board_df` |
+| 沪深京 A 股全市场列表 | [stock_list_em.md](./ashare_stocks/stock_list_em.md) | `channels/eastmoney/ashare_stocks/stock/stock_list_em.py` | `fetch_market` / `fetch_market_df` |
+| 历史 K 线 | [kline_em.md](./ashare_stocks/kline_em.md) | `channels/eastmoney/ashare_stocks/kline/kline_em.py` | `fetch_kline` / `fetch_kline_df` |
+| 分时行情 | [trends_em.md](./ashare_stocks/trends_em.md) | `channels/eastmoney/ashare_stocks/trends/trends_em.py` | `fetch_trends` / `fetch_trends_df` |
+| 个股历史资金流 | [fund_flow_em.md](./ashare_stocks/fund_flow_em.md) | `channels/eastmoney/ashare_stocks/fund_flow/fund_flow_em.py` | `fetch_fund_flow` / `fetch_fund_flow_df` |
+| 板块（行业 / 概念 / 地域）历史资金流 | [board_fund_flow_em.md](./ashare_boards/board_fund_flow_em.md) | `channels/eastmoney/ashare_boards/board_fund_flow/board_fund_flow_em.py` | `fetch_board_fund_flow` / `fetch_board_fund_flow_df` |
 
 ## 接口检索
 

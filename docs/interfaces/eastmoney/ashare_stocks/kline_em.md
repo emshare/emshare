@@ -1,6 +1,6 @@
 # 历史 K 线接口
 
-> 渠道：[eastmoney](./eastmoney.md) ｜ 源码：`src/em/channels/eastmoney/kline/kline_em.py`
+> 渠道：[eastmoney](../eastmoney.md) ｜ 源码：`src/em/channels/eastmoney/ashare_stocks/kline/kline_em.py`
 
 ## 接口名称
 

@@ -1,6 +1,6 @@
 # 个股历史资金流接口
 
-> 渠道：[eastmoney](./eastmoney.md) ｜ 源码：`src/em/channels/eastmoney/fund_flow/fund_flow_em.py`
+> 渠道：[eastmoney](../eastmoney.md) ｜ 源码：`src/em/channels/eastmoney/ashare_stocks/fund_flow/fund_flow_em.py`
 
 ## 接口名称
 

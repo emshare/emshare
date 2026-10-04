@@ -1,6 +1,6 @@
 # 板块（行业 / 概念 / 地域）历史资金流接口
 
-> 渠道：[eastmoney](./eastmoney.md) ｜ 源码：`src/em/channels/eastmoney/board_fund_flow/board_fund_flow_em.py`
+> 渠道：[eastmoney](../eastmoney.md) ｜ 源码：`src/em/channels/eastmoney/ashare_boards/board_fund_flow/board_fund_flow_em.py`
 
 ## 接口名称
 

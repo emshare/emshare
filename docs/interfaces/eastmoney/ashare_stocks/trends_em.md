@@ -1,6 +1,6 @@
 # 分时行情接口
 
-> 渠道：[eastmoney](./eastmoney.md) ｜ 源码：`src/em/channels/eastmoney/trends/trends_em.py`
+> 渠道：[eastmoney](../eastmoney.md) ｜ 源码：`src/em/channels/eastmoney/ashare_stocks/trends/trends_em.py`
 
 ## 接口名称
 
