@@ -161,7 +161,7 @@ _INTERFACES: tuple[Interface, ...] = (
         dataframe_variant="df_stock_list_em",
     ),
     Interface(
-        name="kline_em",
+        name="stock_kline_em",
         category="kline",
         desc="个股/指数历史 K 线（日/周/月，前/后/不复权）",
         documented=True,
@@ -187,18 +187,18 @@ _INTERFACES: tuple[Interface, ...] = (
         ),
         outputs=tuple(Field(*f) for f in _KLINE_FIELDS),
         example=(
-            "from em import kline_em\n"
+            "from em import stock_kline_em\n"
             "from em.domain.queries import KlineQuery\n"
             "\n"
-            'series = kline_em(KlineQuery(code="000001", market="sz", period="day"))\n'
+            'series = stock_kline_em(KlineQuery(code="000001", market="sz", period="day"))\n'
             "print(series.code, series.name, len(series.items))\n"
             "for k in series.items[-3:]:\n"
             "    print(k.date, k.open, k.close, k.change_pct)"
         ),
-        dataframe_variant="df_kline_em",
+        dataframe_variant="df_stock_kline_em",
     ),
     Interface(
-        name="trends_em",
+        name="stock_trends_em",
         category="trends",
         desc="个股/指数分时行情（trends2，ndays 日分时）",
         documented=True,
@@ -211,18 +211,18 @@ _INTERFACES: tuple[Interface, ...] = (
         ),
         outputs=tuple(Field(*f) for f in _TREND_FIELDS),
         example=(
-            "from em import trends_em\n"
+            "from em import stock_trends_em\n"
             "from em.domain.queries import TrendQuery\n"
             "\n"
-            'series = trends_em(TrendQuery(code="000001", market="sz", ndays=1))\n'
+            'series = stock_trends_em(TrendQuery(code="000001", market="sz", ndays=1))\n'
             "print(series.code, series.name, series.pre_close, len(series.items))\n"
             "for t in series.items[:3]:\n"
             "    print(t.time, t.price, t.avg_price)"
         ),
-        dataframe_variant="df_trends_em",
+        dataframe_variant="df_stock_trends_em",
     ),
     Interface(
-        name="fund_flow_em",
+        name="stock_fund_flow_em",
         category="fund_flow",
         desc="个股历史资金流（日线，主力/超大单/大单/中单/小单净流入）",
         documented=True,
@@ -232,15 +232,15 @@ _INTERFACES: tuple[Interface, ...] = (
         ),
         outputs=tuple(Field(*f) for f in _FUND_FLOW_FIELDS),
         example=(
-            "from em import fund_flow_em\n"
+            "from em import stock_fund_flow_em\n"
             "from em.domain.queries import FundFlowQuery\n"
             "\n"
-            'series = fund_flow_em(FundFlowQuery(code="000001", market="sz"))\n'
+            'series = stock_fund_flow_em(FundFlowQuery(code="000001", market="sz"))\n'
             "print(series.code, series.name, len(series.items))\n"
             "for f in series.items[-3:]:\n"
             "    print(f.date, f.main_net_inflow, f.main_net_pct)"
         ),
-        dataframe_variant="df_fund_flow_em",
+        dataframe_variant="df_stock_fund_flow_em",
     ),
     Interface(
         name="board_fund_flow_em",

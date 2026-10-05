@@ -169,7 +169,7 @@ def test_main_em_error_returns_1_without_traceback(monkeypatch, capsys) -> None:
     def boom(_query):
         raise NetworkError("连接被断开")
 
-    monkeypatch.setattr("em.cli.kline_em", boom)
+    monkeypatch.setattr("em.cli.stock_kline_em", boom)
     rc = main(["--preset", "kline", "--code", "000001"])
     assert rc == 1
     err = capsys.readouterr().err
@@ -181,7 +181,7 @@ def test_main_keyboard_interrupt_returns_130(monkeypatch) -> None:
     def boom(_query):
         raise KeyboardInterrupt
 
-    monkeypatch.setattr("em.cli.kline_em", boom)
+    monkeypatch.setattr("em.cli.stock_kline_em", boom)
     assert main(["--preset", "kline", "--code", "000001"]) == 130
 
 
@@ -248,7 +248,7 @@ def test_main_shows_ip_blocked_hint_when_no_proxy(monkeypatch, capsys) -> None:
     def boom(_query):
         raise NetworkError("连接被断开")
 
-    monkeypatch.setattr("em.cli.kline_em", boom)
+    monkeypatch.setattr("em.cli.stock_kline_em", boom)
     monkeypatch.setattr("em.cli.Settings.from_env", lambda: _FakeSettings(False, "never"))
     rc = main(["--preset", "kline", "--code", "000001"])
     assert rc == 1
@@ -261,7 +261,7 @@ def test_main_no_hint_when_proxy_configured(monkeypatch, capsys) -> None:
     def boom(_query):
         raise NetworkError("连接被断开")
 
-    monkeypatch.setattr("em.cli.kline_em", boom)
+    monkeypatch.setattr("em.cli.stock_kline_em", boom)
     monkeypatch.setattr("em.cli.Settings.from_env", lambda: _FakeSettings(True, "auto"))
     rc = main(["--preset", "kline", "--code", "000001"])
     assert rc == 1

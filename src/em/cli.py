@@ -9,10 +9,10 @@ from typing import TypeVar
 from em.application.market_data import (
     board_constituent_em,
     board_fund_flow_em,
-    fund_flow_em,
-    kline_em,
+    stock_fund_flow_em,
+    stock_kline_em,
     stock_list_em,
-    trends_em,
+    stock_trends_em,
 )
 from em.channels.eastmoney.config import FQT_ADJUSTS, FUND_FLOW_FIELDS, KLT_PERIODS
 from em.core.env import load_dotenv
@@ -271,19 +271,19 @@ def main(argv: list[str] | None = None) -> int:
             page = stock_list_em(MarketQuery(sort=args.sort, page=args.pn, size=args.pz or 20))
             _render(page)
         elif args.preset == "kline":
-            series = kline_em(
+            series = stock_kline_em(
                 KlineQuery(
                     code=args.code, market=args.market, period=args.period, adjust=args.adjust
                 )
             )
             _render_kline(series, head=args.head, tail=args.tail)
         elif args.preset == "trends":
-            trend_series = trends_em(
+            trend_series = stock_trends_em(
                 TrendQuery(code=args.code, market=args.market, ndays=args.ndays)
             )
             _render_trend(trend_series, tail=args.tail)
         elif args.preset == "fundflow":
-            flow_series = fund_flow_em(FundFlowQuery(code=args.code, market=args.market))
+            flow_series = stock_fund_flow_em(FundFlowQuery(code=args.code, market=args.market))
             _render_fund_flow(flow_series, head=args.head, tail=args.tail)
         elif args.preset == "boardflow":
             board_flow = board_fund_flow_em(BoardFundFlowQuery(board=args.board))

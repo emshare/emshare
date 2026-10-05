@@ -25,9 +25,9 @@ em/                                          # 东方财富行情抓取
 │   │   │   └── board_fund_flow/             # 板块历史资金流（board_fund_flow_em.py）
 │   │   ├── ashare_stocks/                   # 沪深京个股
 │   │   │   ├── stock/                       # 全市场列表（stock_list_em.py）
-│   │   │   ├── kline/                       # 历史 K 线（kline_em.py）
-│   │   │   ├── trends/                      # 分时行情（trends_em.py）
-│   │   │   └── fund_flow/                   # 个股历史资金流（fund_flow_em.py）
+│   │   │   ├── kline/                       # 历史 K 线（stock_kline_em.py）
+│   │   │   ├── trends/                      # 分时行情（stock_trends_em.py）
+│   │   │   └── fund_flow/                   # 个股历史资金流（stock_fund_flow_em.py）
 │   │   ├── ashare_indices/.gitkeep          # 沪深京指数（占位）
 │   │   ├── hk_market/.gitkeep               # 港股市场（占位）
 │   │   ├── us_market/.gitkeep               # 美股市场（占位）

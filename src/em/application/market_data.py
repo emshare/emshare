@@ -99,7 +99,9 @@ def df_stock_list_em(
     return to_dataframe(stock_list_em(query, settings), columns)
 
 
-def kline_em(query: KlineQuery | None = None, settings: Settings | None = None) -> KlineSeries:
+def stock_kline_em(
+    query: KlineQuery | None = None, settings: Settings | None = None
+) -> KlineSeries:
     """抓取个股 / 指数历史 K 线，返回领域模型 ``KlineSeries``。"""
     query = query or KlineQuery()
     client = _build_client(settings or Settings.from_env())
@@ -107,16 +109,18 @@ def kline_em(query: KlineQuery | None = None, settings: Settings | None = None) 
     return source.fetch_kline(registry.kline_request(query))
 
 
-def df_kline_em(
+def df_stock_kline_em(
     query: KlineQuery | None = None,
     settings: Settings | None = None,
     columns: dict[str, str] | None = None,
 ) -> pd.DataFrame:
-    """``kline_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
-    return to_kline_dataframe(kline_em(query, settings), columns)
+    """``stock_kline_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_kline_dataframe(stock_kline_em(query, settings), columns)
 
 
-def trends_em(query: TrendQuery | None = None, settings: Settings | None = None) -> TrendSeries:
+def stock_trends_em(
+    query: TrendQuery | None = None, settings: Settings | None = None
+) -> TrendSeries:
     """抓取个股 / 指数分时行情，返回领域模型 ``TrendSeries``。"""
     query = query or TrendQuery()
     client = _build_client(settings or Settings.from_env())
@@ -124,16 +128,16 @@ def trends_em(query: TrendQuery | None = None, settings: Settings | None = None)
     return source.fetch_trends(registry.trends_request(query))
 
 
-def df_trends_em(
+def df_stock_trends_em(
     query: TrendQuery | None = None,
     settings: Settings | None = None,
     columns: dict[str, str] | None = None,
 ) -> pd.DataFrame:
-    """``trends_em`` 的 DataFrame 版（中文列名）。"""
-    return to_trend_dataframe(trends_em(query, settings), columns)
+    """``stock_trends_em`` 的 DataFrame 版（中文列名）。"""
+    return to_trend_dataframe(stock_trends_em(query, settings), columns)
 
 
-def fund_flow_em(
+def stock_fund_flow_em(
     query: FundFlowQuery | None = None, settings: Settings | None = None
 ) -> FundFlowSeries:
     """抓取个股历史资金流，返回领域模型 ``FundFlowSeries``。"""
@@ -143,13 +147,13 @@ def fund_flow_em(
     return source.fetch_fund_flow(registry.fund_flow_request(query))
 
 
-def df_fund_flow_em(
+def df_stock_fund_flow_em(
     query: FundFlowQuery | None = None,
     settings: Settings | None = None,
     columns: dict[str, str] | None = None,
 ) -> pd.DataFrame:
-    """``fund_flow_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
-    return to_fund_flow_dataframe(fund_flow_em(query, settings), columns)
+    """``stock_fund_flow_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_fund_flow_dataframe(stock_fund_flow_em(query, settings), columns)
 
 
 def board_fund_flow_em(

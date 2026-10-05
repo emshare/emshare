@@ -1,10 +1,10 @@
 # 历史 K 线接口
 
-> 渠道：[eastmoney](../eastmoney.md) ｜ 源码：`src/em/channels/eastmoney/ashare_stocks/kline/kline_em.py`
+> 渠道：[eastmoney](../eastmoney.md) ｜ 源码：`src/em/channels/eastmoney/ashare_stocks/stock_kline/stock_kline_em.py`
 
 ## 接口名称
 
-`kline_em` / `df_kline_em`：个股 / 指数历史 K 线（日 / 周 / 月 / 5分 / 15分 / 30分 / 60分，前 / 后 / 不复权）
+`stock_kline_em` / `df_stock_kline_em`：个股 / 指数历史 K 线（日 / 周 / 月 / 5分 / 15分 / 30分 / 60分，前 / 后 / 不复权）
 
 ## 目标地址
 
@@ -61,10 +61,10 @@
 ## 接口示例（领域模型 `KlineSeries`）
 
 ```python
-from em import kline_em
+from em import stock_kline_em
 from em.domain.queries import KlineQuery
 
-series = kline_em(KlineQuery(code="000001", market="sz", period="day", adjust="qfq"))
+series = stock_kline_em(KlineQuery(code="000001", market="sz", period="day", adjust="qfq"))
 print(series.code, series.name, len(series.items))
 for k in series.items[-3:]:
     print(k.date, k.open, k.close, k.change_pct)
@@ -82,10 +82,10 @@ Kline(date='2026-09-30', open=11.36, close=11.57, high=11.65, low=11.33, volume=
 ## 接口示例（`DataFrame`，akshare 风格中文列名）
 
 ```python
-from em import df_kline_em
+from em import df_stock_kline_em
 from em.domain.queries import KlineQuery
 
-df = df_kline_em(KlineQuery(code="000001", market="sz", period="day", adjust="qfq"))
+df = df_stock_kline_em(KlineQuery(code="000001", market="sz", period="day", adjust="qfq"))
 ```
 
 ## 数据示例（`DataFrame`）

@@ -9,9 +9,9 @@ src/em/channels/eastmoney/                 docs/interfaces/eastmoney/
 │   └── board_fund_flow/        # 板块资金流    │   └── board_fund_flow_em.md
 ├── ashare_stocks/              # 沪深京个股    ├── ashare_stocks/
 │   ├── stock/                  # 个股列表      │   ├── stock_list_em.md
-│   ├── fund_flow/              # 个股资金流    │   ├── fund_flow_em.md
-│   ├── kline/                  # K线(个股+指数)│   ├── kline_em.md
-│   └── trends/                 # 分时(个股+指数)│   └── trends_em.md
+│   ├── fund_flow/              # 个股资金流    │   ├── stock_fund_flow_em.md
+│   ├── kline/                  # K线(个股+指数)│   ├── stock_kline_em.md
+│   └── trends/                 # 分时(个股+指数)│   └── stock_trends_em.md
 ├── ashare_indices/.gitkeep     # 沪深京指数    ├── ashare_indices/.gitkeep
 ├── hk_market/.gitkeep          # 港股市场      ├── hk_market/.gitkeep
 ├── us_market/.gitkeep          # 美股市场      ├── us_market/.gitkeep

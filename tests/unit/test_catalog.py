@@ -24,19 +24,19 @@ def test_search_market_by_keyword() -> None:
 
 def test_search_kline_by_keyword() -> None:
     rows = search("K线")
-    assert rows and rows[0]["接口名"] == "kline_em"
+    assert rows and rows[0]["接口名"] == "stock_kline_em"
 
 
 def test_search_trends_by_keyword() -> None:
     rows = search("分时")
-    assert rows and rows[0]["接口名"] == "trends_em"
+    assert rows and rows[0]["接口名"] == "stock_trends_em"
 
 
 def test_search_fund_flow_by_keyword() -> None:
     names = [r["接口名"] for r in search("fund_flow")]
-    assert "fund_flow_em" in names
+    assert "stock_fund_flow_em" in names
     assert "board_fund_flow_em" in names
-    assert search("fund_flow_em")[0]["接口名"] == "fund_flow_em"
+    assert search("stock_fund_flow_em")[0]["接口名"] == "stock_fund_flow_em"
 
 
 def test_search_board_fund_flow_by_keyword() -> None:
@@ -82,30 +82,30 @@ def test_interface_info_unknown_raises_with_hint() -> None:
 
 
 def test_interface_info_kline() -> None:
-    info = interface_info("kline_em")
+    info = interface_info("stock_kline_em")
     assert info["category"] == "kline"
-    assert info["dataframe_variant"] == "df_kline_em"
+    assert info["dataframe_variant"] == "df_stock_kline_em"
     assert len(info["inputs"]) == 6
     assert any(f["name"] == "close" for f in info["outputs"])
-    assert "kline_em(" in info["example"]
+    assert "stock_kline_em(" in info["example"]
 
 
 def test_interface_info_trends() -> None:
-    info = interface_info("trends_em")
+    info = interface_info("stock_trends_em")
     assert info["category"] == "trends"
-    assert info["dataframe_variant"] == "df_trends_em"
+    assert info["dataframe_variant"] == "df_stock_trends_em"
     assert len(info["inputs"]) == 5
     assert any(f["name"] == "avg_price" for f in info["outputs"])
-    assert "trends_em(" in info["example"]
+    assert "stock_trends_em(" in info["example"]
 
 
 def test_interface_info_fund_flow() -> None:
-    info = interface_info("fund_flow_em")
+    info = interface_info("stock_fund_flow_em")
     assert info["category"] == "fund_flow"
-    assert info["dataframe_variant"] == "df_fund_flow_em"
+    assert info["dataframe_variant"] == "df_stock_fund_flow_em"
     assert len(info["inputs"]) == 2
     assert any(f["name"] == "xlarge_net_inflow" for f in info["outputs"])
-    assert "fund_flow_em(" in info["example"]
+    assert "stock_fund_flow_em(" in info["example"]
 
 
 def test_interface_info_board_fund_flow() -> None:

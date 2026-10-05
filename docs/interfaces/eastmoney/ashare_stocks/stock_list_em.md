@@ -1,6 +1,6 @@
 # 沪深京 A 股全市场列表接口
 
-> 渠道：[eastmoney](../eastmoney.md) ｜ 源码：`src/em/channels/eastmoney/ashare_stocks/stock/stock_list_em.py`
+> 渠道：[eastmoney](../eastmoney.md) ｜ 源码：`src/em/channels/eastmoney/ashare_stocks/stock_list/stock_list_em.py`
 
 ## 接口名称
 

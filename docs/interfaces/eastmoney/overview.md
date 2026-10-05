@@ -17,31 +17,31 @@
 描述：沪深京 A 股全市场列表（游客接口，不含资金流）。
 
 - 详情：[stock_list_em.md](./ashare_stocks/stock_list_em.md)
-- 源码：`src/em/channels/eastmoney/ashare_stocks/stock/stock_list_em.py`
+- 源码：`src/em/channels/eastmoney/ashare_stocks/stock_list/stock_list_em.py`
 
 
 ### `历史 K 线`
-接口：`kline_em`, `df_kline_em`->（DataFrame版）
+接口：`stock_kline_em`, `df_stock_kline_em`->（DataFrame版）
 描述：个股 / 指数历史 K 线（日 / 周 / 月 / 5分 / 15分 / 30分 / 60分，前 / 后 / 不复权）。
 
-- 详情：[kline_em.md](./ashare_stocks/kline_em.md)
-- 源码：`src/em/channels/eastmoney/ashare_stocks/kline/kline_em.py`
+- 详情：[stock_kline_em.md](./ashare_stocks/stock_kline_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_stocks/stock_kline/stock_kline_em.py`
 
 
 ### `分时行情`
-接口：`trends_em`, `df_trends_em`->（DataFrame版）
+接口：`stock_trends_em`, `df_stock_trends_em`->（DataFrame版）
 描述：个股 / 指数分时行情（trends2，ndays 日分时）。
 
-- 详情：[trends_em.md](./ashare_stocks/trends_em.md)
-- 源码：`src/em/channels/eastmoney/ashare_stocks/trends/trends_em.py`
+- 详情：[stock_trends_em.md](./ashare_stocks/stock_trends_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_stocks/stock_trends/stock_trends_em.py`
 
 
 ### `个股历史资金流`
-接口：`fund_flow_em`, `df_fund_flow_em`->（DataFrame版）
+接口：`stock_fund_flow_em`, `df_stock_fund_flow_em`->（DataFrame版）
 描述：个股历史资金流（fflow/daykline，日线，主力/超大单/大单/中单/小单净流入）。
 
-- 详情：[fund_flow_em.md](./ashare_stocks/fund_flow_em.md)
-- 源码：`src/em/channels/eastmoney/ashare_stocks/fund_flow/fund_flow_em.py`
+- 详情：[stock_fund_flow_em.md](./ashare_stocks/stock_fund_flow_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_stocks/stock_fund_flow/stock_fund_flow_em.py`
 
 
 ### `板块（行业 / 概念 / 地域）历史资金流`

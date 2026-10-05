@@ -1,10 +1,10 @@
 # 分时行情接口
 
-> 渠道：[eastmoney](../eastmoney.md) ｜ 源码：`src/em/channels/eastmoney/ashare_stocks/trends/trends_em.py`
+> 渠道：[eastmoney](../eastmoney.md) ｜ 源码：`src/em/channels/eastmoney/ashare_stocks/stock_trends/stock_trends_em.py`
 
 ## 接口名称
 
-`trends_em` / `df_trends_em`：个股 / 指数分时行情（`trends2`，`ndays` 日分时）
+`stock_trends_em` / `df_stock_trends_em`：个股 / 指数分时行情（`trends2`，`ndays` 日分时）
 
 ## 目标地址
 
@@ -58,10 +58,10 @@
 ## 接口示例（领域模型 `TrendSeries`）
 
 ```python
-from em import trends_em
+from em import stock_trends_em
 from em.domain.queries import TrendQuery
 
-series = trends_em(TrendQuery(code="000001", market="sz", ndays=1))
+series = stock_trends_em(TrendQuery(code="000001", market="sz", ndays=1))
 print(series.code, series.name, series.pre_close, len(series.items))
 for t in series.items[:3]:
     print(t.time, t.price, t.avg_price)
@@ -79,10 +79,10 @@ Trend(time='2026-09-30 09:32', price=11.39, avg_price=11.38, high=11.4, low=11.3
 ## 接口示例（`DataFrame`，中文列名）
 
 ```python
-from em import df_trends_em
+from em import df_stock_trends_em
 from em.domain.queries import TrendQuery
 
-df = df_trends_em(TrendQuery(code="000001", market="sz", ndays=1))
+df = df_stock_trends_em(TrendQuery(code="000001", market="sz", ndays=1))
 ```
 
 ## 数据示例（`DataFrame`）
