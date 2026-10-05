@@ -24,13 +24,22 @@ em/                                          # 东方财富行情抓取
 │   │   │   ├── board_constituent/           # 板块成分股（board_constituent_em.py）
 │   │   │   └── board_fund_flow/             # 板块历史资金流（board_fund_flow_em.py）
 │   │   ├── ashare_stocks/                   # 沪深京个股
-│   │   │   ├── stock/                       # 全市场列表（stock_list_em.py）
-│   │   │   ├── kline/                       # 历史 K 线（stock_kline_em.py）
-│   │   │   ├── trends/                      # 分时行情（stock_trends_em.py）
-│   │   │   └── fund_flow/                   # 个股历史资金流（stock_fund_flow_em.py）
+│   │   │   ├── stock_list/                  # 全市场列表（stock_list_em.py）
+│   │   │   ├── stock_kline/                 # 历史 K 线（stock_kline_em.py）
+│   │   │   ├── stock_trends/                # 分时行情（stock_trends_em.py）
+│   │   │   └── stock_fund_flow/             # 个股历史资金流（stock_fund_flow_em.py）
 │   │   ├── ashare_indices/.gitkeep          # 沪深京指数（占位）
 │   │   ├── hk_market/.gitkeep               # 港股市场（占位）
 │   │   ├── us_market/.gitkeep               # 美股市场（占位）
+│   │   ├── fund_market/.gitkeep             # 基金市场（占位）
+│   │   ├── bond_market/.gitkeep             # 债券市场（占位）
+│   │   ├── global_indices/.gitkeep          # 全球指数（占位）
+│   │   ├── forex_market/.gitkeep            # 外汇市场（占位）
+│   │   ├── gold_market/.gitkeep             # 黄金市场（占位）
+│   │   ├── option_market/.gitkeep           # 期权市场（占位）
+│   │   ├── futures_market/.gitkeep          # 期货市场（占位）
+│   │   ├── special_quotes/.gitkeep          # 特色行情（占位）
+│   │   ├── stock_connect/.gitkeep           # 沪深港通（占位）
 │   │   ├── config.py                        # 域名 / 请求头 / 字段集 / 周期与复权映射
 │   │   ├── request.py                       # ClistRequest / KlineRequest / TrendsRequest / FundFlowRequest
 │   │   ├── mapping.py                       # JSONP 解析 + f* -> 领域模型
@@ -78,5 +87,5 @@ em/                                          # 东方财富行情抓取
 └── .env                                     # 环境变量（不入库，含代理 API 凭证）
 ```
 
-> - `ashare_indices/`、`hk_market/`、`us_market/` 暂为空占位，待对应功能实现后填充。
+> - 除 `ashare_boards/`、`ashare_stocks/` 外，其余市场目录暂为空占位，待对应功能实现后填充。
 > - `.env`、`uv.lock`、`123.txt` 不纳入接口文档视野，仅在此标注存在。
