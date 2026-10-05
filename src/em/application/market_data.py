@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 from typing import TYPE_CHECKING
 
 import requests
@@ -38,6 +39,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
 
+@functools.lru_cache(maxsize=8)
 def _build_client(settings: Settings) -> HttpClient:
     session = requests.Session()
     ps = ProxySettings(
@@ -60,6 +62,11 @@ def _build_client(settings: Settings) -> HttpClient:
         backoff_cap_sec=settings.backoff_cap_sec,
     )
     return HttpClient(session, router, policy, timeout_sec=settings.request_timeout_sec)
+
+
+def _reset_client_cache() -> None:
+    """清空 client 缓存（测试用）。"""
+    _build_client.cache_clear()
 
 
 def board_constituent_em(

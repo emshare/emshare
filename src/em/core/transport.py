@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 
 import requests
 
-from em.core.errors import EmptyResponseError, HttpStatusError, NetworkError
+from em.core.errors import ChannelError, EmptyResponseError, HttpStatusError, NetworkError
 from em.core.proxy import ProxyRouter
 from em.core.resilience import RetryPolicy, should_retry, sleep_backoff
 
@@ -50,7 +50,7 @@ class HttpClient:
                 text = self._attempt(url, params, headers, proxy)
                 self._router.report_result(host, proxy, success=True)
                 return text
-            except Exception as exc:
+            except ChannelError as exc:
                 self._router.report_result(host, proxy, success=False, banned=_is_banned(exc))
                 last_exc = exc
                 if not should_retry(exc):
@@ -65,7 +65,8 @@ class HttpClient:
                     self._policy.max_retries,
                 )
                 sleep_backoff(self._policy, attempt)
-        assert last_exc is not None
+        if last_exc is None:
+            raise RuntimeError("未执行请求（max_retries < 0）")
         raise last_exc
 
     def _attempt(

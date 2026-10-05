@@ -97,7 +97,7 @@ def to_dataframe(
     naming = columns or COLUMNS_ZH
     ordered_cols = [naming[f] for f in _FIELD_ORDER]
     rows = [{naming[f]: getattr(q, f) for f in _FIELD_ORDER} for q in page.items]
-    return pd.DataFrame(rows, columns=ordered_cols)
+    return pd.DataFrame(rows, columns=ordered_cols)  # type: ignore[no-any-return]
 
 
 def to_kline_dataframe(
@@ -116,7 +116,7 @@ def to_kline_dataframe(
     naming = columns or KLINES_COLUMNS_ZH
     ordered_cols = [naming[f] for f in _KLINE_FIELD_ORDER]
     rows = [{naming[f]: getattr(k, f) for f in _KLINE_FIELD_ORDER} for k in series.items]
-    return pd.DataFrame(rows, columns=ordered_cols)
+    return pd.DataFrame(rows, columns=ordered_cols)  # type: ignore[no-any-return]
 
 
 def to_trend_dataframe(
@@ -135,7 +135,7 @@ def to_trend_dataframe(
     naming = columns or TRENDS_COLUMNS_ZH
     ordered_cols = [naming[f] for f in _TREND_FIELD_ORDER]
     rows = [{naming[f]: getattr(t, f) for f in _TREND_FIELD_ORDER} for t in series.items]
-    return pd.DataFrame(rows, columns=ordered_cols)
+    return pd.DataFrame(rows, columns=ordered_cols)  # type: ignore[no-any-return]
 
 
 def to_fund_flow_dataframe(
@@ -154,7 +154,7 @@ def to_fund_flow_dataframe(
     naming = columns or FUND_FLOW_COLUMNS_ZH
     ordered_cols = [naming[f] for f in _FUND_FLOW_FIELD_ORDER]
     rows = [{naming[f]: getattr(x, f) for f in _FUND_FLOW_FIELD_ORDER} for x in series.items]
-    return pd.DataFrame(rows, columns=ordered_cols)
+    return pd.DataFrame(rows, columns=ordered_cols)  # type: ignore[no-any-return]
 
 
 # 板块资金流字段 -> 默认中文列名（对齐 akshare stock_sector_fund_flow_hist，不含收盘价 / 涨跌幅）
@@ -190,4 +190,4 @@ def to_board_fund_flow_dataframe(
     naming = columns or BOARD_FUND_FLOW_COLUMNS_ZH
     ordered_cols = [naming[f] for f in _BOARD_FUND_FLOW_FIELD_ORDER]
     rows = [{naming[f]: getattr(x, f) for f in _BOARD_FUND_FLOW_FIELD_ORDER} for x in series.items]
-    return pd.DataFrame(rows, columns=ordered_cols)
+    return pd.DataFrame(rows, columns=ordered_cols)  # type: ignore[no-any-return]

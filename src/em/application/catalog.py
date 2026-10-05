@@ -399,7 +399,7 @@ def _to_df(rows: list[dict[str, Any]], columns: list[str]) -> pd.DataFrame:
         import pandas as pd
     except ImportError as exc:  # pragma: no cover - 环境依赖
         raise ImportError("pandas 未安装：pip install pandas") from exc
-    return pd.DataFrame(rows, columns=columns)
+    return pd.DataFrame(rows, columns=columns)  # type: ignore[no-any-return]
 
 
 def search_df(
