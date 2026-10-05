@@ -4,7 +4,7 @@
 
 ## 接口名称
 
-`fetch_board` / `fetch_board_df`：板块成分股（含主力净流入，可按当日 / 5 日 / 10 日资金流排序）
+`board_constituent_em` / `df_board_constituent_em`：板块成分股（含主力净流入，可按当日 / 5 日 / 10 日资金流排序）
 
 ## 目标地址
 
@@ -52,10 +52,10 @@
 ## 接口示例（领域模型 `QuotePage`）
 
 ```python
-from em import fetch_board
+from em import board_constituent_em
 from em.domain.queries import BoardQuery
 
-page = fetch_board(BoardQuery(board="BK0438", period="10d", size=3))
+page = board_constituent_em(BoardQuery(board="BK0438", period="10d", size=3))
 print(page.total)
 for q in page.items:
     print(q.code, q.name, q.price, q.main_net_inflow)
@@ -73,10 +73,10 @@ Quote(code='000895', name='双汇发展', price=23.66, change_pct=1.07, change=0
 ## 接口示例（`DataFrame`，akshare 风格中文列名）
 
 ```python
-from em import fetch_board_df
+from em import df_board_constituent_em
 from em.domain.queries import BoardQuery
 
-df = fetch_board_df(BoardQuery(board="BK0438", period="10d", size=3))
+df = df_board_constituent_em(BoardQuery(board="BK0438", period="10d", size=3))
 ```
 
 ## 数据示例（`DataFrame`）

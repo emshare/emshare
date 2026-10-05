@@ -7,41 +7,41 @@ from em.core.errors import InterfaceNotFoundError
 
 
 def test_search_exact_name_top() -> None:
-    rows = search("fetch_board")
-    assert rows[0]["接口名"] == "fetch_board"
+    rows = search("board_constituent_em")
+    assert rows[0]["接口名"] == "board_constituent_em"
     assert rows[0]["匹配分"] >= 100.0
 
 
 def test_search_by_keyword() -> None:
     rows = search("板块")
-    assert rows and rows[0]["接口名"] == "fetch_board"
+    assert rows and rows[0]["接口名"] == "board_constituent_em"
 
 
 def test_search_market_by_keyword() -> None:
     rows = search("全市场 A股")
-    assert rows and rows[0]["接口名"] == "fetch_market"
+    assert rows and rows[0]["接口名"] == "stock_list_em"
 
 
 def test_search_kline_by_keyword() -> None:
     rows = search("K线")
-    assert rows and rows[0]["接口名"] == "fetch_kline"
+    assert rows and rows[0]["接口名"] == "kline_em"
 
 
 def test_search_trends_by_keyword() -> None:
     rows = search("分时")
-    assert rows and rows[0]["接口名"] == "fetch_trends"
+    assert rows and rows[0]["接口名"] == "trends_em"
 
 
 def test_search_fund_flow_by_keyword() -> None:
     names = [r["接口名"] for r in search("fund_flow")]
-    assert "fetch_fund_flow" in names
-    assert "fetch_board_fund_flow" in names
-    assert search("fetch_fund_flow")[0]["接口名"] == "fetch_fund_flow"
+    assert "fund_flow_em" in names
+    assert "board_fund_flow_em" in names
+    assert search("fund_flow_em")[0]["接口名"] == "fund_flow_em"
 
 
 def test_search_board_fund_flow_by_keyword() -> None:
     rows = search("板块历史资金流")
-    assert rows and rows[0]["接口名"] == "fetch_board_fund_flow"
+    assert rows and rows[0]["接口名"] == "board_fund_flow_em"
 
 
 def test_search_empty_query() -> None:
@@ -66,13 +66,13 @@ def test_search_documented_only() -> None:
 
 
 def test_interface_info_returns_full_record() -> None:
-    info = interface_info("fetch_board")
-    assert info["name"] == "fetch_board"
+    info = interface_info("board_constituent_em")
+    assert info["name"] == "board_constituent_em"
     assert info["category"] == "board"
-    assert info["dataframe_variant"] == "fetch_board_df"
+    assert info["dataframe_variant"] == "df_board_constituent_em"
     assert len(info["inputs"]) == 4
     assert any(f["name"] == "main_net_inflow" for f in info["outputs"])
-    assert "fetch_board(" in info["example"]
+    assert "board_constituent_em(" in info["example"]
 
 
 def test_interface_info_unknown_raises_with_hint() -> None:
@@ -82,36 +82,36 @@ def test_interface_info_unknown_raises_with_hint() -> None:
 
 
 def test_interface_info_kline() -> None:
-    info = interface_info("fetch_kline")
+    info = interface_info("kline_em")
     assert info["category"] == "kline"
-    assert info["dataframe_variant"] == "fetch_kline_df"
+    assert info["dataframe_variant"] == "df_kline_em"
     assert len(info["inputs"]) == 6
     assert any(f["name"] == "close" for f in info["outputs"])
-    assert "fetch_kline(" in info["example"]
+    assert "kline_em(" in info["example"]
 
 
 def test_interface_info_trends() -> None:
-    info = interface_info("fetch_trends")
+    info = interface_info("trends_em")
     assert info["category"] == "trends"
-    assert info["dataframe_variant"] == "fetch_trends_df"
+    assert info["dataframe_variant"] == "df_trends_em"
     assert len(info["inputs"]) == 5
     assert any(f["name"] == "avg_price" for f in info["outputs"])
-    assert "fetch_trends(" in info["example"]
+    assert "trends_em(" in info["example"]
 
 
 def test_interface_info_fund_flow() -> None:
-    info = interface_info("fetch_fund_flow")
+    info = interface_info("fund_flow_em")
     assert info["category"] == "fund_flow"
-    assert info["dataframe_variant"] == "fetch_fund_flow_df"
+    assert info["dataframe_variant"] == "df_fund_flow_em"
     assert len(info["inputs"]) == 2
     assert any(f["name"] == "xlarge_net_inflow" for f in info["outputs"])
-    assert "fetch_fund_flow(" in info["example"]
+    assert "fund_flow_em(" in info["example"]
 
 
 def test_interface_info_board_fund_flow() -> None:
-    info = interface_info("fetch_board_fund_flow")
+    info = interface_info("board_fund_flow_em")
     assert info["category"] == "fund_flow"
-    assert info["dataframe_variant"] == "fetch_board_fund_flow_df"
+    assert info["dataframe_variant"] == "df_board_fund_flow_em"
     assert len(info["inputs"]) == 1
     assert info["inputs"][0]["name"] == "board"
     names = [f["name"] for f in info["outputs"]]
@@ -119,7 +119,7 @@ def test_interface_info_board_fund_flow() -> None:
     assert "main_net_inflow" in names
     assert "close" not in names
     assert "change_pct" not in names
-    assert "fetch_board_fund_flow(" in info["example"]
+    assert "board_fund_flow_em(" in info["example"]
 
 
 def test_list_categories() -> None:
@@ -141,10 +141,10 @@ pd = pytest.importorskip("pandas")
 def test_search_df_returns_dataframe() -> None:
     from em import search_df
 
-    df = search_df("fetch_board")
+    df = search_df("board_constituent_em")
     assert isinstance(df, pd.DataFrame)
     assert list(df.columns) == ["接口名", "类目", "描述", "有无文档", "匹配分"]
-    assert df.iloc[0]["接口名"] == "fetch_board"
+    assert df.iloc[0]["接口名"] == "board_constituent_em"
 
 
 def test_list_categories_df_returns_dataframe() -> None:
@@ -159,7 +159,7 @@ def test_list_categories_df_returns_dataframe() -> None:
 def test_interface_info_df_returns_param_and_field_tables() -> None:
     from em import interface_info_df
 
-    tables = interface_info_df("fetch_board")
+    tables = interface_info_df("board_constituent_em")
     assert set(tables) == {"inputs", "outputs"}
     assert isinstance(tables["inputs"], pd.DataFrame)
     assert isinstance(tables["outputs"], pd.DataFrame)

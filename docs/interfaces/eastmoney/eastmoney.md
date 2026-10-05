@@ -1,23 +1,23 @@
 # eastmoney 渠道接口
 
-本页描述 `em` 包对外公共面的六个取数接口：板块成分股资金流、沪深京 A 股全市场列表、历史 K 线、分时行情、个股历史资金流与板块（行业 / 概念 / 地域）历史资金流。前两者走东方财富 `clist` 接口，后四者走 `kline` / `trends2` / `fflow` 接口（个股与板块资金流共用 `fflow/daykline`），均经动态代理自动换 IP 重试，返回领域模型（`QuotePage` / `KlineSeries` / `TrendSeries` / `FundFlowSeries` / `BoardFundFlowSeries`）；另提供 `fetch_*_df` 便捷函数直接返回 pandas DataFrame（akshare 风格中文列名）。
+本页描述 `em` 包对外公共面的六个取数接口：板块成分股资金流、沪深京 A 股全市场列表、历史 K 线、分时行情、个股历史资金流与板块（行业 / 概念 / 地域）历史资金流。前两者走东方财富 `clist` 接口，后四者走 `kline` / `trends2` / `fflow` 接口（个股与板块资金流共用 `fflow/daykline`），均经动态代理自动换 IP 重试，返回领域模型（`QuotePage` / `KlineSeries` / `TrendSeries` / `FundFlowSeries` / `BoardFundFlowSeries`）；另提供 `df_*_em` 便捷函数直接返回 pandas DataFrame（akshare 风格中文列名）。
 
 公共面统一从 `em` 顶层导出：
 
 ```python
 from em import (
-    fetch_board,
-    fetch_market,
-    fetch_kline,
-    fetch_trends,
-    fetch_fund_flow,
-    fetch_board_fund_flow,
-    fetch_board_df,
-    fetch_market_df,
-    fetch_kline_df,
-    fetch_trends_df,
-    fetch_fund_flow_df,
-    fetch_board_fund_flow_df,
+    board_constituent_em,
+    stock_list_em,
+    kline_em,
+    trends_em,
+    fund_flow_em,
+    board_fund_flow_em,
+    df_board_constituent_em,
+    df_stock_list_em,
+    df_kline_em,
+    df_trends_em,
+    df_fund_flow_em,
+    df_board_fund_flow_em,
     to_dataframe,
     to_kline_dataframe,
     to_trend_dataframe,
@@ -32,18 +32,18 @@ from em import (
 )
 ```
 
-`fetch_board` / `fetch_market` 返回 `QuotePage`，`fetch_kline` 返回 `KlineSeries`，`fetch_trends` 返回 `TrendSeries`，`fetch_fund_flow` 返回 `FundFlowSeries`，`fetch_board_fund_flow` 返回 `BoardFundFlowSeries`，`fetch_*_df` 返回 `pd.DataFrame`（需 `pip install pandas`）。`to_dataframe` / `to_kline_dataframe` / `to_trend_dataframe` / `to_fund_flow_dataframe` / `to_board_fund_flow_dataframe` 把对应领域模型转为 DataFrame，均默认中文列名，传 `columns` 可覆盖。
+`board_constituent_em` / `stock_list_em` 返回 `QuotePage`，`kline_em` 返回 `KlineSeries`，`trends_em` 返回 `TrendSeries`，`fund_flow_em` 返回 `FundFlowSeries`，`board_fund_flow_em` 返回 `BoardFundFlowSeries`，`df_*_em` 返回 `pd.DataFrame`（需 `pip install pandas`）。`to_dataframe` / `to_kline_dataframe` / `to_trend_dataframe` / `to_fund_flow_dataframe` / `to_board_fund_flow_dataframe` 把对应领域模型转为 DataFrame，均默认中文列名，传 `columns` 可覆盖。
 
 ## 功能
 
 | 功能 | 接口文档 | 源码 | 公共面 |
 | --- | --- | --- | --- |
-| 板块成分股资金流 | [board_constituent_em.md](./ashare_boards/board_constituent_em.md) | `channels/eastmoney/ashare_boards/board_constituent/board_constituent_em.py` | `fetch_board` / `fetch_board_df` |
-| 沪深京 A 股全市场列表 | [stock_list_em.md](./ashare_stocks/stock_list_em.md) | `channels/eastmoney/ashare_stocks/stock/stock_list_em.py` | `fetch_market` / `fetch_market_df` |
-| 历史 K 线 | [kline_em.md](./ashare_stocks/kline_em.md) | `channels/eastmoney/ashare_stocks/kline/kline_em.py` | `fetch_kline` / `fetch_kline_df` |
-| 分时行情 | [trends_em.md](./ashare_stocks/trends_em.md) | `channels/eastmoney/ashare_stocks/trends/trends_em.py` | `fetch_trends` / `fetch_trends_df` |
-| 个股历史资金流 | [fund_flow_em.md](./ashare_stocks/fund_flow_em.md) | `channels/eastmoney/ashare_stocks/fund_flow/fund_flow_em.py` | `fetch_fund_flow` / `fetch_fund_flow_df` |
-| 板块（行业 / 概念 / 地域）历史资金流 | [board_fund_flow_em.md](./ashare_boards/board_fund_flow_em.md) | `channels/eastmoney/ashare_boards/board_fund_flow/board_fund_flow_em.py` | `fetch_board_fund_flow` / `fetch_board_fund_flow_df` |
+| 板块成分股资金流 | [board_constituent_em.md](./ashare_boards/board_constituent_em.md) | `channels/eastmoney/ashare_boards/board_constituent/board_constituent_em.py` | `board_constituent_em` / `df_board_constituent_em` |
+| 沪深京 A 股全市场列表 | [stock_list_em.md](./ashare_stocks/stock_list_em.md) | `channels/eastmoney/ashare_stocks/stock/stock_list_em.py` | `stock_list_em` / `df_stock_list_em` |
+| 历史 K 线 | [kline_em.md](./ashare_stocks/kline_em.md) | `channels/eastmoney/ashare_stocks/kline/kline_em.py` | `kline_em` / `df_kline_em` |
+| 分时行情 | [trends_em.md](./ashare_stocks/trends_em.md) | `channels/eastmoney/ashare_stocks/trends/trends_em.py` | `trends_em` / `df_trends_em` |
+| 个股历史资金流 | [fund_flow_em.md](./ashare_stocks/fund_flow_em.md) | `channels/eastmoney/ashare_stocks/fund_flow/fund_flow_em.py` | `fund_flow_em` / `df_fund_flow_em` |
+| 板块（行业 / 概念 / 地域）历史资金流 | [board_fund_flow_em.md](./ashare_boards/board_fund_flow_em.md) | `channels/eastmoney/ashare_boards/board_fund_flow/board_fund_flow_em.py` | `board_fund_flow_em` / `df_board_fund_flow_em` |
 
 ## 接口检索
 
@@ -54,12 +54,12 @@ import em
 
 # 按关键词检索接口
 print(em.search("板块 资金流"))
-# [{'接口名': 'fetch_board', '类目': 'board', '描述': '板块成分股（含主力净流入...）', '有无文档': True, '匹配分': 15.0},
-#  {'接口名': 'fetch_market', '类目': 'market', ...}]
+# [{'接口名': 'board_constituent_em', '类目': 'board', '描述': '板块成分股（含主力净流入...）', '有无文档': True, '匹配分': 15.0},
+#  {'接口名': 'stock_list_em', '类目': 'market', ...}]
 
 # 查看单个接口的输入参数、输出字段与调用示例
-print(em.interface_info("fetch_board"))
-# {'name': 'fetch_board', 'category': 'board', 'inputs': [...], 'outputs': [...], 'example': '...', 'dataframe_variant': 'fetch_board_df'}
+print(em.interface_info("board_constituent_em"))
+# {'name': 'board_constituent_em', 'category': 'board', 'inputs': [...], 'outputs': [...], 'example': '...', 'dataframe_variant': 'df_board_constituent_em'}
 
 # 列出全部类目及其接口数量
 print(em.list_categories())
@@ -71,8 +71,8 @@ DataFrame 版（需 pandas，对齐 akshare `print(ak.search(...))` 体验）：
 ```python
 print(em.search_df("板块 资金流"))
 #            接口名      类目                              描述  有无文档  匹配分
-# 0   fetch_board   board  板块成分股（含主力净流入...）   True  15.0
-# 1  fetch_market  market  沪深京 A 股全市场列表...        True  10.0
+# 0   board_constituent_em   board  板块成分股（含主力净流入...）   True  15.0
+# 1  stock_list_em  market  沪深京 A 股全市场列表...        True  10.0
 
 print(em.list_categories_df())
 #        类目  接口数
@@ -86,7 +86,7 @@ print(em.list_categories_df())
 `interface_info_df(name)` 返回 ``{"inputs": 参数表, "outputs": 字段表}``，中文列名对齐文档参数表：
 
 ```python
-tables = em.interface_info_df("fetch_board")
+tables = em.interface_info_df("board_constituent_em")
 print(tables["inputs"])
 #       名称   类型     必填       默认值                          描述
 # 0   board  str  False  "BK0438"           板块代码（如 BK0438 白酒）

@@ -116,7 +116,7 @@ class Interface:
 
 _INTERFACES: tuple[Interface, ...] = (
     Interface(
-        name="fetch_board",
+        name="board_constituent_em",
         category="board",
         desc="板块成分股（含主力净流入，可按当日/5日/10日资金流排序）",
         documented=True,
@@ -128,18 +128,18 @@ _INTERFACES: tuple[Interface, ...] = (
         ),
         outputs=tuple(Field(*f) for f in _QUOTE_FIELDS),
         example=(
-            "from em import fetch_board\n"
+            "from em import board_constituent_em\n"
             "from em.domain.queries import BoardQuery\n"
             "\n"
-            'page = fetch_board(BoardQuery(board="BK0438", period="10d", size=3))\n'
+            'page = board_constituent_em(BoardQuery(board="BK0438", period="10d", size=3))\n'
             "print(page.total)\n"
             "for q in page.items:\n"
             "    print(q.code, q.name, q.price, q.main_net_inflow)"
         ),
-        dataframe_variant="fetch_board_df",
+        dataframe_variant="df_board_constituent_em",
     ),
     Interface(
-        name="fetch_market",
+        name="stock_list_em",
         category="market",
         desc="沪深京 A 股全市场列表（游客接口，不含资金流）",
         documented=True,
@@ -150,18 +150,18 @@ _INTERFACES: tuple[Interface, ...] = (
         ),
         outputs=tuple(Field(*f) for f in _QUOTE_FIELDS),
         example=(
-            "from em import fetch_market\n"
+            "from em import stock_list_em\n"
             "from em.domain.queries import MarketQuery\n"
             "\n"
-            'page = fetch_market(MarketQuery(sort="f3", size=3))\n'
+            'page = stock_list_em(MarketQuery(sort="f3", size=3))\n'
             "print(page.total)\n"
             "for q in page.items:\n"
             "    print(q.code, q.name, q.price, q.change_pct)"
         ),
-        dataframe_variant="fetch_market_df",
+        dataframe_variant="df_stock_list_em",
     ),
     Interface(
-        name="fetch_kline",
+        name="kline_em",
         category="kline",
         desc="个股/指数历史 K 线（日/周/月，前/后/不复权）",
         documented=True,
@@ -187,18 +187,18 @@ _INTERFACES: tuple[Interface, ...] = (
         ),
         outputs=tuple(Field(*f) for f in _KLINE_FIELDS),
         example=(
-            "from em import fetch_kline\n"
+            "from em import kline_em\n"
             "from em.domain.queries import KlineQuery\n"
             "\n"
-            'series = fetch_kline(KlineQuery(code="000001", market="sz", period="day"))\n'
+            'series = kline_em(KlineQuery(code="000001", market="sz", period="day"))\n'
             "print(series.code, series.name, len(series.items))\n"
             "for k in series.items[-3:]:\n"
             "    print(k.date, k.open, k.close, k.change_pct)"
         ),
-        dataframe_variant="fetch_kline_df",
+        dataframe_variant="df_kline_em",
     ),
     Interface(
-        name="fetch_trends",
+        name="trends_em",
         category="trends",
         desc="个股/指数分时行情（trends2，ndays 日分时）",
         documented=True,
@@ -211,18 +211,18 @@ _INTERFACES: tuple[Interface, ...] = (
         ),
         outputs=tuple(Field(*f) for f in _TREND_FIELDS),
         example=(
-            "from em import fetch_trends\n"
+            "from em import trends_em\n"
             "from em.domain.queries import TrendQuery\n"
             "\n"
-            'series = fetch_trends(TrendQuery(code="000001", market="sz", ndays=1))\n'
+            'series = trends_em(TrendQuery(code="000001", market="sz", ndays=1))\n'
             "print(series.code, series.name, series.pre_close, len(series.items))\n"
             "for t in series.items[:3]:\n"
             "    print(t.time, t.price, t.avg_price)"
         ),
-        dataframe_variant="fetch_trends_df",
+        dataframe_variant="df_trends_em",
     ),
     Interface(
-        name="fetch_fund_flow",
+        name="fund_flow_em",
         category="fund_flow",
         desc="个股历史资金流（日线，主力/超大单/大单/中单/小单净流入）",
         documented=True,
@@ -232,33 +232,33 @@ _INTERFACES: tuple[Interface, ...] = (
         ),
         outputs=tuple(Field(*f) for f in _FUND_FLOW_FIELDS),
         example=(
-            "from em import fetch_fund_flow\n"
+            "from em import fund_flow_em\n"
             "from em.domain.queries import FundFlowQuery\n"
             "\n"
-            'series = fetch_fund_flow(FundFlowQuery(code="000001", market="sz"))\n'
+            'series = fund_flow_em(FundFlowQuery(code="000001", market="sz"))\n'
             "print(series.code, series.name, len(series.items))\n"
             "for f in series.items[-3:]:\n"
             "    print(f.date, f.main_net_inflow, f.main_net_pct)"
         ),
-        dataframe_variant="fetch_fund_flow_df",
+        dataframe_variant="df_fund_flow_em",
     ),
     Interface(
-        name="fetch_board_fund_flow",
+        name="board_fund_flow_em",
         category="fund_flow",
         desc="板块历史资金流（行业/概念/地域，日线，主力/超大单/大单/中单/小单净流入，不含收盘价/涨跌幅）",
         documented=True,
         inputs=(Param("board", "str", False, '"BK0438"', "板块代码（如 BK0438 食品饮料）"),),
         outputs=tuple(Field(*f) for f in _BOARD_FUND_FLOW_FIELDS),
         example=(
-            "from em import fetch_board_fund_flow\n"
+            "from em import board_fund_flow_em\n"
             "from em.domain.queries import BoardFundFlowQuery\n"
             "\n"
-            'series = fetch_board_fund_flow(BoardFundFlowQuery(board="BK0438"))\n'
+            'series = board_fund_flow_em(BoardFundFlowQuery(board="BK0438"))\n'
             "print(series.code, series.name, len(series.items))\n"
             "for f in series.items[-3:]:\n"
             "    print(f.date, f.main_net_inflow, f.main_net_pct)"
         ),
-        dataframe_variant="fetch_board_fund_flow_df",
+        dataframe_variant="df_board_fund_flow_em",
     ),
 )
 

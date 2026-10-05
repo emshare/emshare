@@ -4,7 +4,7 @@
 
 ## 接口名称
 
-`fetch_market` / `fetch_market_df`：沪深京 A 股全市场列表（游客接口，不含资金流）
+`stock_list_em` / `df_stock_list_em`：沪深京 A 股全市场列表（游客接口，不含资金流）
 
 ## 目标地址
 
@@ -30,15 +30,15 @@
 
 ## 输出参数 `QuotePage`
 
-同 `fetch_board`，但 `main_net_inflow` 恒为 `None`。
+同 `board_constituent_em`，但 `main_net_inflow` 恒为 `None`。
 
 ## 接口示例（领域模型 `QuotePage`）
 
 ```python
-from em import fetch_market
+from em import stock_list_em
 from em.domain.queries import MarketQuery
 
-page = fetch_market(MarketQuery(sort="f3", size=3))
+page = stock_list_em(MarketQuery(sort="f3", size=3))
 print(page.total)
 for q in page.items:
     print(q.code, q.name, q.price, q.change_pct)
@@ -56,10 +56,10 @@ Quote(code='688185', name='康希诺', price=102.64, change_pct=20.0, change=17.
 ## 接口示例（`DataFrame`，主力净流入列恒为 `None`）
 
 ```python
-from em import fetch_market_df
+from em import df_stock_list_em
 from em.domain.queries import MarketQuery
 
-df = fetch_market_df(MarketQuery(sort="f3", size=3))
+df = df_stock_list_em(MarketQuery(sort="f3", size=3))
 ```
 
 ## 数据示例（`DataFrame`）

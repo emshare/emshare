@@ -1,4 +1,4 @@
-"""应用层服务：装配传输/代理/来源，暴露面向用户的 ``fetch_*`` 公共面。"""
+"""应用层服务：装配传输/代理/来源，暴露面向用户的 ``*_em`` 公共面（``df_*_em`` 为 DataFrame 版）。"""
 
 from __future__ import annotations
 
@@ -62,7 +62,9 @@ def _build_client(settings: Settings) -> HttpClient:
     return HttpClient(session, router, policy, timeout_sec=settings.request_timeout_sec)
 
 
-def fetch_board(query: BoardQuery | None = None, settings: Settings | None = None) -> QuotePage:
+def board_constituent_em(
+    query: BoardQuery | None = None, settings: Settings | None = None
+) -> QuotePage:
     """抓取板块成分股（含资金流），返回领域模型 ``QuotePage``。"""
     query = query or BoardQuery()
     client = _build_client(settings or Settings.from_env())
@@ -71,7 +73,7 @@ def fetch_board(query: BoardQuery | None = None, settings: Settings | None = Non
     return source.fetch_page(request, registry.flow_field(query))
 
 
-def fetch_market(query: MarketQuery | None = None, settings: Settings | None = None) -> QuotePage:
+def stock_list_em(query: MarketQuery | None = None, settings: Settings | None = None) -> QuotePage:
     """抓取沪深京 A 股全市场列表，返回领域模型 ``QuotePage``。"""
     query = query or MarketQuery()
     client = _build_client(settings or Settings.from_env())
@@ -79,25 +81,25 @@ def fetch_market(query: MarketQuery | None = None, settings: Settings | None = N
     return source.fetch_page(registry.stock_list_request(query))
 
 
-def fetch_board_df(
+def df_board_constituent_em(
     query: BoardQuery | None = None,
     settings: Settings | None = None,
     columns: dict[str, str] | None = None,
 ) -> pd.DataFrame:
-    """``fetch_board`` 的 DataFrame 版（akshare 风格中文列名）。"""
-    return to_dataframe(fetch_board(query, settings), columns)
+    """``board_constituent_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_dataframe(board_constituent_em(query, settings), columns)
 
 
-def fetch_market_df(
+def df_stock_list_em(
     query: MarketQuery | None = None,
     settings: Settings | None = None,
     columns: dict[str, str] | None = None,
 ) -> pd.DataFrame:
-    """``fetch_market`` 的 DataFrame 版（akshare 风格中文列名）。"""
-    return to_dataframe(fetch_market(query, settings), columns)
+    """``stock_list_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_dataframe(stock_list_em(query, settings), columns)
 
 
-def fetch_kline(query: KlineQuery | None = None, settings: Settings | None = None) -> KlineSeries:
+def kline_em(query: KlineQuery | None = None, settings: Settings | None = None) -> KlineSeries:
     """抓取个股 / 指数历史 K 线，返回领域模型 ``KlineSeries``。"""
     query = query or KlineQuery()
     client = _build_client(settings or Settings.from_env())
@@ -105,16 +107,16 @@ def fetch_kline(query: KlineQuery | None = None, settings: Settings | None = Non
     return source.fetch_kline(registry.kline_request(query))
 
 
-def fetch_kline_df(
+def df_kline_em(
     query: KlineQuery | None = None,
     settings: Settings | None = None,
     columns: dict[str, str] | None = None,
 ) -> pd.DataFrame:
-    """``fetch_kline`` 的 DataFrame 版（akshare 风格中文列名）。"""
-    return to_kline_dataframe(fetch_kline(query, settings), columns)
+    """``kline_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_kline_dataframe(kline_em(query, settings), columns)
 
 
-def fetch_trends(query: TrendQuery | None = None, settings: Settings | None = None) -> TrendSeries:
+def trends_em(query: TrendQuery | None = None, settings: Settings | None = None) -> TrendSeries:
     """抓取个股 / 指数分时行情，返回领域模型 ``TrendSeries``。"""
     query = query or TrendQuery()
     client = _build_client(settings or Settings.from_env())
@@ -122,16 +124,16 @@ def fetch_trends(query: TrendQuery | None = None, settings: Settings | None = No
     return source.fetch_trends(registry.trends_request(query))
 
 
-def fetch_trends_df(
+def df_trends_em(
     query: TrendQuery | None = None,
     settings: Settings | None = None,
     columns: dict[str, str] | None = None,
 ) -> pd.DataFrame:
-    """``fetch_trends`` 的 DataFrame 版（中文列名）。"""
-    return to_trend_dataframe(fetch_trends(query, settings), columns)
+    """``trends_em`` 的 DataFrame 版（中文列名）。"""
+    return to_trend_dataframe(trends_em(query, settings), columns)
 
 
-def fetch_fund_flow(
+def fund_flow_em(
     query: FundFlowQuery | None = None, settings: Settings | None = None
 ) -> FundFlowSeries:
     """抓取个股历史资金流，返回领域模型 ``FundFlowSeries``。"""
@@ -141,16 +143,16 @@ def fetch_fund_flow(
     return source.fetch_fund_flow(registry.fund_flow_request(query))
 
 
-def fetch_fund_flow_df(
+def df_fund_flow_em(
     query: FundFlowQuery | None = None,
     settings: Settings | None = None,
     columns: dict[str, str] | None = None,
 ) -> pd.DataFrame:
-    """``fetch_fund_flow`` 的 DataFrame 版（akshare 风格中文列名）。"""
-    return to_fund_flow_dataframe(fetch_fund_flow(query, settings), columns)
+    """``fund_flow_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_fund_flow_dataframe(fund_flow_em(query, settings), columns)
 
 
-def fetch_board_fund_flow(
+def board_fund_flow_em(
     query: BoardFundFlowQuery | None = None, settings: Settings | None = None
 ) -> BoardFundFlowSeries:
     """抓取板块（行业 / 概念 / 地域）历史资金流，返回领域模型 ``BoardFundFlowSeries``。"""
@@ -160,10 +162,10 @@ def fetch_board_fund_flow(
     return source.fetch_board_fund_flow(registry.board_fund_flow_request(query))
 
 
-def fetch_board_fund_flow_df(
+def df_board_fund_flow_em(
     query: BoardFundFlowQuery | None = None,
     settings: Settings | None = None,
     columns: dict[str, str] | None = None,
 ) -> pd.DataFrame:
-    """``fetch_board_fund_flow`` 的 DataFrame 版（akshare 风格中文列名）。"""
-    return to_board_fund_flow_dataframe(fetch_board_fund_flow(query, settings), columns)
+    """``board_fund_flow_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_board_fund_flow_dataframe(board_fund_flow_em(query, settings), columns)

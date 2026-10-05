@@ -4,7 +4,7 @@
 
 ## 接口名称
 
-`fetch_fund_flow` / `fetch_fund_flow_df`：个股历史资金流（`fflow/daykline`，日线）
+`fund_flow_em` / `df_fund_flow_em`：个股历史资金流（`fflow/daykline`，日线）
 
 ## 目标地址
 
@@ -57,10 +57,10 @@
 ## 接口示例（领域模型 `FundFlowSeries`）
 
 ```python
-from em import fetch_fund_flow
+from em import fund_flow_em
 from em.domain.queries import FundFlowQuery
 
-series = fetch_fund_flow(FundFlowQuery(code="000001", market="sz"))
+series = fund_flow_em(FundFlowQuery(code="000001", market="sz"))
 print(series.code, series.name, series.market, len(series.items))
 for f in series.items[-3:]:
     print(f.date, f.main_net_inflow, f.main_net_pct, f.close)
@@ -78,10 +78,10 @@ FundFlow(date='2026-09-30', main_net_inflow=125061199.0, small_net_inflow=-71487
 ## 接口示例（`DataFrame`，akshare 风格中文列名）
 
 ```python
-from em import fetch_fund_flow_df
+from em import df_fund_flow_em
 from em.domain.queries import FundFlowQuery
 
-df = fetch_fund_flow_df(FundFlowQuery(code="000001", market="sz"))
+df = df_fund_flow_em(FundFlowQuery(code="000001", market="sz"))
 ```
 
 ## 数据示例（`DataFrame`）
