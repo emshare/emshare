@@ -2,12 +2,19 @@
 
 from em.cli import (
     _fmt_amount,
+    _hint_ip_blocked,
+    _is_network_failure,
     _render_board_fund_flow,
     _render_fund_flow,
     _select_klines,
     main,
 )
-from em.core.errors import NetworkError
+from em.core.errors import (
+    ConfigError,
+    EmptyResponseError,
+    HttpStatusError,
+    NetworkError,
+)
 from em.domain.models import BoardFundFlow, BoardFundFlowSeries, FundFlow, FundFlowSeries, Kline
 
 
@@ -176,3 +183,87 @@ def test_main_keyboard_interrupt_returns_130(monkeypatch) -> None:
 
     monkeypatch.setattr("em.cli.fetch_kline", boom)
     assert main(["--preset", "kline", "--code", "000001"]) == 130
+
+
+class _FakeSettings:
+    def __init__(
+        self,
+        proxy_enabled: bool,
+        proxy_mode: str,
+        proxy_api: str = "http://api.example.com/get?uid=real&vkey=real",
+    ) -> None:
+        self.proxy_enabled = proxy_enabled
+        self.proxy_mode = proxy_mode
+        self.proxy_api = proxy_api
+
+
+def test_is_network_failure_classifies_correctly() -> None:
+    assert _is_network_failure(NetworkError("conn")) is True
+    assert _is_network_failure(EmptyResponseError("empty")) is True
+    assert _is_network_failure(HttpStatusError(403)) is True
+    assert _is_network_failure(HttpStatusError(429)) is True
+    assert _is_network_failure(HttpStatusError(500)) is False
+    assert _is_network_failure(HttpStatusError(404)) is False
+    assert _is_network_failure(ConfigError("bad")) is False
+
+
+def test_hint_ip_blocked_no_proxy(monkeypatch) -> None:
+    monkeypatch.setattr("em.cli.Settings.from_env", lambda: _FakeSettings(False, "never"))
+    hint = _hint_ip_blocked(NetworkError("连接断开"))
+    assert hint is not None
+    assert "封禁" in hint
+    assert "EM_PROXY_API" in hint
+    assert ".env.example" in hint
+
+
+def test_hint_ip_blocked_with_proxy_returns_none(monkeypatch) -> None:
+    monkeypatch.setattr("em.cli.Settings.from_env", lambda: _FakeSettings(True, "auto"))
+    assert _hint_ip_blocked(NetworkError("连接断开")) is None
+
+
+def test_hint_proxy_api_placeholder(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "em.cli.Settings.from_env",
+        lambda: _FakeSettings(True, "auto", "http://api.xiequ.cn?uid=YOUR_UID&vkey=YOUR_VKEY"),
+    )
+    hint = _hint_ip_blocked(NetworkError("连接断开"))
+    assert hint is not None
+    assert "EM_PROXY_API" in hint
+    assert "未正确配置" in hint
+
+
+def test_hint_proxy_api_empty(monkeypatch) -> None:
+    monkeypatch.setattr("em.cli.Settings.from_env", lambda: _FakeSettings(True, "auto", ""))
+    hint = _hint_ip_blocked(NetworkError("连接断开"))
+    assert hint is not None
+    assert "未正确配置" in hint
+
+
+def test_hint_ip_blocked_non_network_error_returns_none(monkeypatch) -> None:
+    monkeypatch.setattr("em.cli.Settings.from_env", lambda: _FakeSettings(False, "never"))
+    assert _hint_ip_blocked(ConfigError("bad config")) is None
+
+
+def test_main_shows_ip_blocked_hint_when_no_proxy(monkeypatch, capsys) -> None:
+    def boom(_query):
+        raise NetworkError("连接被断开")
+
+    monkeypatch.setattr("em.cli.fetch_kline", boom)
+    monkeypatch.setattr("em.cli.Settings.from_env", lambda: _FakeSettings(False, "never"))
+    rc = main(["--preset", "kline", "--code", "000001"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "封禁" in err
+    assert "EM_PROXY_API" in err
+
+
+def test_main_no_hint_when_proxy_configured(monkeypatch, capsys) -> None:
+    def boom(_query):
+        raise NetworkError("连接被断开")
+
+    monkeypatch.setattr("em.cli.fetch_kline", boom)
+    monkeypatch.setattr("em.cli.Settings.from_env", lambda: _FakeSettings(True, "auto"))
+    rc = main(["--preset", "kline", "--code", "000001"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "封禁" not in err

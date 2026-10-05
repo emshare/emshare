@@ -16,7 +16,8 @@ from em.application.market_data import (
 )
 from em.channels.eastmoney.config import FQT_ADJUSTS, FUND_FLOW_FIELDS, KLT_PERIODS
 from em.core.env import load_dotenv
-from em.core.errors import EmError
+from em.core.errors import EmError, EmptyResponseError, HttpStatusError, NetworkError
+from em.core.settings import Settings
 from em.domain.models import (
     BoardFundFlowSeries,
     FundFlowSeries,
@@ -231,6 +232,33 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     return ap.parse_args(argv)
 
 
+def _is_network_failure(exc: EmError) -> bool:
+    """判断是否为网络/封禁类错误（连接断开、空响应、403/429）。"""
+    if isinstance(exc, (NetworkError, EmptyResponseError)):
+        return True
+    return isinstance(exc, HttpStatusError) and exc.status_code in (403, 429)
+
+
+def _hint_ip_blocked(exc: EmError) -> str | None:
+    """网络/封禁错误时，根据代理配置状态返回友好提示。"""
+    if not _is_network_failure(exc):
+        return None
+    s = Settings.from_env()
+    if not s.proxy_enabled or s.proxy_mode == "never":
+        return (
+            "💡 本机 IP 可能被东方财富封禁。建议在 .env 中配置动态代理解决：\n"
+            "   EM_PROXY_API=<代理API地址>\n"
+            "   配置示例见 .env.example"
+        )
+    api = s.proxy_api or ""
+    if not api or "YOUR_" in api:
+        return (
+            "💡 代理已启用但 EM_PROXY_API 未正确配置。\n"
+            "   请在 .env 中填入真实的代理 API 地址，配置示例见 .env.example"
+        )
+    return None
+
+
 def main(argv: list[str] | None = None) -> int:
     # CWD/.env 优先，找不到则回退到项目根（src/em 的上两级），支持从任意目录调用
     project_root = Path(__file__).resolve().parents[2]
@@ -269,6 +297,9 @@ def main(argv: list[str] | None = None) -> int:
         return 130
     except EmError as exc:
         print(f"❌ 抓取失败：{exc}", file=sys.stderr)
+        hint = _hint_ip_blocked(exc)
+        if hint:
+            print(hint, file=sys.stderr)
         return 1
     return 0
 
