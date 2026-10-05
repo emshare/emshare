@@ -31,7 +31,7 @@ class QuotePage:
 class Kline:
     """单根 K 线。价格单位为元，比率单位为 %，成交量单位为手。"""
 
-    date: str  # 交易日期 YYYY-MM-DD
+    date: str  # 交易日期/时间（日/周/月为 YYYY-MM-DD；分钟级为 YYYY-MM-DD HH:MM）
     open: Yuan = None  # 开盘价
     close: Yuan = None  # 收盘价
     high: Yuan = None  # 最高价
@@ -50,7 +50,7 @@ class KlineSeries:
 
     code: str
     name: str
-    period: str  # day / week / month
+    period: str  # day / week / month / 5m / 15m / 30m / 60m
     adjust: str  # qfq / hfq / none
     items: tuple[Kline, ...]
 

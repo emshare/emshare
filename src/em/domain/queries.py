@@ -28,7 +28,7 @@ class KlineQuery:
 
     code: str = "000001"
     market: str = "sz"  # sz 深市 / sh 沪市 / bj 北交所
-    period: str = "day"  # day / week / month
+    period: str = "day"  # day / week / month / 5m / 15m / 30m / 60m
     adjust: str = "qfq"  # qfq 前复权 / hfq 后复权 / none 不复权
     beg: str = "0"  # 起始日期 YYYYMMDD，0 表示不限
     end: str = "20500101"  # 结束日期 YYYYMMDD

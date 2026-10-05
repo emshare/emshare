@@ -69,6 +69,7 @@ def test_secid_of_by_market() -> None:
 
 def test_normalize_period_and_adjust() -> None:
     assert normalize_period("week") == "week"
+    assert normalize_period("5m") == "5m"
     assert normalize_period("quarter") == "day"
     assert normalize_adjust("hfq") == "hfq"
     assert normalize_adjust("weird") == "qfq"
@@ -103,3 +104,11 @@ def test_kline_request_unknown_falls_back() -> None:
     assert request.fqt == config.FQT_ADJUSTS["qfq"]
     assert request.period == "day"
     assert request.adjust == "qfq"
+
+
+def test_kline_request_minute_periods_mapping() -> None:
+    for period, klt in (("5m", "5"), ("15m", "15"), ("30m", "30"), ("60m", "60")):
+        request = kline_request(KlineQuery(code="000001", market="sz", period=period))
+        params = request.params()
+        assert params["klt"] == klt
+        assert request.period == period

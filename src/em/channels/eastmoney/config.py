@@ -29,7 +29,15 @@ FUND_FLOW_FIELDS = {"day": "f62", "5d": "f164", "10d": "f174"}
 BOARD_FIELDS = "f12,f14,f2,f3,f4,f62,f164,f174,f6,f8"
 MARKET_FIELDS = "f12,f14,f2,f3,f4,f6,f8"
 # K 线周期 -> klt、复权 -> fqt
-KLT_PERIODS = {"day": 101, "week": 102, "month": 103}
+KLT_PERIODS = {
+    "day": 101,
+    "week": 102,
+    "month": 103,
+    "5m": 5,
+    "15m": 15,
+    "30m": 30,
+    "60m": 60,
+}
 FQT_ADJUSTS = {"qfq": 1, "hfq": 2, "none": 0}
 # K 线字段集：fields1 取证券元信息，fields2 逐条返回
 KLINE_FIELDS1 = "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13"

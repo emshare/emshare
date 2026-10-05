@@ -22,7 +22,7 @@
 
 ### `历史 K 线`
 接口：`fetch_kline`, `fetch_kline_df`->（DataFrame版）
-描述：个股 / 指数历史 K 线（日 / 周 / 月，前 / 后 / 不复权）。
+描述：个股 / 指数历史 K 线（日 / 周 / 月 / 5分 / 15分 / 30分 / 60分，前 / 后 / 不复权）。
 
 - 详情：[kline_em.md](./ashare_stocks/kline_em.md)
 - 源码：`src/em/channels/eastmoney/ashare_stocks/kline/kline_em.py`

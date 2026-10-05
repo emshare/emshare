@@ -78,7 +78,8 @@ def to_kline_series(data: dict[str, Any], period: str = "day", adjust: str = "qf
 
     ``klines`` 每项为逗号分隔字符串，字段依次为
     ``日期,开盘,收盘,最高,最低,成交量,成交额,振幅,涨跌幅,涨跌额,换手率``；
-    价格不做 100 倍还原（与 ``fltt=1`` 的 clist 不同）。
+    价格不做 100 倍还原（与 ``fltt=1`` 的 clist 不同）。分钟级周期（5m/15m/30m/60m）
+    时首字段为 ``YYYY-MM-DD HH:MM`` 时间戳，字段顺序与日级一致。
     """
     block = data.get("data") or {}
     items = tuple(_to_kline(line) for line in (block.get("klines") or []))

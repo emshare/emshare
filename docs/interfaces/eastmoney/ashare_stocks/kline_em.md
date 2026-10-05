@@ -4,21 +4,21 @@
 
 ## 接口名称
 
-`fetch_kline` / `fetch_kline_df`：个股 / 指数历史 K 线（日 / 周 / 月，前 / 后 / 不复权）
+`fetch_kline` / `fetch_kline_df`：个股 / 指数历史 K 线（日 / 周 / 月 / 5分 / 15分 / 30分 / 60分，前 / 后 / 不复权）
 
 ## 目标地址
 
-- <https://quote.eastmoney.com/sz000001.html>
+- <https://quote.eastmoney.com/sz000001.html#fullScreenChart>
 
 ## 描述
 
-按证券代码抓取历史 K 线序列，返回日期、开盘、收盘、最高、最低、成交量、成交额、振幅、涨跌幅、涨跌额、换手率。走 `push2his` 历史行情主机。`period` 决定周期（`day`→`klt=101` 日 K、`week`→`klt=102` 周 K、`month`→`klt=103` 月 K），`adjust` 决定复权（`qfq`→`fqt=1` 前复权、`hfq`→`fqt=2` 后复权、`none`→`fqt=0` 不复权）。与 `clist` 接口不同，K 线价格**不做** 100 倍放大还原，映射层直接按原值读取。
+按证券代码抓取历史 K 线序列，返回日期、开盘、收盘、最高、最低、成交量、成交额、振幅、涨跌幅、涨跌额、换手率。走 `push2his` 历史行情主机。`period` 决定周期（`day`→`klt=101` 日 K、`week`→`klt=102` 周 K、`month`→`klt=103` 月 K、`5m`→`klt=5` 5 分钟、`15m`→`klt=15` 15 分钟、`30m`→`klt=30` 30 分钟、`60m`→`klt=60` 60 分钟），`adjust` 决定复权（`qfq`→`fqt=1` 前复权、`hfq`→`fqt=2` 后复权、`none`→`fqt=0` 不复权）。与 `clist` 接口不同，K 线价格**不做** 100 倍放大还原，映射层直接按原值读取。
 
 ## 限量
 
 - 单次返回所请求区间内的全部 K 线；`beg=0` 且 `end=20500101` 可取全历史（如平安银行日 K 共 8490 条）。
 - 上游对境外 IP 封禁 / 限流，需经国内动态代理访问；本接口已内置代理池 + 自动换 IP 重试。
-- `period` / `adjust` 传未知值时回退 `day` / `qfq`；分钟级周期（上游 `klt<101`）不在本接口支持范围。
+- `period` / `adjust` 传未知值时回退 `day` / `qfq`；分钟级周期（`5m`/`15m`/`30m`/`60m`）的 `date` 字段为 `YYYY-MM-DD HH:MM` 时间戳，数据量远大于日级，建议用 `beg`/`end` 限定区间。
 - 价格单位为元，成交量单位为手，成交额单位为元。
 
 ## 输入参数 `KlineQuery`
@@ -27,7 +27,7 @@
 | --- | --- | --- | --- | --- |
 | `code` | `str` | 否 | `"000001"` | 证券代码，如 `000001` |
 | `market` | `str` | 否 | `"sz"` | 市场：`sz` 深市 / `sh` 沪市 / `bj` 北交所，未知回退 `sz` |
-| `period` | `str` | 否 | `"day"` | 周期：`day` 日 K / `week` 周 K / `month` 月 K，未知回退 `day` |
+| `period` | `str` | 否 | `"day"` | 周期：`day` 日 K / `week` 周 K / `month` 月 K / `5m` / `15m` / `30m` / `60m` 分钟 K，未知回退 `day` |
 | `adjust` | `str` | 否 | `"qfq"` | 复权：`qfq` 前复权 / `hfq` 后复权 / `none` 不复权，未知回退 `qfq` |
 | `beg` | `str` | 否 | `"0"` | 起始日期 `YYYYMMDD`，`0` 表示不限 |
 | `end` | `str` | 否 | `"20500101"` | 结束日期 `YYYYMMDD` |
@@ -46,7 +46,7 @@
 
 | 名称 | 类型 | 单位 | 描述 |
 | --- | --- | --- | --- |
-| `date` | `str` | — | 交易日期 `YYYY-MM-DD` |
+| `date` | `str` | — | 交易日期/时间（日/周/月为 `YYYY-MM-DD`；分钟级为 `YYYY-MM-DD HH:MM`） |
 | `open` | `float \| None` | 元 | 开盘价 |
 | `close` | `float \| None` | 元 | 收盘价 |
 | `high` | `float \| None` | 元 | 最高价 |
