@@ -7,6 +7,8 @@
 ``search`` / ``interface_info`` / ``list_categories`` 提供离线接口检索（对齐 akshare）。
 """
 
+from pathlib import Path
+
 from em.application.catalog import (
     interface_info,
     interface_info_df,
@@ -36,6 +38,10 @@ from em.application.market_data import (
     stock_list_em,
     stock_trends_em,
 )
+from em.core.env import load_dotenv
+
+for _candidate in (Path(".env"), Path(__file__).resolve().parents[2] / ".env"):
+    load_dotenv(_candidate)
 
 __all__ = [
     "board_constituent_em",
