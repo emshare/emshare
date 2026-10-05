@@ -8,7 +8,7 @@
 
 ## 目标地址
 
-- <https://quote.eastmoney.com/sz000001.html>
+- <https://quote.eastmoney.com/sz000001.html#fullScreenChart>
 
 ## 描述
 

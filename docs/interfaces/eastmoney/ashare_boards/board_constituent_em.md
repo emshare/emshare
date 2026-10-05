@@ -8,7 +8,7 @@
 
 ## 目标地址
 
-- <https://quote.eastmoney.com/center/gridlist.html#industry_board_1>
+- <https://data.eastmoney.com/bkzj/BK0438.html>
 
 ## 描述
 
