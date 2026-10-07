@@ -10,6 +10,9 @@ from em.channels.eastmoney.ashare_boards.board_constituent.board_constituent_em 
 from em.channels.eastmoney.ashare_boards.board_fund_flow.board_fund_flow_em import (
     board_fund_flow_request,
 )
+from em.channels.eastmoney.ashare_boards.board_industry_list.board_industry_list_em import (
+    board_industry_list_request,
+)
 from em.channels.eastmoney.ashare_stocks.stock_fund_flow.stock_fund_flow_em import fund_flow_request
 from em.channels.eastmoney.ashare_stocks.stock_kline.stock_kline_em import kline_request
 from em.channels.eastmoney.ashare_stocks.stock_list.stock_list_em import stock_list_request
@@ -20,6 +23,7 @@ __all__ = [
     "EastMoneySource",
     "board_constituent_request",
     "board_fund_flow_request",
+    "board_industry_list_request",
     "flow_field",
     "fund_flow_request",
     "kline_request",

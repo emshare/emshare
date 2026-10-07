@@ -84,6 +84,25 @@ _BOARD_FUND_FLOW_FIELDS = (
     ("small_net_pct", "float | None", "%", "小单净流入-净占比（f58）"),
 )
 
+# 板块列表字段（对齐 akshare stock_board_industry_name_em，含上涨/下跌家数与领涨/领跌股）
+_BOARD_LIST_FIELDS = (
+    ("code", "str", "—", "板块代码"),
+    ("name", "str", "—", "板块名称"),
+    ("price", "float | None", "元", "板块指数最新点位"),
+    ("change_pct", "float | None", "%", "涨跌幅"),
+    ("change", "float | None", "元", "涨跌额"),
+    ("turnover", "float | None", "元", "成交额"),
+    ("turnover_rate", "float | None", "%", "换手率"),
+    ("up_count", "int | None", "—", "上涨家数"),
+    ("down_count", "int | None", "—", "下跌家数"),
+    ("leader_code", "str | None", "—", "领涨股代码"),
+    ("leader_name", "str | None", "—", "领涨股名称"),
+    ("leader_change_pct", "float | None", "%", "领涨股涨跌幅"),
+    ("laggard_code", "str | None", "—", "领跌股代码"),
+    ("laggard_name", "str | None", "—", "领跌股名称"),
+    ("laggard_change_pct", "float | None", "%", "领跌股涨跌幅"),
+)
+
 
 @dataclass(frozen=True)
 class Param:
@@ -259,6 +278,42 @@ _INTERFACES: tuple[Interface, ...] = (
             "    print(f.date, f.main_net_inflow, f.main_net_pct)"
         ),
         dataframe_variant="df_board_fund_flow_em",
+    ),
+    Interface(
+        name="board_industry_list_em",
+        category="board",
+        desc="板块列表（行业/概念/地域，行业支持一/二/三级，含上涨下跌家数与领涨领跌股）",
+        documented=True,
+        inputs=(
+            Param(
+                "board_type",
+                "str",
+                False,
+                '"industry"',
+                "板块类型：industry 行业 / concept 概念 / region 地域，未知回退 industry",
+            ),
+            Param(
+                "level",
+                "str",
+                False,
+                '"1"',
+                "行业分级：1 一级 / 2 二级 / 3 三级 / all 全级别，仅 industry 有效，未知回退 1",
+            ),
+            Param("sort", "str", False, '"f3"', "排序字段（上游 f* 字段名）"),
+            Param("page", "int", False, "1", "页码，从 1 起"),
+            Param("size", "int", False, "20", "每页条数，上游上限 100"),
+        ),
+        outputs=tuple(Field(*f) for f in _BOARD_LIST_FIELDS),
+        example=(
+            "from em import board_industry_list_em\n"
+            "from em.domain.queries import BoardListQuery\n"
+            "\n"
+            'page = board_industry_list_em(BoardListQuery(board_type="industry", level="1", size=5))\n'
+            "print(page.total)\n"
+            "for b in page.items:\n"
+            "    print(b.code, b.name, b.change_pct, b.up_count, b.down_count)"
+        ),
+        dataframe_variant="df_board_industry_list_em",
     ),
 )
 

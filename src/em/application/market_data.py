@@ -10,6 +10,7 @@ import requests
 from em.application import registry
 from em.application.dataframe import (
     to_board_fund_flow_dataframe,
+    to_board_list_dataframe,
     to_dataframe,
     to_fund_flow_dataframe,
     to_kline_dataframe,
@@ -21,6 +22,7 @@ from em.core.settings import Settings
 from em.core.transport import HttpClient
 from em.domain.models import (
     BoardFundFlowSeries,
+    BoardListPage,
     FundFlowSeries,
     KlineSeries,
     QuotePage,
@@ -28,6 +30,7 @@ from em.domain.models import (
 )
 from em.domain.queries import (
     BoardFundFlowQuery,
+    BoardListQuery,
     BoardQuery,
     FundFlowQuery,
     KlineQuery,
@@ -180,3 +183,22 @@ def df_board_fund_flow_em(
 ) -> pd.DataFrame:
     """``board_fund_flow_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
     return to_board_fund_flow_dataframe(board_fund_flow_em(query, settings), columns)
+
+
+def board_industry_list_em(
+    query: BoardListQuery | None = None, settings: Settings | None = None
+) -> BoardListPage:
+    """抓取板块列表（行业 / 概念 / 地域），返回领域模型 ``BoardListPage``。"""
+    query = query or BoardListQuery()
+    client = _build_client(settings or Settings.from_env())
+    source = registry.EastMoneySource(client)
+    return source.fetch_board_list(registry.board_industry_list_request(query))
+
+
+def df_board_industry_list_em(
+    query: BoardListQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``board_industry_list_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_board_list_dataframe(board_industry_list_em(query, settings), columns)

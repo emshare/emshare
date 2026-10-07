@@ -5,8 +5,10 @@ import re
 from typing import Any
 
 from em.domain.models import (
+    Board,
     BoardFundFlow,
     BoardFundFlowSeries,
+    BoardListPage,
     FundFlow,
     FundFlowSeries,
     Kline,
@@ -210,4 +212,41 @@ def _to_board_fund_flow(line: Any) -> BoardFundFlow:
         medium_net_pct=as_float(parts[8]),
         large_net_pct=as_float(parts[9]),
         xlarge_net_pct=as_float(parts[10]),
+    )
+
+
+def to_board_list_page(data: dict[str, Any]) -> BoardListPage:
+    """把 clist 板块列表响应映射为 ``BoardListPage``。
+
+    ``fltt=1`` 时价格 / 涨跌幅 / 换手率放大 100 倍，用 ``scaled`` 还原；
+    成交额（f20）与上涨 / 下跌家数（f104 / f105）为原始整数，不还原。
+    """
+    block = data.get("data") or {}
+    items = tuple(_to_board(it) for it in (block.get("diff") or []))
+    return BoardListPage(total=int(block.get("total") or 0), items=items)
+
+
+def _to_int(value: Any) -> int | None:
+    """安全转 int；None 或不可转换返回 None。"""
+    f = as_float(value)
+    return int(f) if f is not None else None
+
+
+def _to_board(item: dict[str, Any]) -> Board:
+    return Board(
+        code=str(item.get("f12", "")),
+        name=str(item.get("f14", "")),
+        price=scaled(item.get("f2")),
+        change_pct=scaled(item.get("f3")),
+        change=scaled(item.get("f4")),
+        turnover=as_float(item.get("f20")),
+        turnover_rate=scaled(item.get("f8")),
+        up_count=_to_int(item.get("f104")),
+        down_count=_to_int(item.get("f105")),
+        leader_code=str(item.get("f140") or "") or None,
+        leader_name=str(item.get("f128") or "") or None,
+        leader_change_pct=scaled(item.get("f136")),
+        laggard_code=str(item.get("f208") or "") or None,
+        laggard_name=str(item.get("f207") or "") or None,
+        laggard_change_pct=scaled(item.get("f222")),
     )

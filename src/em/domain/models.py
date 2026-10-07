@@ -139,3 +139,36 @@ class BoardFundFlowSeries:
     code: str
     name: str
     items: tuple[BoardFundFlow, ...]
+
+
+@dataclass(frozen=True)
+class Board:
+    """单条板块行情（行业 / 概念 / 地域）。数值字段单位见 ``domain.units``。
+
+    与个股 ``Quote`` 的差异：板块含上涨 / 下跌家数与领涨 / 领跌股，
+    不含主力净流入（板块列表接口不返回资金流字段）。
+    """
+
+    code: str
+    name: str
+    price: Yuan = None  # 板块指数最新点位
+    change_pct: Pct = None  # 涨跌幅
+    change: Yuan = None  # 涨跌额
+    turnover: Yuan = None  # 成交额
+    turnover_rate: Pct = None  # 换手率
+    up_count: int | None = None  # 上涨家数
+    down_count: int | None = None  # 下跌家数
+    leader_code: str | None = None  # 领涨股代码
+    leader_name: str | None = None  # 领涨股名称
+    leader_change_pct: Pct = None  # 领涨股涨跌幅
+    laggard_code: str | None = None  # 领跌股代码
+    laggard_name: str | None = None  # 领跌股名称
+    laggard_change_pct: Pct = None  # 领跌股涨跌幅
+
+
+@dataclass(frozen=True)
+class BoardListPage:
+    """一页板块列表结果。"""
+
+    total: int
+    items: tuple[Board, ...]

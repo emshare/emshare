@@ -12,6 +12,7 @@ from em.channels.eastmoney.source import EastMoneySource
 from em.core.errors import ChannelError, EmptyResponseError
 from em.domain.queries import (
     BoardFundFlowQuery,
+    BoardListQuery,
     FundFlowQuery,
     KlineQuery,
     MarketQuery,
@@ -35,6 +36,7 @@ _FETCH_NAMES = [
     "fetch_trends",
     "fetch_fund_flow",
     "fetch_board_fund_flow",
+    "fetch_board_list",
 ]
 _REQUESTS = [
     registry.stock_list_request(MarketQuery()),
@@ -42,6 +44,7 @@ _REQUESTS = [
     registry.trends_request(TrendQuery()),
     registry.fund_flow_request(FundFlowQuery()),
     registry.board_fund_flow_request(BoardFundFlowQuery()),
+    registry.board_industry_list_request(BoardListQuery()),
 ]
 
 

@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from em.domain.models import (
     BoardFundFlowSeries,
+    BoardListPage,
     FundFlowSeries,
     KlineSeries,
     QuotePage,
@@ -190,4 +191,44 @@ def to_board_fund_flow_dataframe(
     naming = columns or BOARD_FUND_FLOW_COLUMNS_ZH
     ordered_cols = [naming[f] for f in _BOARD_FUND_FLOW_FIELD_ORDER]
     rows = [{naming[f]: getattr(x, f) for f in _BOARD_FUND_FLOW_FIELD_ORDER} for x in series.items]
+    return pd.DataFrame(rows, columns=ordered_cols)  # type: ignore[no-any-return]
+
+
+# 板块列表字段 -> 默认中文列名（对齐 akshare stock_board_industry_name_em）
+BOARD_LIST_COLUMNS_ZH: dict[str, str] = {
+    "code": "板块代码",
+    "name": "板块名称",
+    "price": "最新价",
+    "change_pct": "涨跌幅",
+    "change": "涨跌额",
+    "turnover": "成交额",
+    "turnover_rate": "换手率",
+    "up_count": "上涨家数",
+    "down_count": "下跌家数",
+    "leader_code": "领涨股票代码",
+    "leader_name": "领涨股票",
+    "leader_change_pct": "领涨股票-涨跌幅",
+    "laggard_code": "领跌股票代码",
+    "laggard_name": "领跌股票",
+    "laggard_change_pct": "领跌股票-涨跌幅",
+}
+_BOARD_LIST_FIELD_ORDER = tuple(BOARD_LIST_COLUMNS_ZH.keys())
+
+
+def to_board_list_dataframe(
+    page: BoardListPage,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """把 ``BoardListPage`` 转为 ``DataFrame``；默认 akshare 风格中文列名。
+
+    列顺序固定为 ``BOARD_LIST_COLUMNS_ZH`` 的字段顺序，空页也保留列头。
+    """
+    try:
+        import pandas as pd
+    except ImportError as exc:  # pragma: no cover - 环境依赖
+        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+
+    naming = columns or BOARD_LIST_COLUMNS_ZH
+    ordered_cols = [naming[f] for f in _BOARD_LIST_FIELD_ORDER]
+    rows = [{naming[f]: getattr(b, f) for f in _BOARD_LIST_FIELD_ORDER} for b in page.items]
     return pd.DataFrame(rows, columns=ordered_cols)  # type: ignore[no-any-return]

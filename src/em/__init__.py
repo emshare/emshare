@@ -19,6 +19,7 @@ from em.application.catalog import (
 )
 from em.application.dataframe import (
     to_board_fund_flow_dataframe,
+    to_board_list_dataframe,
     to_dataframe,
     to_fund_flow_dataframe,
     to_kline_dataframe,
@@ -27,8 +28,10 @@ from em.application.dataframe import (
 from em.application.market_data import (
     board_constituent_em,
     board_fund_flow_em,
+    board_industry_list_em,
     df_board_constituent_em,
     df_board_fund_flow_em,
+    df_board_industry_list_em,
     df_stock_fund_flow_em,
     df_stock_kline_em,
     df_stock_list_em,
@@ -46,8 +49,10 @@ for _candidate in (Path(".env"), Path(__file__).resolve().parents[2] / ".env"):
 __all__ = [
     "board_constituent_em",
     "board_fund_flow_em",
+    "board_industry_list_em",
     "df_board_constituent_em",
     "df_board_fund_flow_em",
+    "df_board_industry_list_em",
     "df_stock_fund_flow_em",
     "df_stock_kline_em",
     "df_stock_list_em",
@@ -63,6 +68,7 @@ __all__ = [
     "stock_list_em",
     "stock_trends_em",
     "to_board_fund_flow_dataframe",
+    "to_board_list_dataframe",
     "to_dataframe",
     "to_fund_flow_dataframe",
     "to_kline_dataframe",

@@ -5,6 +5,7 @@ from em.channels.eastmoney.mapping import (
     is_ok,
     parse_jsonp,
     to_board_fund_flow_series,
+    to_board_list_page,
     to_fund_flow_series,
     to_kline_series,
     to_quote_page,
@@ -20,6 +21,7 @@ from em.core.errors import ChannelError, EmptyResponseError
 from em.core.transport import HttpClient
 from em.domain.models import (
     BoardFundFlowSeries,
+    BoardListPage,
     FundFlowSeries,
     KlineSeries,
     QuotePage,
@@ -84,3 +86,13 @@ class EastMoneySource:
         if not is_ok(data):
             raise ChannelError(f"响应无效: rc={data.get('rc')}")
         return to_board_fund_flow_series(data)
+
+    def fetch_board_list(self, request: ClistRequest) -> BoardListPage:
+        text = self._client.get_text(request.url(), request.params(), config.HEADERS)
+        data = parse_jsonp(text)
+        if data is None:
+            # 非 JSONP（多为代理返回错误页）：视为可换 IP 重试的传输异常
+            raise EmptyResponseError(f"非 JSONP 响应: {text[:80]!r}")
+        if not is_ok(data):
+            raise ChannelError(f"响应无效: rc={data.get('rc')}")
+        return to_board_list_page(data)

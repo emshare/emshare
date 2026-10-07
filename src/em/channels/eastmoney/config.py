@@ -53,3 +53,15 @@ FFLOW_UT = "b2884a393a59ad64002292a3e90d46a5"  # 资金流接口专用 ut
 BOARD_MARKET_ID = "90"
 # 沪深京市场代码 -> 东财 secid 前缀（0 深市 / 1 沪市；北交所亦为 0）
 MARKET_IDS = {"sz": "0", "sh": "1", "bj": "0"}
+# 板块列表字段集（行业 / 概念 / 地域通用，对齐 akshare stock_board_industry_name_em）
+# f12 代码 / f14 名称 / f2 指数点位 / f3 涨跌幅 / f4 涨跌额 / f8 换手率 / f20 成交额
+# f104 上涨家数 / f105 下跌家数 / f128 领涨股名称 / f140 领涨股代码 / f136 领涨股涨跌幅
+# f207 领跌股名称 / f208 领跌股代码 / f222 领跌股涨跌幅
+BOARD_LIST_FIELDS = "f12,f14,f2,f3,f4,f8,f20,f104,f105,f128,f140,f136,f207,f208,f222"
+# 行业板块分级 level -> fs 中的 s 值（s:2 一级 / s:4 二级 / s:8 三级）
+BOARD_INDUSTRY_LEVEL_S = {"1": "2", "2": "4", "3": "8"}
+# 行业板块全级别总列表（t:2，含一/二/三级共 496 个）
+BOARD_INDUSTRY_ALL_FS = "m:90+t:2+f:!50"
+# 板块类型 -> fs 模板（industry 用 s 分级或 t:2 全量，concept / region 用 t 固定值）
+BOARD_CONCEPT_FS = "m:90+t:3+f:!50"
+BOARD_REGION_FS = "m:90+t:1+f:!50"

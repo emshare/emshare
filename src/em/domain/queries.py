@@ -58,3 +58,18 @@ class BoardFundFlowQuery:
     """板块（行业 / 概念 / 地域）历史资金流（fflow/daykline，日线）。"""
 
     board: str = "BK0438"  # 板块代码，如 BK0438
+
+
+@dataclass(frozen=True)
+class BoardListQuery:
+    """板块列表（行业 / 概念 / 地域，clist 游客接口）。
+
+    ``board_type`` 为 ``industry`` 时 ``level`` 控制行业分级（1/2/3 级）；
+    为 ``concept`` / ``region`` 时 ``level`` 被忽略（概念 / 地域无分级）。
+    """
+
+    board_type: str = "industry"  # industry / concept / region
+    level: str = "1"  # 1 / 2 / 3 / all（仅 industry 有效，未知回退 1）
+    sort: str = "f3"  # 排序字段（上游 f* 字段名）
+    page: int = 1
+    size: int = 20

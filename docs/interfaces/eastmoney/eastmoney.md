@@ -1,6 +1,6 @@
 # eastmoney 渠道接口
 
-本页描述 `em` 包对外公共面的六个取数接口：板块成分股资金流、沪深京 A 股全市场列表、历史 K 线、分时行情、个股历史资金流与板块（行业 / 概念 / 地域）历史资金流。前两者走东方财富 `clist` 接口，后四者走 `kline` / `trends2` / `fflow` 接口（个股与板块资金流共用 `fflow/daykline`），均经动态代理自动换 IP 重试，返回领域模型（`QuotePage` / `KlineSeries` / `TrendSeries` / `FundFlowSeries` / `BoardFundFlowSeries`）；另提供 `df_*_em` 便捷函数直接返回 pandas DataFrame（akshare 风格中文列名）。
+本页描述 `em` 包对外公共面的七个取数接口：板块成分股资金流、板块列表、沪深京 A 股全市场列表、历史 K 线、分时行情、个股历史资金流与板块（行业 / 概念 / 地域）历史资金流。前三者走东方财富 `clist` 接口，后四者走 `kline` / `trends2` / `fflow` 接口（个股与板块资金流共用 `fflow/daykline`），均经动态代理自动换 IP 重试，返回领域模型（`QuotePage` / `BoardListPage` / `KlineSeries` / `TrendSeries` / `FundFlowSeries` / `BoardFundFlowSeries`）；另提供 `df_*_em` 便捷函数直接返回 pandas DataFrame（akshare 风格中文列名）。
 
 公共面统一从 `em` 顶层导出：
 
@@ -12,17 +12,20 @@ from em import (
     stock_trends_em,
     stock_fund_flow_em,
     board_fund_flow_em,
+    board_industry_list_em,
     df_board_constituent_em,
     df_stock_list_em,
     df_stock_kline_em,
     df_stock_trends_em,
     df_stock_fund_flow_em,
     df_board_fund_flow_em,
+    df_board_industry_list_em,
     to_dataframe,
     to_kline_dataframe,
     to_trend_dataframe,
     to_fund_flow_dataframe,
     to_board_fund_flow_dataframe,
+    to_board_list_dataframe,
     search,
     search_df,
     interface_info,
@@ -32,13 +35,14 @@ from em import (
 )
 ```
 
-`board_constituent_em` / `stock_list_em` 返回 `QuotePage`，`stock_kline_em` 返回 `KlineSeries`，`stock_trends_em` 返回 `TrendSeries`，`stock_fund_flow_em` 返回 `FundFlowSeries`，`board_fund_flow_em` 返回 `BoardFundFlowSeries`，`df_*_em` 返回 `pd.DataFrame`（需 `pip install pandas`）。`to_dataframe` / `to_kline_dataframe` / `to_trend_dataframe` / `to_fund_flow_dataframe` / `to_board_fund_flow_dataframe` 把对应领域模型转为 DataFrame，均默认中文列名，传 `columns` 可覆盖。
+`board_constituent_em` / `stock_list_em` 返回 `QuotePage`，`stock_kline_em` 返回 `KlineSeries`，`stock_trends_em` 返回 `TrendSeries`，`stock_fund_flow_em` 返回 `FundFlowSeries`，`board_fund_flow_em` 返回 `BoardFundFlowSeries`，`board_industry_list_em` 返回 `BoardListPage`，`df_*_em` 返回 `pd.DataFrame`（需 `pip install pandas`）。`to_dataframe` / `to_kline_dataframe` / `to_trend_dataframe` / `to_fund_flow_dataframe` / `to_board_fund_flow_dataframe` / `to_board_list_dataframe` 把对应领域模型转为 DataFrame，均默认中文列名，传 `columns` 可覆盖。
 
 ## 功能
 
 | 功能 | 接口文档 | 源码 | 公共面 |
 | --- | --- | --- | --- |
 | 板块成分股资金流 | [board_constituent_em.md](./ashare_boards/board_constituent_em.md) | `channels/eastmoney/ashare_boards/board_constituent/board_constituent_em.py` | `board_constituent_em` / `df_board_constituent_em` |
+| 板块列表（行业 / 概念 / 地域） | [board_industry_list_em.md](./ashare_boards/board_industry_list_em.md) | `channels/eastmoney/ashare_boards/board_industry_list/board_industry_list_em.py` | `board_industry_list_em` / `df_board_industry_list_em` |
 | 沪深京 A 股全市场列表 | [stock_list_em.md](./ashare_stocks/stock_list_em.md) | `channels/eastmoney/ashare_stocks/stock_list/stock_list_em.py` | `stock_list_em` / `df_stock_list_em` |
 | 历史 K 线 | [stock_kline_em.md](./ashare_stocks/stock_kline_em.md) | `channels/eastmoney/ashare_stocks/stock_kline/stock_kline_em.py` | `stock_kline_em` / `df_stock_kline_em` |
 | 分时行情 | [stock_trends_em.md](./ashare_stocks/stock_trends_em.md) | `channels/eastmoney/ashare_stocks/stock_trends/stock_trends_em.py` | `stock_trends_em` / `df_stock_trends_em` |

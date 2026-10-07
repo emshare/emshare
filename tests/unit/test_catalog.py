@@ -122,10 +122,29 @@ def test_interface_info_board_fund_flow() -> None:
     assert "board_fund_flow_em(" in info["example"]
 
 
+def test_search_board_industry_list_by_keyword() -> None:
+    rows = search("板块列表")
+    assert rows and rows[0]["接口名"] == "board_industry_list_em"
+
+
+def test_interface_info_board_industry_list() -> None:
+    info = interface_info("board_industry_list_em")
+    assert info["category"] == "board"
+    assert info["dataframe_variant"] == "df_board_industry_list_em"
+    assert len(info["inputs"]) == 5
+    input_names = [p["name"] for p in info["inputs"]]
+    assert input_names == ["board_type", "level", "sort", "page", "size"]
+    out_names = [f["name"] for f in info["outputs"]]
+    assert "up_count" in out_names
+    assert "leader_name" in out_names
+    assert "laggard_change_pct" in out_names
+    assert "board_industry_list_em(" in info["example"]
+
+
 def test_list_categories() -> None:
     cats = list_categories()
     assert cats == [
-        {"类目": "board", "接口数": 1},
+        {"类目": "board", "接口数": 2},
         {"类目": "fund_flow", "接口数": 2},
         {"类目": "kline", "接口数": 1},
         {"类目": "market", "接口数": 1},

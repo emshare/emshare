@@ -9,6 +9,7 @@ from typing import TypeVar
 from em.application.market_data import (
     board_constituent_em,
     board_fund_flow_em,
+    board_industry_list_em,
     stock_fund_flow_em,
     stock_kline_em,
     stock_list_em,
@@ -20,6 +21,7 @@ from em.core.errors import EmError, EmptyResponseError, HttpStatusError, Network
 from em.core.settings import Settings
 from em.domain.models import (
     BoardFundFlowSeries,
+    BoardListPage,
     FundFlowSeries,
     Kline,
     KlineSeries,
@@ -28,6 +30,7 @@ from em.domain.models import (
 )
 from em.domain.queries import (
     BoardFundFlowQuery,
+    BoardListQuery,
     BoardQuery,
     FundFlowQuery,
     KlineQuery,
@@ -36,7 +39,7 @@ from em.domain.queries import (
 )
 
 
-def _fmt(value: float | None, pattern: str) -> str:
+def _fmt(value: float | int | None, pattern: str) -> str:
     return "-" if value is None else format(value, pattern)
 
 
@@ -190,15 +193,40 @@ def _render_board_fund_flow(
     print("-" * 90)
 
 
+def _render_board_list(page: BoardListPage) -> None:
+    print(f"\n✅ 共 {page.total} 条，本次返回 {len(page.items)} 条")
+    print("-" * 100)
+    for b in page.items:
+        print(
+            f"  {b.code:<8} {b.name:<10}"
+            f"  最新价:{_fmt(b.price, '>10.2f')}"
+            f"  涨跌幅:{_fmt(b.change_pct, '>6.2f')}%"
+            f"  上涨:{_fmt(b.up_count, '>4')}"
+            f"  下跌:{_fmt(b.down_count, '>4')}"
+            f"  领涨:{b.leader_name or '-'}({_fmt(b.leader_change_pct, '>6.2f')}%)"
+            f"  领跌:{b.laggard_name or '-'}({_fmt(b.laggard_change_pct, '>6.2f')}%)"
+        )
+    print("-" * 100)
+
+
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="东方财富行情抓取（动态代理 + 自动重试）")
     ap.add_argument(
         "--preset",
-        choices=["board", "market", "kline", "trends", "fundflow", "boardflow"],
+        choices=["board", "market", "kline", "trends", "fundflow", "boardflow", "boardlist"],
         default="board",
         help="接口预设",
     )
     ap.add_argument("--board", default="BK0438", help="板块代码（board 预设）")
+    ap.add_argument(
+        "--board-type",
+        choices=["industry", "concept", "region"],
+        default="industry",
+        help="板块类型（boardlist 预设）",
+    )
+    ap.add_argument(
+        "--level", choices=["1", "2", "3", "all"], default="1", help="行业分级（boardlist 预设）"
+    )
     ap.add_argument("--rank", choices=list(FUND_FLOW_FIELDS), default="10d", help="资金流周期")
     ap.add_argument("--sort", default="f3", help="排序字段（market 预设）")
     ap.add_argument("--code", default="000001", help="证券代码（kline/trends/fundflow 预设）")
@@ -288,6 +316,17 @@ def main(argv: list[str] | None = None) -> int:
         elif args.preset == "boardflow":
             board_flow = board_fund_flow_em(BoardFundFlowQuery(board=args.board))
             _render_board_fund_flow(board_flow, head=args.head, tail=args.tail)
+        elif args.preset == "boardlist":
+            board_page = board_industry_list_em(
+                BoardListQuery(
+                    board_type=args.board_type,
+                    level=args.level,
+                    sort=args.sort,
+                    page=args.pn,
+                    size=args.pz or 20,
+                )
+            )
+            _render_board_list(board_page)
         else:
             page = board_constituent_em(
                 BoardQuery(board=args.board, period=args.rank, page=args.pn, size=args.pz or 8)
