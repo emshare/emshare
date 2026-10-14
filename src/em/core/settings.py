@@ -109,8 +109,12 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
+        # 多源代理：EM_PROXY_API 为主源，EM_PROXY_API_* 后缀 KEY（如 _BACKUP）按名拼接为备用源，
+        # 逗号分隔传给代理池；每个源独立一行便于维护，注释掉某行即可停用该源
+        apis = [os.getenv("EM_PROXY_API", defaults.DEFAULT_PROXY_API)]
+        apis += [v for k, v in sorted(os.environ.items()) if k.startswith("EM_PROXY_API_")]
         return cls(
-            proxy_api=os.getenv("EM_PROXY_API", defaults.DEFAULT_PROXY_API),
+            proxy_api=",".join(p.strip() for p in apis if p.strip()),
             proxy_enabled=_bool_env("EM_PROXY_ENABLED", True),
             proxy_num=_int_env("EM_PROXY_NUM", 1),
             proxy_ttl_sec=_int_env("EM_PROXY_TTL_SEC", 30),

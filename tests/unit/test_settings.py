@@ -49,3 +49,27 @@ def test_negative_cap_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("EM_BACKOFF_CAP_SEC", "-1")
     with pytest.raises(ConfigError):
         Settings.from_env()
+
+
+def test_multi_source_apis_joined_in_order(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 多源代理：EM_PROXY_API 为主源，EM_PROXY_API_* 后缀 KEY 按名排序拼接为备用源
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("EM_PROXY_API", "http://primary/get")
+    monkeypatch.setenv("EM_PROXY_API_BACKUP", "http://backup/get")
+    monkeypatch.setenv("EM_PROXY_API_BACKUP2", "http://backup2/get")
+    s = Settings.from_env()
+    assert s.proxy_api == "http://primary/get,http://backup/get,http://backup2/get"
+
+
+def test_multi_source_apis_blank_parts_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 主源未设/备用为空串时被过滤，不产生空源；仅备用也可独立生效
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("EM_PROXY_API_BACKUP", " http://backup/get ")
+    s = Settings.from_env()
+    assert s.proxy_api == "http://backup/get"
+
+
+def test_multi_source_apis_absent_keeps_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    _clear_env(monkeypatch)
+    s = Settings.from_env()
+    assert s.proxy_api == ""
