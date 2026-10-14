@@ -18,9 +18,11 @@ def test_env_example_parses_to_valid_settings(monkeypatch) -> None:
     load_dotenv(ROOT / ".env.example")
     # 不应抛 ConfigError（如 "10# 退避" 这种粘连会导致 int 解析失败）
     s = Settings.from_env()
-    assert s.max_retries == 10
+    assert s.max_retries == 4
+    assert s.request_timeout_sec == 2
     assert s.backoff_sec == 0.2
     assert s.backoff_cap_sec == 2.0
+    assert s.backoff_jitter_sec == 0.1
     assert s.proxy_timeout_sec == 8
     assert s.proxy_mode == "auto"
     assert s.proxy_direct_fails == 3

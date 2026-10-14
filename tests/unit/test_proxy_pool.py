@@ -47,6 +47,27 @@ def test_reuses_current_within_ttl() -> None:
     assert session.get.call_count == 1
 
 
+def test_least_in_flight_first_distribution() -> None:
+    # 分发按"在飞最少"选择：多 worker 并发不挤同一 IP，在飞计数被均匀压平
+    from collections import Counter
+
+    session = _session_returning(["1.1.1.1:8080", "2.2.2.2:8080", "3.3.3.3:8080"])
+    pool = ProxyPool(_settings(num=3), session)
+    got = [pool.acquire() for _ in range(6)]
+    # 3 IP 均摊 6 次取用（各 2 次），任何时刻在飞差 <=1
+    assert set(Counter(got).values()) == {2}
+    pool.release("1.1.1.1:8080")
+    pool.release("2.2.2.2:8080")
+    # 1.1/2.2 在飞 1、3.3 在飞 2 → 优先在飞最小者（并列保序取 1.1）
+    assert pool.acquire() == "1.1.1.1:8080"
+    # release 多余调用安全；report_failure 释放其在飞占用并淘汰
+    pool.release("3.3.3.3:8080")
+    pool.release("3.3.3.3:8080")  # 归零清除，多余调用安全
+    pool.report_failure("1.1.1.1:8080")
+    assert pool.acquire() == "3.3.3.3:8080"  # 1.1 已淘汰；3.3 在飞 0 优先于 2.2
+    assert session.get.call_count == 1  # 全程未回源
+
+
 def test_failure_then_standby_used_without_refill() -> None:
     # num=3 一次拉 3 个，current 失败后应优先用 standby，不再调代理 API
     session = _session_returning(["1.1.1.1:8080", "2.2.2.2:8080", "3.3.3.3:8080"])
@@ -106,6 +127,19 @@ def test_fetch_failure_degrades_to_none() -> None:
     session.get.side_effect = requests.RequestException("boom")
     pool = ProxyPool(_settings(), session)
     assert pool.acquire() is None
+
+
+def test_empty_refill_negative_cached_within_cooldown(monkeypatch) -> None:
+    # 回源空返回后，负缓存窗口内排队线程不得连环打代理 API
+    import em.core.proxy as proxymod
+
+    monkeypatch.setattr(proxymod, "_EMPTY_REFILL_COOLDOWN_SEC", 10)
+    session = MagicMock(spec=requests.Session)
+    session.get.side_effect = requests.RequestException("IP资源不足")
+    pool = ProxyPool(_settings(), session)
+    assert pool.acquire() is None
+    assert pool.acquire() is None
+    assert session.get.call_count == 1  # 第二次被负缓存拦截，未再请求代理源
 
 
 def test_unexpected_format_warns_and_degrades(caplog) -> None:

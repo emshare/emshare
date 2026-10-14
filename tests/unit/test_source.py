@@ -1,15 +1,14 @@
-"""EastMoneySource 5 个 fetch 的错误路径覆盖。
+"""EastMoneySource 6 个 fetch 的协议校验路径覆盖。
 
-两条路径 × 5 方法 = 10 用例：
-  - 非 JSONP 响应（代理错误页等）→ EmptyResponseError
-  - rc != 0（上游报错）→ ChannelError
+非 JSONP 错误页与 rc != 0 现在由传输层在返回文本前用 validator 拦截并换 IP
+（InvalidContentError）；本文件用执行真实 validator 的 HttpClient 桩锁住该契约。
 """
 
 import pytest
 
 from em.application import registry
-from em.channels.eastmoney.source import EastMoneySource
-from em.core.errors import ChannelError, EmptyResponseError
+from em.channels.eastmoney.source import EastMoneySource, _is_valid_payload
+from em.core.errors import InvalidContentError
 from em.domain.queries import (
     BoardFundFlowQuery,
     BoardListQuery,
@@ -21,12 +20,16 @@ from em.domain.queries import (
 
 
 class FakeClient:
-    """返回预设文本的 HttpClient 桩。"""
+    """返回预设文本的 HttpClient 桩：与真实传输层一致地执行协议校验。"""
 
     def __init__(self, text: str) -> None:
         self._text = text
 
-    def get_text(self, url: str, params: object, headers: object) -> str:
+    def get_text(
+        self, url: str, params: object, headers: object, validator: object = None
+    ) -> str:
+        if validator is not None and not validator(self._text):
+            raise InvalidContentError(f"桩：未通过校验: {self._text[:40]!r}")
         return self._text
 
 
@@ -51,18 +54,24 @@ _REQUESTS = [
 @pytest.mark.parametrize(
     "name,req", list(zip(_FETCH_NAMES, _REQUESTS, strict=True)), ids=_FETCH_NAMES
 )
-def test_non_jsonp_raises_empty(name: str, req: object) -> None:
-    """非 JSONP 响应（代理错误页等）→ EmptyResponseError。"""
+def test_non_jsonp_raises_invalid(name: str, req: object) -> None:
+    """非 JSONP 响应（代理错误页等）→ InvalidContentError。"""
     source = EastMoneySource(FakeClient("<html>502 Bad Gateway</html>"))
-    with pytest.raises(EmptyResponseError):
+    with pytest.raises(InvalidContentError):
         getattr(source, name)(req)
 
 
 @pytest.mark.parametrize(
     "name,req", list(zip(_FETCH_NAMES, _REQUESTS, strict=True)), ids=_FETCH_NAMES
 )
-def test_invalid_rc_raises_channel(name: str, req: object) -> None:
-    """rc != 0（上游报错）→ ChannelError。"""
+def test_invalid_rc_raises_invalid(name: str, req: object) -> None:
+    """rc != 0（上游报错）→ InvalidContentError。"""
     source = EastMoneySource(FakeClient('{"rc": 1, "data": null}'))
-    with pytest.raises(ChannelError):
+    with pytest.raises(InvalidContentError):
         getattr(source, name)(req)
+
+
+def test_valid_payload_predicate() -> None:
+    assert _is_valid_payload('{"rc":0,"data":{}}') is True
+    assert _is_valid_payload('{"rc":1,"data":null}') is False
+    assert _is_valid_payload("<html>bad gateway</html>") is False

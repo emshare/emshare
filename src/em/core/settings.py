@@ -75,9 +75,12 @@ class Settings:
     proxy_proxy_successes: int = 5
     proxy_cooldown_sec: int = 300
     request_timeout_sec: int = defaults.DEFAULT_TIMEOUT_SEC
+    request_connect_timeout_sec: int = defaults.DEFAULT_CONNECT_TIMEOUT_SEC
+    request_dynamic_timeout: bool = defaults.DEFAULT_REQUEST_DYNAMIC_TIMEOUT
     max_retries: int = defaults.DEFAULT_MAX_RETRIES
     backoff_sec: float = defaults.DEFAULT_BACKOFF_SEC
     backoff_cap_sec: float | None = defaults.DEFAULT_BACKOFF_CAP_SEC
+    backoff_jitter_sec: float = defaults.DEFAULT_BACKOFF_JITTER_SEC
 
     def __post_init__(self) -> None:
         if self.proxy_num < 1:
@@ -92,12 +95,16 @@ class Settings:
             raise ConfigError("proxy_proxy_successes 必须 >= 1")
         if self.proxy_cooldown_sec < 0:
             raise ConfigError("proxy_cooldown_sec 不能为负")
+        if self.request_connect_timeout_sec <= 0:
+            raise ConfigError("request_connect_timeout_sec 必须为正")
         if self.max_retries < 0:
             raise ConfigError("max_retries 不能为负")
         if self.backoff_sec < 0:
             raise ConfigError("backoff_sec 不能为负")
         if self.backoff_cap_sec is not None and self.backoff_cap_sec < 0:
             raise ConfigError("backoff_cap_sec 不能为负")
+        if self.backoff_jitter_sec < 0:
+            raise ConfigError("backoff_jitter_sec 不能为负")
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -113,9 +120,18 @@ class Settings:
             proxy_proxy_successes=_int_env("EM_PROXY_PROXY_SUCCESSES", 5),
             proxy_cooldown_sec=_int_env("EM_PROXY_COOLDOWN_SEC", 300),
             request_timeout_sec=_int_env("EM_REQUEST_TIMEOUT_SEC", defaults.DEFAULT_TIMEOUT_SEC),
+            request_connect_timeout_sec=_int_env(
+                "EM_REQUEST_CONNECT_TIMEOUT_SEC", defaults.DEFAULT_CONNECT_TIMEOUT_SEC
+            ),
+            request_dynamic_timeout=_bool_env(
+                "EM_REQUEST_DYNAMIC_TIMEOUT", defaults.DEFAULT_REQUEST_DYNAMIC_TIMEOUT
+            ),
             max_retries=_int_env("EM_MAX_RETRIES", defaults.DEFAULT_MAX_RETRIES),
             backoff_sec=_float_env("EM_BACKOFF_SEC", defaults.DEFAULT_BACKOFF_SEC),
             backoff_cap_sec=_float_env_or_none(
                 "EM_BACKOFF_CAP_SEC", defaults.DEFAULT_BACKOFF_CAP_SEC
+            ),
+            backoff_jitter_sec=_float_env(
+                "EM_BACKOFF_JITTER_SEC", defaults.DEFAULT_BACKOFF_JITTER_SEC
             ),
         )

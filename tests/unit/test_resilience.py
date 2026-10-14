@@ -28,6 +28,21 @@ def test_backoff_cap_equals_base() -> None:
         assert p.backoff_for(attempt) == pytest.approx(0.5)
 
 
+def test_backoff_flat_for_connection_errors() -> None:
+    # 换 IP 的连接/内容类失败：固定短退避，不随 attempt 指数增长
+    p = RetryPolicy(backoff_sec=0.2, backoff_cap_sec=2.0, connect_backoff_sec=0.1)
+    assert p.backoff_for(0, NetworkError("x")) == pytest.approx(0.1)
+    assert p.backoff_for(5, EmptyResponseError("x")) == pytest.approx(0.1)
+
+
+def test_backoff_exponential_for_rate_limited() -> None:
+    # 403/429 限流：保留指数退避
+    p = RetryPolicy(backoff_sec=0.2, backoff_cap_sec=2.0, connect_backoff_sec=0.1)
+    assert p.backoff_for(0, HttpStatusError(403)) == pytest.approx(0.2)
+    assert p.backoff_for(3, HttpStatusError(429)) == pytest.approx(1.6)
+    assert p.backoff_for(9, HttpStatusError(403)) == pytest.approx(2.0)
+
+
 def test_should_retry_only_retryable_channel_errors() -> None:
     assert should_retry(NetworkError("x")) is True
     assert should_retry(EmptyResponseError("x")) is True

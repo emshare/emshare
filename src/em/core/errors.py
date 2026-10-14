@@ -31,6 +31,12 @@ class EmptyResponseError(ChannelError):
     retryable = True
 
 
+class InvalidContentError(ChannelError):
+    """HTTP 200 但响应体不是预期协议（多为代理劫持/错误页）：可换 IP 重试。"""
+
+    retryable = True
+
+
 class HttpStatusError(ChannelError):
     """上游返回非预期状态码：5xx 与 403/429 可重试，其余 4xx 不可。"""
 
