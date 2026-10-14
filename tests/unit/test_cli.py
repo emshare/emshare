@@ -1,4 +1,4 @@
-"""CLI K 线展示选择的行为锁（不触网）。"""
+"""CLI 行为锁：渲染字段、展示切片、退出码与提示（不触网）。"""
 
 from em.cli import (
     _fmt_amount,
@@ -6,6 +6,7 @@ from em.cli import (
     _is_network_failure,
     _render_board_fund_flow,
     _render_fund_flow,
+    _render_quotes,
     _select_klines,
     main,
 )
@@ -15,7 +16,15 @@ from em.core.errors import (
     HttpStatusError,
     NetworkError,
 )
-from em.domain.models import BoardFundFlow, BoardFundFlowSeries, FundFlow, FundFlowSeries, Kline
+from em.domain.models import (
+    BoardFundFlow,
+    BoardFundFlowSeries,
+    FundFlow,
+    FundFlowSeries,
+    Kline,
+    Quote,
+    QuotePage,
+)
 
 
 def _items(n: int) -> tuple[Kline, ...]:
@@ -267,3 +276,53 @@ def test_main_no_hint_when_proxy_configured(monkeypatch, capsys) -> None:
     assert rc == 1
     err = capsys.readouterr().err
     assert "封禁" not in err
+
+
+# --- market-all 全市场快照预设 ---
+
+
+def _quotes(n: int) -> tuple[Quote, ...]:
+    return tuple(
+        Quote(code=f"{600000 + i}", name=f"股{i}", price=10.0 + i, change_pct=1.0 * i)
+        for i in range(n)
+    )
+
+
+def test_render_quotes_slices_and_total(capsys) -> None:
+    page = QuotePage(total=5580, items=_quotes(30))
+    _render_quotes(page, head=2, tail=2)
+    out = capsys.readouterr().out
+    assert "共 5580 条，本次返回 30 条" in out
+    assert "前 2 条" in out
+    assert "末 2 条" in out
+    assert "600000" in out and "600029" in out  # 首条与末条
+    assert out.count("最新价:") == 4  # 只渲染切片，不全打
+
+
+def test_render_quotes_default_last_20(capsys) -> None:
+    page = QuotePage(total=100, items=_quotes(30))
+    _render_quotes(page)
+    out = capsys.readouterr().out
+    assert "末 20 条" in out
+    assert out.count("最新价:") == 20
+
+
+def test_main_market_all_renders_without_paging(monkeypatch, capsys) -> None:
+    page = QuotePage(total=5580, items=_quotes(3))
+    monkeypatch.setattr("em.cli.stock_list_all_em", lambda: page)
+    rc = main(["--preset", "market-all", "--tail", "2"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "共 5580 条" in out
+    assert "末 2 条" in out
+
+
+def test_main_market_all_error_returns_1(monkeypatch, capsys) -> None:
+    def boom():
+        raise NetworkError("连接被断开")
+
+    monkeypatch.setattr("em.cli.stock_list_all_em", boom)
+    monkeypatch.setattr("em.cli.Settings.from_env", lambda: _FakeSettings(True, "auto"))
+    rc = main(["--preset", "market-all"])
+    assert rc == 1
+    assert "抓取失败" in capsys.readouterr().err

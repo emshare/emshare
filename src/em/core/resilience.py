@@ -46,7 +46,9 @@ def should_retry(exc: Exception) -> bool:
     return isinstance(exc, ChannelError) and exc.retryable
 
 
-def sleep_backoff(policy: RetryPolicy, attempt: int, exc: Exception | None = None) -> None:
+def sleep_backoff(policy: RetryPolicy, attempt: int, exc: Exception | None = None) -> float:
+    """退避 sleep 并返回实际等待秒数（0 = 未等待），供上层累计重试耗时。"""
     delay = policy.backoff_for(attempt, exc)
     if delay > 0:
         time.sleep(delay)
+    return delay

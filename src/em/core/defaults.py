@@ -9,6 +9,10 @@ DEFAULT_BACKOFF_CAP_SEC = 2.0
 DEFAULT_BACKOFF_JITTER_SEC = 0.1
 DEFAULT_PROXY_API = ""
 
+# 回源预筛：进池前并发探测批次 IP（应用层注入探测目标），判死的记黑名单不进池。
+# 实测死 IP 率时段性 0%~82%，死 IP 高发时段可省约一半业务重试成本
+DEFAULT_PROXY_PREFILTER = True
+
 # 动态读超时（P95 滑动窗口）：按直连/代理分桶统计最近成功请求耗时，
 # 读超时 = clamp(P95 × 倍数, 下限, 静态配置)。失败尝试不入窗，避免慢请求拉高 P95 的正反馈。
 DEFAULT_REQUEST_DYNAMIC_TIMEOUT = True

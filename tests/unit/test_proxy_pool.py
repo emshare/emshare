@@ -1,5 +1,6 @@
-"""ProxyPool 行为锁：TTL 复用、失败后优先用 standby、过期才回源（不触网）。"""
+"""ProxyPool 行为锁：TTL 复用、失败后优先用 standby、过期才回源、预筛与耗时（不触网）。"""
 
+import time
 from unittest.mock import MagicMock
 
 import pytest
@@ -175,6 +176,99 @@ def test_failed_ip_not_immediately_reused() -> None:
     pool.report_failure("1.1.1.1:8080")
     # refill 应跳过黑名单中的 1.1.1.1，拿到 2.2.2.2
     assert pool.acquire() == "2.2.2.2:8080"
+
+
+# --- 回源预筛 ---
+
+
+def test_prefilter_rejects_dead_ips_before_pool() -> None:
+    # prober 判死的 IP 记黑名单不进池，只有存活的被采纳
+    session = _session_sequence(["1.1.1.1:8080", "2.2.2.2:8080", "3.3.3.3:8080", "9.9.9.9:8080"])
+    verdicts = {"1.1.1.1:8080": False, "2.2.2.2:8080": True, "3.3.3.3:8080": True}
+    pool = ProxyPool(_settings(num=3), session, prober=lambda ip: verdicts.get(ip, True))
+    assert pool.acquire() == "2.2.2.2:8080"  # 1.1.1.1 被筛死，2.2.2.2 为首个存活
+    assert "1.1.1.1:8080" in pool._failed_at  # noqa: SLF001
+    assert pool.stats()["prefilter_rejected"] == 1
+
+
+def test_prefilter_all_dead_degrades_then_recovers(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 整批筛死 → 暂停预筛一个窗口：窗口内 refill 跳过探测直接进池（业务自然淘汰），
+    # 窗口过后自动恢复探测——极差时段不空转，好时段保持拦截
+    fake_now = [0.0]
+    monkeypatch.setattr("em.core.proxy.time.monotonic", lambda: fake_now[0])
+    session = _session_sequence(
+        ["1.1.1.1:8080", "2.2.2.2:8080", "3.3.3.3:8080", "4.4.4.4:8080"]
+    )
+    calls: list[str] = []
+
+    def prober(ip: str) -> bool:
+        calls.append(ip)
+        return False  # 全部判死
+
+    pool = ProxyPool(_settings(num=1, ttl_sec=60), session, prober=prober)
+    assert pool.acquire() == "2.2.2.2:8080"  # 首批预筛全死 → 暂停 → 第 2 批直接进池
+    assert calls == ["1.1.1.1:8080"]  # 暂停期不再探测
+    assert pool.stats()["prefilter_rejected"] == 1
+
+    fake_now[0] = 11.0  # 窗口（10s）过期
+    pool.report_failure("2.2.2.2:8080")  # 淘汰在池 IP，强制下次 refill
+    # 恢复探测：3.3.3.3 筛死再次触发暂停 → 第 2 批 4.4.4.4 直接进池
+    assert pool.acquire() == "4.4.4.4:8080"
+    assert calls == ["1.1.1.1:8080", "3.3.3.3:8080"]
+
+
+def test_prefilter_alive_resets_pause() -> None:
+    # 批内有存活 → 不触发降级窗口，后续 refill 继续正常预筛
+    session = MagicMock(spec=requests.Session)
+    session.get.side_effect = [
+        MagicMock(text="1.1.1.1:8080\n1.1.1.2:8080"),
+        MagicMock(text="2.2.2.2:8080\n2.2.2.3:8080"),
+    ]
+    seen: list[str] = []
+
+    def prober(ip: str) -> bool:
+        seen.append(ip)
+        return ip != "1.1.1.1:8080"  # 第 1 批一死一活，之后全活
+
+    pool = ProxyPool(_settings(num=2), session, prober=prober)
+    assert pool.acquire() == "1.1.1.2:8080"
+    pool.report_failure("1.1.1.2:8080")
+    assert pool.acquire() == "2.2.2.2:8080"  # 第 2 批仍正常预筛（未降级）
+    assert seen == [
+        "1.1.1.1:8080",
+        "1.1.1.2:8080",
+        "2.2.2.2:8080",
+        "2.2.2.3:8080",
+    ]
+
+
+def test_prefilter_none_keeps_legacy_behavior() -> None:
+    # 未注入 prober：完全不预筛，行为与旧版一致
+    session = _session_sequence(["1.1.1.1:8080", "2.2.2.2:8080"])
+    pool = ProxyPool(_settings(num=1), session, prober=None)
+    assert pool.acquire() == "1.1.1.1:8080"
+    pool.report_failure("1.1.1.1:8080")
+    assert pool.acquire() == "2.2.2.2:8080"
+    assert pool.stats()["prefilter_rejected"] == 0
+
+
+def test_prefilter_marks_dead_for_refill_skip() -> None:
+    # 预筛判死的 IP 进入黑名单：后续回源命中同一 IP 时直接跳过（不再重复预筛）
+    session = _session_sequence(["1.1.1.1:8080", "1.1.1.1:8080", "2.2.2.2:8080"])
+    pool = ProxyPool(_settings(num=1), session, prober=lambda ip: ip != "1.1.1.1:8080")
+    assert pool.acquire() == "2.2.2.2:8080"  # 第 1 批筛死 → 第 2 批同 IP 被黑名单跳过
+    assert session.get.call_count == 3
+    assert pool.stats()["prefilter_rejected"] == 1
+
+
+def test_prefilter_and_refill_time_accumulated() -> None:
+    # 代理段耗时计算：回源与预筛的墙钟耗时分别累计，供端到端归因
+    session = _session_sequence(["1.1.1.1:8080"])
+    pool = ProxyPool(_settings(num=1), session, prober=lambda _ip: time.sleep(0.02) or True)
+    assert pool.acquire() == "1.1.1.1:8080"
+    stats = pool.stats()
+    assert stats["refill_sec"] > 0.0
+    assert stats["prefilter_sec"] >= 0.02
 
 
 def test_blacklist_exhausted_falls_back_to_hard_use() -> None:

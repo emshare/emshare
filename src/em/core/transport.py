@@ -66,6 +66,7 @@ class HttpClient:
             "proxy_requests": 0,
             "proxy_sec": 0.0,
             "proxy_wait_sec": 0.0,  # acquire 阻塞时长（代理 API 回源等待）
+            "backoff_sec": 0.0,  # 换 IP 重试的退避等待累计
             "failed_attempts": 0,
         }
 
@@ -116,7 +117,10 @@ class HttpClient:
             finally:
                 # 无论成败归还取用，驱动代理池"最少在飞优先"的分发计数
                 self._router.release(proxy)
-            sleep_backoff(self._policy, attempt, last_exc)
+            delay = sleep_backoff(self._policy, attempt, last_exc)
+            if delay > 0:
+                with self._timing_lock:
+                    self._timing["backoff_sec"] += delay
         if last_exc is None:
             raise RuntimeError("未执行请求（max_retries < 0）")
         raise last_exc
@@ -161,6 +165,10 @@ class HttpClient:
         """只读耗时统计快照：直连/代理分桶请求数与耗时、代理获取等待、失败尝试数。"""
         with self._timing_lock:
             return dict(self._timing)
+
+    def proxy_stats(self) -> dict[str, Any]:
+        """代理池健康指标透传（回源/预筛耗时等），供上层日志归因。"""
+        return self._router.stats().get("pool", {})
 
     def evict_last_proxy(self, url: str) -> None:
         """淘汰该 host 最近一次请求使用的代理 IP（如应用层检测到旧快照），不动路由状态机。"""

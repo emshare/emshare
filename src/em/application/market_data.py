@@ -19,6 +19,7 @@ from em.application.dataframe import (
     to_kline_dataframe,
     to_trend_dataframe,
 )
+from em.channels.eastmoney import config as em_config
 from em.core.proxy import ProxyPool, ProxyRouter, ProxySettings
 from em.core.resilience import RetryPolicy
 from em.core.settings import Settings
@@ -47,13 +48,33 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-# 东财游客 clist 单页条数硬上限（pz 超出 100 会被静默截断）
+# 东财游客 clist 单页条数硬上限（pz 超出 100 会被静默截断为 100，不会返回报错）
 _CLIST_PAGE_SIZE_MAX = 100
 # 全量快照固定按代码排序：f3 等行情字段盘中实时跳动，并发翻页时窗口漂移会导致
 # 跨页大面积重复（实测 56 页放大到 346 次请求）；代码序几乎不变，1:1 无重复。
 _CLIST_SNAPSHOT_SORT = "f12"
 # 全量翻页默认并发度（有界并发，过高易触发代理源限频与东财封禁）
 _DEFAULT_FETCH_WORKERS = 5
+# 回源预筛探测地址：极小 clist 请求（pz=1），1.5s 内拿不到有效 JSONP 视为死 IP
+_PROXY_PROBE_URL = (
+    "https://pushguest.eastmoney.com/api/qt/clist/get"
+    "?pn=1&pz=1&po=1&np=1&fltt=2&invt=2&fid=f12&fs=m:0+t:6&fields=f12"
+)
+_PROXY_PROBE_TIMEOUT = (1.0, 1.5)  # (连接, 读取)：死 IP 多卡连接或短读超时
+_probe_session = requests.Session()  # 预筛探测复用连接（低频、多代理出口）
+
+
+def _probe_proxy(ip: str) -> bool:
+    """预筛探测：该代理 IP 能否在 1.5s 内拿到东财有效 JSONP。线程安全。"""
+    proxies = {"http": f"http://{ip}", "https": f"http://{ip}"}
+    try:
+        resp = _probe_session.get(
+            _PROXY_PROBE_URL, headers=em_config.HEADERS,
+            proxies=proxies, timeout=_PROXY_PROBE_TIMEOUT,
+        )
+    except requests.RequestException:
+        return False
+    return resp.status_code == 200 and '"rc"' in resp.text
 
 
 @functools.lru_cache(maxsize=8)
@@ -75,7 +96,9 @@ def _build_client(settings: Settings) -> HttpClient:
         proxy_successes=settings.proxy_proxy_successes,
         cooldown_sec=settings.proxy_cooldown_sec,
     )
-    pool = ProxyPool(ps, session)
+    pool = ProxyPool(
+        ps, session, prober=_probe_proxy if settings.proxy_prefilter else None
+    )
     router = ProxyRouter(pool, ps)
     policy = RetryPolicy(
         max_retries=settings.max_retries,
@@ -260,17 +283,23 @@ def stock_list_all_em(
 
     if len(seen) < total:
         log.warning("全量拉取不完整：唯一 %d < total %d（代理资源不足）", len(seen), total)
+    # 端到端耗时分解：请求分桶 + 代理获取（回源/预筛）+ 重试退避，每一秒可归因
+    ts = client.timing_stats()
+    pool = client.proxy_stats()
     log.info(
-        "请求耗时统计：直连 %d 次 %.2fs（均 %.3fs），代理 %d 次 %.2fs（均 %.3fs），"
-        "代理获取等待 %.2fs，失败尝试 %d",
-        client.timing_stats()["direct_requests"],
-        client.timing_stats()["direct_sec"],
-        client.timing_stats()["direct_sec"] / max(client.timing_stats()["direct_requests"], 1),
-        client.timing_stats()["proxy_requests"],
-        client.timing_stats()["proxy_sec"],
-        client.timing_stats()["proxy_sec"] / max(client.timing_stats()["proxy_requests"], 1),
-        client.timing_stats()["proxy_wait_sec"],
-        client.timing_stats()["failed_attempts"],
+        "请求耗时统计：直连 %d 次 %.2fs（均 %.3fs）｜代理 %d 次 %.2fs（均 %.3fs）｜"
+        "代理获取等待 %.2fs（回源 %.2fs + 预筛 %.2fs）｜重试退避 %.2fs｜失败尝试 %d",
+        ts["direct_requests"],
+        ts["direct_sec"],
+        ts["direct_sec"] / max(ts["direct_requests"], 1),
+        ts["proxy_requests"],
+        ts["proxy_sec"],
+        ts["proxy_sec"] / max(ts["proxy_requests"], 1),
+        ts["proxy_wait_sec"],
+        pool.get("refill_sec", 0.0),
+        pool.get("prefilter_sec", 0.0),
+        ts["backoff_sec"],
+        ts["failed_attempts"],
     )
     # 按代码排序输出：并发抓取的 dict 插入序是页完成序，对调用方不稳定
     return QuotePage(total=total, items=tuple(sorted(seen.values(), key=lambda q: q.code)))
@@ -292,6 +321,16 @@ def df_stock_list_em(
 ) -> pd.DataFrame:
     """``stock_list_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
     return to_dataframe(stock_list_em(query, settings), columns)
+
+
+def df_stock_list_all_em(
+    settings: Settings | None = None,
+    max_rounds: int = 5,
+    workers: int = _DEFAULT_FETCH_WORKERS,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``stock_list_all_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_dataframe(stock_list_all_em(settings=settings, max_rounds=max_rounds, workers=workers), columns)
 
 
 def stock_kline_em(

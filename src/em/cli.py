@@ -12,6 +12,7 @@ from em.application.market_data import (
     board_industry_list_em,
     stock_fund_flow_em,
     stock_kline_em,
+    stock_list_all_em,
     stock_list_em,
     stock_trends_em,
 )
@@ -25,6 +26,7 @@ from em.domain.models import (
     FundFlowSeries,
     Kline,
     KlineSeries,
+    Quote,
     QuotePage,
     TrendSeries,
 )
@@ -54,21 +56,37 @@ def _fmt_amount(value: float | None) -> str:
     return f"{value:.2f}"
 
 
+def _quote_line(quote: Quote) -> str:
+    cols = [
+        f"{quote.code:<8}",
+        f"{quote.name:<10}",
+        f"最新价:{_fmt(quote.price, '>8.2f')}",
+        f"涨跌幅:{_fmt(quote.change_pct, '>6.2f')}%",
+    ]
+    if quote.main_net_inflow is not None:
+        cols.append(f"主力净流入:{quote.main_net_inflow:>16.0f}")
+    if quote.turnover is not None:
+        cols.append(f"成交额:{quote.turnover:>16.0f}")
+    return "  " + "  ".join(cols)
+
+
 def _render(page: QuotePage) -> None:
     print(f"\n✅ 共 {page.total} 条，本次返回 {len(page.items)} 条")
     print("-" * 90)
     for quote in page.items:
-        cols = [
-            f"{quote.code:<8}",
-            f"{quote.name:<10}",
-            f"最新价:{_fmt(quote.price, '>8.2f')}",
-            f"涨跌幅:{_fmt(quote.change_pct, '>6.2f')}%",
-        ]
-        if quote.main_net_inflow is not None:
-            cols.append(f"主力净流入:{quote.main_net_inflow:>16.0f}")
-        if quote.turnover is not None:
-            cols.append(f"成交额:{quote.turnover:>16.0f}")
-        print("  " + "  ".join(cols))
+        print(_quote_line(quote))
+    print("-" * 90)
+
+
+def _render_quotes(page: QuotePage, head: int | None = None, tail: int | None = None) -> None:
+    """全市场快照渲染：5580 条不全打，按 head/tail 切片展示（默认末 20 条）。"""
+    parts = _select_slices(page.items, head, tail)
+    print(f"\n✅ 共 {page.total} 条，本次返回 {len(page.items)} 条")
+    print("-" * 90)
+    for label, shown in parts:
+        print(f"—— {label} ——")
+        for quote in shown:
+            print(_quote_line(quote))
     print("-" * 90)
 
 
@@ -213,7 +231,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="东方财富行情抓取（动态代理 + 自动重试）")
     ap.add_argument(
         "--preset",
-        choices=["board", "market", "kline", "trends", "fundflow", "boardflow", "boardlist"],
+        choices=["board", "market", "market-all", "kline", "trends", "fundflow", "boardflow", "boardlist"],
         default="board",
         help="接口预设",
     )
@@ -247,13 +265,13 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--head",
         type=int,
         default=None,
-        help="展示前 N 条（kline/fundflow 预设，0=全部，可与 --tail 同时使用）",
+        help="展示前 N 条（kline/fundflow/market-all 预设，0=全部，可与 --tail 同时使用）",
     )
     ap.add_argument(
         "--tail",
         type=int,
         default=None,
-        help="展示末 N 条（kline/fundflow 预设，0=全部，可与 --head 同时使用）",
+        help="展示末 N 条（kline/fundflow/market-all 预设，0=全部，可与 --head 同时使用）",
     )
     ap.add_argument("--pn", type=int, default=1, help="页码")
     ap.add_argument("--pz", type=int, default=None, help="每页条数")
@@ -298,6 +316,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.preset == "market":
             page = stock_list_em(MarketQuery(sort=args.sort, page=args.pn, size=args.pz or 20))
             _render(page)
+        elif args.preset == "market-all":
+            # 全市场快照（约 56 页并发翻页），结果按代码升序，切片展示
+            _render_quotes(stock_list_all_em(), head=args.head, tail=args.tail)
         elif args.preset == "kline":
             series = stock_kline_em(
                 KlineQuery(

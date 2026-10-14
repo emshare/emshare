@@ -3,12 +3,13 @@
 与 LoongSoar 的 ProxyPool 同构，但只保留抓取所需的判据（不引入连接层跨 origin 启发式）。
 """
 
+import concurrent.futures
 import logging
 import re
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 import requests
 
@@ -70,11 +71,28 @@ def fetch_proxies(settings: ProxySettings, session: requests.Session) -> list[st
 
 
 class ProxyPool:
-    """短效动态代理池。``enabled=False`` 时 ``acquire`` 返回 None（走直连）。"""
+    """短效动态代理池。``enabled=False`` 时 ``acquire`` 返回 None（走直连）。
 
-    def __init__(self, settings: ProxySettings, session: requests.Session) -> None:
+    ``prober`` 为可选的回源预筛回调（``ip -> bool``，True=可用）：死 IP 高发时段
+    在进池前并发探测，判死的直接记黑名单，避免死 IP 的识别成本由业务请求承担。
+    渠道无关：探测目标由调用方（应用层）注入，``None`` 时完全不预筛。
+    """
+
+    # 预筛并发度与超时由探测回调自持，池内仅控制并发线程上限
+    _PREFILTER_WORKERS = 4
+    # 预筛自适应降级窗口：整批筛死时暂停预筛，直接进池由业务自然淘汰（并发摊薄），
+    # 窗口过后自动试探恢复——极差时段预筛在单飞锁内空转（14s/6 批实测），暂停可省大半
+    _PREFILTER_OFF_WINDOW_SEC = 10.0
+
+    def __init__(
+        self,
+        settings: ProxySettings,
+        session: requests.Session,
+        prober: Callable[[str], bool] | None = None,
+    ) -> None:
         self._settings = settings
         self._session = session
+        self._prober = prober
         self._current: str | None = None
         self._fetched_at = 0.0
         self._standby: list[str] = []
@@ -83,8 +101,17 @@ class ProxyPool:
         self._lock = threading.Lock()  # 仅保护上述内存状态，临界区内禁止网络调用
         self._refill_lock = threading.Lock()  # 回源单飞：并发缺 IP 时只发起一次代理 API 请求
         self._empty_at = -float("inf")  # 最近一次回源空返回时刻（负缓存哨兵，见模块常量）
-        # 健康指标（只读快照见 stats()）：回源调用/空返回、采纳 IP 数、失败上报次数
-        self._stats = {"fetch_calls": 0, "fetch_empty": 0, "ips_adopted": 0, "ip_failures": 0}
+        self._prefilter_off_until = -float("inf")  # 预筛降级截止时刻（整批筛死后暂停一个窗口）
+        # 健康指标（只读快照见 stats()）：回源调用/空返回/耗时、采纳 IP 数、失败上报次数
+        self._stats = {
+            "fetch_calls": 0,
+            "fetch_empty": 0,
+            "ips_adopted": 0,
+            "ip_failures": 0,
+            "prefilter_rejected": 0,  # 预筛判死未进池的 IP 数
+            "refill_sec": 0.0,  # 代理 API 回源耗时累计（含在单飞锁内，并发线程等待会放大）
+            "prefilter_sec": 0.0,  # 回源预筛探测的墙钟耗时累计（批次内并发）
+        }
 
     @property
     def enabled(self) -> bool:
@@ -171,9 +198,11 @@ class ProxyPool:
             self._purge_failures()
         fetched: list[str] = []
         for _ in range(3):
+            t0 = time.monotonic()
             fetched = fetch_proxies(self._settings, self._session)
             with self._lock:
                 self._stats["fetch_calls"] += 1
+                self._stats["refill_sec"] += time.monotonic() - t0
             if not fetched:
                 with self._lock:
                     self._empty_at = time.monotonic()
@@ -181,11 +210,47 @@ class ProxyPool:
                 return None
             with self._lock:
                 blacklist = set(self._failed_at)
+                prefilter_paused = time.monotonic() < self._prefilter_off_until
             fresh = [ip for ip in fetched if ip not in blacklist]
             if fresh:
-                return self._adopt(fresh)
-        # 连续 3 批全在黑名单（IP 池太小），硬用最后一批避免拿不到代理
+                if prefilter_paused:
+                    # 降级窗口内：跳过预筛直接进池，死 IP 由业务请求自然淘汰（并发摊薄）
+                    return self._adopt(fresh)
+                alive = self._prefilter(fresh)
+                if alive:
+                    return self._adopt(alive)
+                # 整批筛死：继续下一轮回源换批（3 轮后硬用兜底）
+        # 连续 3 批全在黑名单/筛死（IP 池太小），硬用最后一批避免拿不到代理
         return self._adopt(fetched)
+
+    def _prefilter(self, ips: list[str]) -> list[str]:
+        """回源预筛：并发探测批次 IP，判死的记黑名单不进池；无 prober 原样返回。
+
+        判死即等同一次失败上报（黑名单 TTL 内不再取用）。整批全死时设置降级窗口
+        （``_PREFILTER_OFF_WINDOW_SEC``），窗口内的 refill 跳过预筛直接进池——
+        极差时段探测是单飞锁内空转，业务撞死可被 worker 并发摊薄，成本更低。
+        """
+        if self._prober is None:
+            return ips
+        t0 = time.monotonic()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self._PREFILTER_WORKERS) as ex:
+            alive_flags = list(ex.map(self._prober, ips))
+        alive = [ip for ip, ok in zip(ips, alive_flags) if ok]
+        dead = [ip for ip, ok in zip(ips, alive_flags) if not ok]
+        if dead:
+            now = time.monotonic()
+            with self._lock:
+                for ip in dead:
+                    self._failed_at[ip] = now
+                self._stats["prefilter_rejected"] += len(dead)
+                if not alive:
+                    # 整批全死：时段极差，暂停预筛一个窗口（探测空转，业务撞死更省）
+                    self._prefilter_off_until = now + self._PREFILTER_OFF_WINDOW_SEC
+                    log.info("预筛整批全死，暂停 %.0fs 由业务请求自然淘汰", self._PREFILTER_OFF_WINDOW_SEC)
+            log.info("预筛淘汰 %d/%d 个死 IP（本批存活 %d）", len(dead), len(ips), len(alive))
+        with self._lock:
+            self._stats["prefilter_sec"] += time.monotonic() - t0
+        return alive
 
     def _adopt(self, ips: list[str]) -> str:
         """把一批回源 IP 写为 current + standby，并给发出的首个计入飞。"""

@@ -10,6 +10,8 @@ src/em/channels/eastmoney/                 docs/interfaces/eastmoney/
 │   └── board_industry_list/    # 板块列表      │   └── board_industry_list_em.md
 ├── ashare_stocks/              # 沪深京个股    ├── ashare_stocks/
 │   ├── stock_list/             # 个股列表      │   ├── stock_list_em.md
+│   │                           # (全量翻页在   │   └── stock_list_all_em.md
+│   │                           #  应用层)      │
 │   ├── stock_fund_flow/        # 个股资金流    │   ├── stock_fund_flow_em.md
 │   ├── stock_kline/            # K线(个股+指数)│   ├── stock_kline_em.md
 │   └── stock_trends/           # 分时(个股+指数)│   └── stock_trends_em.md

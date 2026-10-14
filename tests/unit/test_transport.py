@@ -115,6 +115,20 @@ def test_timing_stats_buckets_direct_and_proxy():
     assert stats["failed_attempts"] == 0
 
 
+def test_backoff_sec_accumulated_on_retry():
+    # 换 IP 重试的退避等待累计进 timing（IP 质量成本的等待分量）
+    router = _router_returning([f"1.1.1.{i}:8080" for i in range(1, 20)])
+    session = MagicMock(spec=requests.Session)
+    session.get.side_effect = requests.ConnectionError("boom")
+    client = HttpClient(
+        session, router, RetryPolicy(max_retries=2, backoff_sec=0.05, jitter_sec=0.0), timeout_sec=5
+    )
+    with pytest.raises(NetworkError):
+        client.get_text("http://x", {}, {})
+    # NetworkError 非限流类：每次固定 connect_backoff 0.1s，2 次重试共 0.2s
+    assert client.timing_stats()["backoff_sec"] == pytest.approx(0.2)
+
+
 def test_evict_last_proxy_removes_ip_without_touching_router_state():
     # 应用层发现坏 IP（如旧快照）时定点淘汰，路由状态机不动（不创建 host 态、不计失败）
     session_for_pool = MagicMock(spec=requests.Session)

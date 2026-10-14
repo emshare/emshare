@@ -71,6 +71,7 @@ class Settings:
     proxy_safety_margin_sec: int = 3
     proxy_timeout_sec: int = 8
     proxy_mode: ProxyMode = "auto"
+    proxy_prefilter: bool = defaults.DEFAULT_PROXY_PREFILTER
     proxy_direct_fails: int = 3
     proxy_proxy_successes: int = 5
     proxy_cooldown_sec: int = 300
@@ -116,6 +117,7 @@ class Settings:
             proxy_safety_margin_sec=_int_env("EM_PROXY_SAFETY_MARGIN_SEC", 3),
             proxy_timeout_sec=_int_env("EM_PROXY_TIMEOUT_SEC", 8),
             proxy_mode=_mode_env("EM_PROXY_MODE", "auto"),
+            proxy_prefilter=_bool_env("EM_PROXY_PREFILTER", defaults.DEFAULT_PROXY_PREFILTER),
             proxy_direct_fails=_int_env("EM_PROXY_DIRECT_FAILS", 3),
             proxy_proxy_successes=_int_env("EM_PROXY_PROXY_SUCCESSES", 5),
             proxy_cooldown_sec=_int_env("EM_PROXY_COOLDOWN_SEC", 300),
