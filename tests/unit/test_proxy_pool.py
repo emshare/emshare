@@ -271,6 +271,91 @@ def test_prefilter_and_refill_time_accumulated() -> None:
     assert stats["prefilter_sec"] >= 0.02
 
 
+# --- 多源冗余（主源免费/备用收费） ---
+
+
+def _multi_source_pool(session: requests.Session, ttl_sec: int = 60) -> tuple[ProxyPool, str, str]:
+    primary, backup = "http://p/get", "http://b/get"
+    settings = ProxySettings(api=f"{primary},{backup}", num=1, ttl_sec=ttl_sec)
+    return ProxyPool(settings, session), primary, backup
+
+
+def _urls(session: MagicMock) -> list[str]:
+    return [c.args[0] for c in session.get.call_args_list]
+
+
+def test_multi_source_fallback_on_empty_primary() -> None:
+    # 主源空返回（限频文案）→ 同一次 refill 立即试备用源，并设置降级窗口
+    session = MagicMock(spec=requests.Session)
+    session.get.side_effect = [
+        MagicMock(text="IP资源不足"),
+        MagicMock(text="5.5.5.5:8080"),
+    ]
+    pool, primary, backup = _multi_source_pool(session)
+    assert pool.acquire() == "5.5.5.5:8080"
+    assert _urls(session) == [primary, backup]
+
+
+def test_multi_source_failover_window_skips_primary(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 降级窗口内 refill 直接用备用源，不再先撞一次慢/挂的主源
+    fake_now = [0.0]
+    monkeypatch.setattr("em.core.proxy.time.monotonic", lambda: fake_now[0])
+    session = MagicMock(spec=requests.Session)
+    session.get.side_effect = [
+        MagicMock(text="fail"),
+        MagicMock(text="5.5.5.5:8080"),
+        MagicMock(text="6.6.6.6:8080"),
+    ]
+    pool, primary, backup = _multi_source_pool(session)
+    assert pool.acquire() == "5.5.5.5:8080"
+    pool.report_failure("5.5.5.5:8080")
+    assert pool.acquire() == "6.6.6.6:8080"  # 窗口内：跳过主源
+    assert _urls(session) == [primary, backup, backup]
+
+
+def test_multi_source_failover_recovers_after_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_now = [0.0]
+    monkeypatch.setattr("em.core.proxy.time.monotonic", lambda: fake_now[0])
+    session = MagicMock(spec=requests.Session)
+    session.get.side_effect = [
+        MagicMock(text="fail"),
+        MagicMock(text="5.5.5.5:8080"),
+        MagicMock(text="6.6.6.6:8080"),
+    ]
+    pool, primary, backup = _multi_source_pool(session)
+    assert pool.acquire() == "5.5.5.5:8080"
+    pool.report_failure("5.5.5.5:8080")
+    assert pool.acquire() == "6.6.6.6:8080"
+
+    fake_now[0] = 61.0  # 窗口过期：恢复主源试探
+    session.get.side_effect = [MagicMock(text="7.7.7.7:8080")]
+    pool.report_failure("6.6.6.6:8080")
+    assert pool.acquire() == "7.7.7.7:8080"
+    assert _urls(session)[-1] == primary
+
+
+def test_multi_source_fallback_on_slow_primary(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 主源回源超 3s（疑似限流降速，上次实测均 5.6s）→ 采纳 IP 同时设降级窗口
+    fake_now = [0.0]
+    monkeypatch.setattr("em.core.proxy.time.monotonic", lambda: fake_now[0])
+    primary, backup = "http://p/get", "http://b/get"
+    session = MagicMock(spec=requests.Session)
+
+    def slow_get(url, **_):
+        if url == primary:
+            fake_now[0] += 4.0
+            return MagicMock(text="5.5.5.5:8080")
+        fake_now[0] += 0.1
+        return MagicMock(text="6.6.6.6:8080")
+
+    session.get.side_effect = slow_get
+    pool, _, _ = _multi_source_pool(session)
+    assert pool.acquire() == "5.5.5.5:8080"  # 慢但有 IP：采纳并降级
+    pool.report_failure("5.5.5.5:8080")
+    assert pool.acquire() == "6.6.6.6:8080"  # 窗口内用备用
+    assert _urls(session)[-1] == backup
+
+
 def test_blacklist_exhausted_falls_back_to_hard_use() -> None:
     # IP 池只有 1 个 IP，失败后 3 次重拉都拿到它 → 硬用（避免拿不到代理）
     session = _session_sequence(["1.1.1.1:8080"])

@@ -55,12 +55,16 @@ class ProxySettings:
             raise ConfigError("cooldown_sec 不能为负")
 
 
-def fetch_proxies(settings: ProxySettings, session: requests.Session) -> list[str]:
-    """从代理源取一批 'ip:port'；失败返回空列表（退化直连，不抛异常）。"""
+def fetch_proxies(
+    settings: ProxySettings, session: requests.Session, url: str | None = None
+) -> list[str]:
+    """从代理源取一批 'ip:port'；失败返回空列表（退化直连，不抛异常）。
+
+    ``url`` 缺省取 ``settings.api`` 首个源（多源逗号分隔，主源在前）。
+    """
+    url = url or settings.api.split(",")[0].strip()
     try:
-        text = session.get(
-            settings.api, timeout=(_PROXY_API_CONNECT_TIMEOUT_SEC, settings.timeout_sec)
-        ).text.strip()
+        text = session.get(url, timeout=(_PROXY_API_CONNECT_TIMEOUT_SEC, settings.timeout_sec)).text.strip()
     except requests.RequestException as exc:
         log.debug("获取代理失败: %s", exc)
         return []
@@ -83,6 +87,10 @@ class ProxyPool:
     # 预筛自适应降级窗口：整批筛死时暂停预筛，直接进池由业务自然淘汰（并发摊薄），
     # 窗口过后自动试探恢复——极差时段预筛在单飞锁内空转（14s/6 批实测），暂停可省大半
     _PREFILTER_OFF_WINDOW_SEC = 10.0
+    # 多源降级：主源（如免费源）空返回/异常/回源超慢（疑似限流）时改用备用源，
+    # 降级窗口内跳过主源避免每轮回源都先撞一次慢源，窗口过后自动试探恢复
+    _PRIMARY_SLOW_SEC = 3.0
+    _PRIMARY_FAILOVER_SEC = 60.0
 
     def __init__(
         self,
@@ -93,6 +101,9 @@ class ProxyPool:
         self._settings = settings
         self._session = session
         self._prober = prober
+        # 多源：EM_PROXY_API 逗号分隔，首个为主源（免费），其余备用（收费）
+        self._apis: list[str] = [u.strip() for u in settings.api.split(",") if u.strip()]
+        self._primary_off_until = -float("inf")  # 主源降级截止时刻
         self._current: str | None = None
         self._fetched_at = 0.0
         self._standby: list[str] = []
@@ -185,6 +196,38 @@ class ProxyPool:
         expire_at = self._fetched_at + self._settings.ttl_sec - self._settings.safety_margin_sec
         return time.monotonic() < expire_at
 
+    def _fetch_batch(self) -> list[str]:
+        """按源顺序回源取一批 IP：主源空返回/异常/超慢 → 降级备用源并设窗口。
+
+        降级窗口内跳过主源（每轮回源不再先撞一次慢源）；单源配置行为与旧版一致。
+        回源调用计数与耗时在此累计（多源重试的时间全部计入 refill_sec）。
+        """
+        now = time.monotonic()
+        primary_off = now < self._primary_off_until
+        urls = self._apis[1:] if primary_off else self._apis  # 降级期只用备用源
+        primary = self._apis[0] if self._apis else ""
+        for url in urls:
+            t0 = time.monotonic()
+            ips = fetch_proxies(self._settings, self._session, url)
+            elapsed = time.monotonic() - t0
+            with self._lock:
+                self._stats["fetch_calls"] += 1
+                self._stats["refill_sec"] += elapsed
+            if ips:
+                if url == primary and not primary_off and elapsed > self._PRIMARY_SLOW_SEC:
+                    with self._lock:
+                        self._primary_off_until = now + self._PRIMARY_FAILOVER_SEC
+                    log.warning(
+                        "主源回源 %.1fs 超过 %.0fs（疑似限流），降级备用源 %.0fs",
+                        elapsed, self._PRIMARY_SLOW_SEC, self._PRIMARY_FAILOVER_SEC,
+                    )
+                return ips
+            if url == primary and not primary_off:
+                with self._lock:
+                    self._primary_off_until = time.monotonic() + self._PRIMARY_FAILOVER_SEC
+                log.warning("主源回源空返回/异常，降级备用源 %.0fs", self._PRIMARY_FAILOVER_SEC)
+        return []
+
     def _refill(self) -> str | None:
         """回源拉取，跳过近期失败 IP（最多重拉 3 次避免死循环）。
 
@@ -198,11 +241,7 @@ class ProxyPool:
             self._purge_failures()
         fetched: list[str] = []
         for _ in range(3):
-            t0 = time.monotonic()
-            fetched = fetch_proxies(self._settings, self._session)
-            with self._lock:
-                self._stats["fetch_calls"] += 1
-                self._stats["refill_sec"] += time.monotonic() - t0
+            fetched = self._fetch_batch()
             if not fetched:
                 with self._lock:
                     self._empty_at = time.monotonic()
