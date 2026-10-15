@@ -5,6 +5,7 @@ from __future__ import annotations
 import functools
 import logging
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import TYPE_CHECKING
 
@@ -55,6 +56,9 @@ _CLIST_PAGE_SIZE_MAX = 100
 _CLIST_SNAPSHOT_SORT = "f12"
 # 全量翻页默认并发度（有界并发，过高易触发代理源限频与东财封禁）
 _DEFAULT_FETCH_WORKERS = 5
+# 页级兜底重试的短退避：整批 IP 全死/代理源限流后立即重发大概率撞同一批，
+# 短等一个换血窗口（代理池回源 ~0.2s、负缓存 1s 量级），0.5s 折中
+_PAGE_RETRY_BACKOFF_SEC = 0.5
 # 回源预筛探测地址：极小 clist 请求（pz=1），1.5s 内拿不到有效 JSONP 视为死 IP
 _PROXY_PROBE_URL = (
     "https://pushguest.eastmoney.com/api/qt/clist/get"
@@ -198,11 +202,14 @@ def stock_list_all_em(
         )
         last_exc: Exception | None = None
         dup_used = 0
-        for _ in range(3 + dup_retries):
+        attempts = 3 + dup_retries
+        for attempt in range(attempts):
             try:
                 page = source.fetch_page(request)
             except Exception as exc:  # 传输层已换 IP 重试 10 次，此处兜底整页重试
                 last_exc = exc
+                if attempt < attempts - 1:  # 还有后继尝试才退避，末次失败直接返回
+                    time.sleep(_PAGE_RETRY_BACKOFF_SEC)
                 continue
             is_last = page_no == total_pages
             with lock:
