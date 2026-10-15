@@ -212,11 +212,20 @@ def test_dynamic_timeout_passed_to_request():
     client = HttpClient(
         session, router, RetryPolicy(max_retries=0), timeout_sec=2, dynamic_timeout=True
     )
-    client.get_text("http://x", {}, {})  # 首次：冷启动静态 2s
+    client.get_text("http://x", {}, {})  # 首次：读超时冷启动静态 2s
     _, kwargs = session.get.call_args
-    assert kwargs["timeout"] == (3, 2.0)
+    assert kwargs["timeout"] == (1.5, 2.0)  # 连接超时首次使用收紧到 1.5s
     for _ in range(6):
         client._record_rtt("1.1.1.1:8080", 0.2)
-    client.get_text("http://x", {}, {})
+    client.get_text("http://x", {}, {})  # 同一 IP 已验证存活
     _, kwargs = session.get.call_args
-    assert kwargs["timeout"] == pytest.approx((3, 0.6))  # 第二次：动态收紧
+    assert kwargs["timeout"] == pytest.approx((3, 0.6))  # 连接超时回静态 3s，读超时动态收紧
+
+
+def test_first_use_connect_timeout_only_for_unproven_proxy():
+    # 首次使用的代理 IP 收紧连接超时快速判死；已验证 IP 与直连用静态值
+    client = _dynamic_client()
+    assert client._connect_timeout("9.9.9.9:8080") == 1.5  # 未验证
+    client._proven_proxies.add("9.9.9.9:8080")
+    assert client._connect_timeout("9.9.9.9:8080") == 3  # 已验证 → 静态
+    assert client._connect_timeout(None) == 3  # 直连不受影响

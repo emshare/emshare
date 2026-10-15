@@ -209,6 +209,31 @@ def test_auto_proxy_failure_reports_to_pool_and_resets_successes():
     pool.report_failure.assert_called_once_with("1.1.1.1:8080")
 
 
+def test_auto_proxy_pool_empty_retries_once(monkeypatch):
+    # proxy 态池空：短暂等待回源产出后重取一次，不静默退化直连（直连多半正被封）
+    pool = MagicMock()
+    pool.enabled = True
+    pool.acquire.side_effect = [None, "9.9.9.9:8080"]
+    slept: list[float] = []
+    monkeypatch.setattr("em.core.proxy.time.sleep", slept.append)
+    router = ProxyRouter(pool, _settings(direct_fails=1))
+    router.report_result("h", None, success=False, banned=True)
+    assert router.host_state("h").mode == "proxy"
+    assert router.acquire("h") == "9.9.9.9:8080"
+    assert slept and slept[0] > 0
+    assert pool.acquire.call_count == 2
+
+
+def test_auto_proxy_pool_available_no_wait(monkeypatch):
+    # 池有 IP 时零等待直接取用（快速路径不受影响）
+    pool = _mock_pool("9.9.9.9:8080")
+    monkeypatch.setattr("em.core.proxy.time.sleep", lambda s: None)
+    router = ProxyRouter(pool, _settings(direct_fails=1))
+    router.report_result("h", None, success=False, banned=True)
+    assert router.acquire("h") == "9.9.9.9:8080"
+    assert pool.acquire.call_count == 1
+
+
 # --- per-host 独立 ---
 
 

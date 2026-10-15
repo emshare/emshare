@@ -58,6 +58,8 @@ class HttpClient:
         }
         # 每个 host 最近一次请求使用的代理（供应用层发现坏 IP 时定点淘汰）
         self._last_proxy: dict[str, str | None] = {}
+        # 已通过业务请求验证存活的代理 IP：首次使用用收紧的连接超时快速判死
+        self._proven_proxies: set[str] = set()
         # 直连/代理分桶耗时（含失败尝试）+ 代理获取等待耗时，供链路优化定位
         self._timing_lock = threading.Lock()
         self._timing = {
@@ -92,11 +94,14 @@ class HttpClient:
             try:
                 t1 = time.monotonic()
                 text = self._attempt(
-                    url, params, headers, proxy, validator, self._read_timeout(proxy)
+                    url, params, headers, proxy, validator,
+                    self._read_timeout(proxy), self._connect_timeout(proxy),
                 )
                 elapsed = time.monotonic() - t1
                 self._record_timing(proxy, wait, elapsed, failed=False)
                 self._record_rtt(proxy, elapsed)
+                if proxy is not None:
+                    self._proven_proxies.add(proxy)
                 self._router.report_result(host, proxy, success=True)
                 return text
             except ChannelError as exc:
@@ -161,6 +166,13 @@ class HttpClient:
         p95 = ordered[math.ceil(0.95 * len(ordered)) - 1]
         return min(max(p95 * defaults.DYNAMIC_TIMEOUT_FACTOR, defaults.DYNAMIC_TIMEOUT_FLOOR_SEC), static)
 
+    def _connect_timeout(self, proxy: str | None) -> float:
+        """代理 IP 首次业务使用时收紧连接超时：未经业务验证的 IP 多卡在连接阶段，
+        短超时快速判死（好 IP connect <0.5s，余量 3 倍不误杀）；已验证或直连用静态值。"""
+        if proxy is None or proxy in self._proven_proxies:
+            return self._timeout[0]
+        return defaults.FIRST_USE_CONNECT_TIMEOUT_SEC
+
     def timing_stats(self) -> dict[str, float]:
         """只读耗时统计快照：直连/代理分桶请求数与耗时、代理获取等待、失败尝试数。"""
         with self._timing_lock:
@@ -183,9 +195,13 @@ class HttpClient:
         proxy: str | None,
         validator: Callable[[str], bool] | None = None,
         read_timeout: float | None = None,
+        connect_timeout: float | None = None,
     ) -> str:
         proxies = {"http": f"http://{proxy}", "https": f"http://{proxy}"} if proxy else None
-        timeout = (self._timeout[0], read_timeout if read_timeout is not None else self._timeout[1])
+        timeout = (
+            connect_timeout if connect_timeout is not None else self._timeout[0],
+            read_timeout if read_timeout is not None else self._timeout[1],
+        )
         try:
             resp = self._session.get(
                 url, params=params, headers=headers, proxies=proxies, timeout=timeout

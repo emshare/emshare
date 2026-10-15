@@ -23,6 +23,9 @@ _PROXY_RE = re.compile(r"^\d{1,3}(?:\.\d{1,3}){3}:\d+$")
 _EMPTY_REFILL_COOLDOWN_SEC = 1.0
 # 代理 API 回源的连接超时（秒）：读取仍用 ProxySettings.timeout_sec，二者分别计时
 _PROXY_API_CONNECT_TIMEOUT_SEC = 3
+# proxy 态池空时的重试等待：回源单飞通常零点几秒产出新批次，
+# 短等一次再取，避免静默退化直连（此刻直连多半正是被封才切的代理）
+_POOL_EMPTY_RETRY_SEC = 0.3
 ProxyMode = Literal["auto", "always", "never"]
 _VALID_MODES = ("auto", "always", "never")
 
@@ -82,8 +85,9 @@ class ProxyPool:
     渠道无关：探测目标由调用方（应用层）注入，``None`` 时完全不预筛。
     """
 
-    # 预筛并发度与超时由探测回调自持，池内仅控制并发线程上限
-    _PREFILTER_WORKERS = 4
+    # 预筛并发度与超时由探测回调自持，池内仅控制并发线程上限。
+    # 需 >= EM_PROXY_NUM（默认 5）：单波并发探测整批，两波串行会倍增单飞锁持有时间
+    _PREFILTER_WORKERS = 6
     # 预筛自适应降级窗口：整批筛死时暂停预筛，直接进池由业务自然淘汰（并发摊薄），
     # 窗口过后自动试探恢复——极差时段预筛在单飞锁内空转（14s/6 批实测），暂停可省大半
     _PREFILTER_OFF_WINDOW_SEC = 10.0
@@ -364,7 +368,15 @@ class ProxyRouter:
                 state.probe_in_flight = True
                 self._stats["probes_issued"] += 1
                 use_proxy = False
-        return self._pool.acquire() if use_proxy else None
+        if use_proxy:
+            proxy = self._pool.acquire()
+            if proxy is not None:
+                return proxy
+            # 池空（回源空返回/负缓存窗口）：短暂等待回源产出后再取一次，
+            # 不静默退化直连——切到代理意味着直连已被封，退化只会白烧重试预算
+            time.sleep(_POOL_EMPTY_RETRY_SEC)
+            return self._pool.acquire()
+        return None
 
     def report_result(
         self, host: str, proxy: str | None, success: bool, banned: bool = False

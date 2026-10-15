@@ -21,5 +21,9 @@ DYNAMIC_TIMEOUT_MIN_SAMPLES = 5    # 冷启动最少样本，不足时退静态�
 DYNAMIC_TIMEOUT_FACTOR = 3.0       # P95 倍数余量
 DYNAMIC_TIMEOUT_FLOOR_SEC = 0.5    # 下限：防止正常波动被误杀
 
+# 代理 IP 首次业务使用时的连接超时：未经业务验证的 IP 多卡在连接阶段，
+# 收紧可快速判死（好 IP connect <0.5s，1.5s 有 3 倍余量不误杀）
+FIRST_USE_CONNECT_TIMEOUT_SEC = 1.5
+
 # 渠道级默认值：疑似出口被封的状态码
 DEFAULT_ACTIVATE_STATUS = (403, 429)
