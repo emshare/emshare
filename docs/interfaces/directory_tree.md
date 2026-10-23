@@ -14,7 +14,7 @@ em/                                          # 东方财富行情抓取
 │   │   ├── errors.py                        # 异常分层 + retryable 归类
 │   │   ├── settings.py                      # 环境变量配置（Settings.from_env）
 │   │   ├── resilience.py                    # RetryPolicy 退避重试
-│   │   ├── proxy.py                         # ProxyPool + ProxyRouter（TTL / 换 IP / 备选）
+│   │   ├── proxy.py                         # ProxyPool + ProxyRouter（预筛 / 连败熔断 / TTL 续期 / 按 host 路由）
 │   │   ├── transport.py                     # HttpClient（重试 + 代理 + 异常归类）
 │   │   ├── env.py                           # .env 安全加载（含 & 不被 bash 截断）
 │   │   ├── defaults.py                      # 默认值常量

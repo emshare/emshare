@@ -122,9 +122,13 @@ print(tables["outputs"])
 | `EM_PROXY_ENABLED` | `bool` | `True` | 是否启用代理 |
 | `EM_PROXY_NUM` | `int` | `1` | 单次取 IP 数量 |
 | `EM_PROXY_TTL_SEC` | `int` | `30` | 代理 IP 有效期（秒） |
-| `EM_PROXY_SAFETY_MARGIN_SEC` | `int` | `3` | 过期前安全余量（秒），到期前自动换 IP |
-| `EM_REQUEST_TIMEOUT_SEC` | `int` | `15` | 单次请求超时（秒） |
-| `EM_MAX_RETRIES` | `int` | `10` | 最大重试次数 |
+| `EM_PROXY_SAFETY_MARGIN_SEC` | `int` | `3` | 过期前安全余量（秒）；硬到期前 3s 起后台续期，旧 IP 用到硬到期 |
+| `EM_PROXY_MODE` | `str` | `auto` | `auto` / `always` / `never`，按 host 独立决策 |
+| `EM_PROXY_PREFILTER` | `bool` | `True` | 回源预筛开关（同业务口径探测，判死的记黑名单不进池） |
+| `EM_PROXY_PREFILTER_SOURCES` | `int` | `1` | 前 N 个源参与预筛；收费备用源建议不筛（淘汰等于浪费配额） |
+| `EM_PROXY_DEGRADED_MODE` | `str` | `lenient` | 整批全死后：`lenient` 改用 1.5s 快筛继续过滤 / `adopt` 暂停预筛（回退） |
+| `EM_REQUEST_TIMEOUT_SEC` | `int` | `15` | 单次请求读超时（秒），同时是预筛探测的读预算上限（3s） |
+| `EM_MAX_RETRIES` | `int` | `10` | 最大重试次数（换 IP 重试次数） |
 
 ## 异常
 
@@ -134,3 +138,4 @@ print(tables["outputs"])
 | `NetworkError` | 是 | 连接失败 / 超时，换 IP 重试 |
 | `EmptyResponseError` | 是 | 空响应（出口被封断开），换 IP 重试 |
 | `HttpStatusError` | 5xx / 403 / 429 | 非预期状态码，按状态码判定 |
+| `PageDeadlineExceeded` | 否 | 单页超过时间预算，标记失败交给定向补漏，不阻塞整轮 |
