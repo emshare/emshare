@@ -186,6 +186,19 @@ def test_report_proxy_failure_only_evicts_ip():
     assert pool.report_failure.call_count == 1
 
 
+def test_available_counts_only_when_host_on_proxy():
+    # 并发收敛必须按 host 判断：auto 直连态不能被池里别的 host 换来的 IP 数压住并发
+    pool = _mock_pool()
+    pool.available.return_value = 2
+    router = ProxyRouter(pool, _settings())
+    assert router.available("h") == 0
+    router.report_result("h", None, success=False, banned=True)  # 该 host 切到代理
+    assert router.available("h") == 2
+    assert router.available("other") == 0
+    assert ProxyRouter(pool, _settings(mode="always")).available("h") == 2
+    assert ProxyRouter(pool, _settings(mode="never")).available("h") == 0
+
+
 def test_release_forwards_to_pool():
     pool = _mock_pool()
     router = ProxyRouter(pool, _settings())
@@ -247,3 +260,48 @@ def test_per_host_independent():
     assert router.acquire("b.host") is None
     assert router.host_state("b.host").mode == "direct"
     assert router.acquire("a.host") == "9.9.9.9:8080"
+
+
+# --- 探测单飞异常兜底（abandon）---
+
+
+def test_auto_probe_abandoned_releases_single_flight():
+    # 探测请求抛出非渠道异常（无成败结论）：abandon 必须解除单飞并退回代理态，
+    # 否则 probe_in_flight 永久卡死，该 host 再无自动回退直连的机会
+    pool = _mock_pool("9.9.9.9:8080")
+    router = ProxyRouter(pool, _settings())
+    router.report_result("h", None, success=False, banned=True)
+    router.host_state("h").mode = "probe"
+    assert router.acquire("h") is None  # 放行唯一直连探测
+    assert router.host_state("h").probe_in_flight is True
+    router.abandon("h", None)  # 探测请求异常归来，无成败结论
+    state = router.host_state("h")
+    assert state.probe_in_flight is False
+    assert state.mode == "proxy"
+    assert router.acquire("h") == "9.9.9.9:8080"  # 未被卡死的单飞挡住
+
+
+def test_auto_probe_abandon_by_proxy_request_keeps_single_flight():
+    # probe 态在途代理请求异常不得碰探测单飞（单飞属于另一条直连探测），
+    # 也不得因本地异常误淘汰代理 IP
+    from em.core.proxy import HostState
+
+    pool = _mock_pool("9.9.9.9:8080")
+    router = ProxyRouter(pool, _settings())
+    router._hosts["h"] = HostState("h", mode="probe", probe_in_flight=True)
+    router.abandon("h", "9.9.9.9:8080")
+    state = router.host_state("h")
+    assert state.probe_in_flight is True
+    assert state.mode == "probe"
+    pool.report_failure.assert_not_called()
+
+
+def test_abandon_noop_without_live_probe():
+    # 无 host 态 / direct 态：无单飞可解，空操作不误伤
+    pool = _mock_pool()
+    router = ProxyRouter(pool, _settings())
+    router.abandon("h", None)
+    assert router.host_state("h") is None
+    router.report_result("h", None, success=True)  # 建立 direct 态
+    router.abandon("h", None)
+    assert router.host_state("h").mode == "direct"

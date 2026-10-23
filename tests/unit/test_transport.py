@@ -1,5 +1,6 @@
 """HttpClient 行为锁：重试次数、换 IP、off-by-one 日志边界。"""
 
+import threading
 from unittest.mock import MagicMock
 
 import pytest
@@ -80,7 +81,7 @@ def test_invalid_content_reported_as_failure_and_retried():
     validator = lambda text: text.startswith("{")
     assert client.get_text("http://x", {}, {}, validator=validator) == '{"rc":0,"data":{}}'
     # 坏代理 IP 被真实 ProxyPool 记入黑名单并计数，第二次换新 IP
-    assert "1.1.1.1:8080" in router._pool._failed_at  # noqa: SLF001
+    assert "1.1.1.1:8080" in router._pool._failed_at
     assert router._pool.stats()["ip_failures"] == 1
     used = [c.kwargs["proxies"]["https"] for c in session.get.call_args_list]
     assert used == ["http://1.1.1.1:8080", "http://2.2.2.2:8080"]
@@ -140,8 +141,8 @@ def test_evict_last_proxy_removes_ip_without_touching_router_state():
     client = HttpClient(session, router, RetryPolicy(max_retries=0), timeout_sec=5)
     client.get_text("http://x", {}, {})
     client.evict_last_proxy("http://x")
-    assert "1.1.1.1:8080" in router._pool._failed_at  # noqa: SLF001
-    assert router._pool.stats()["ip_failures"] == 1  # noqa: SLF001
+    assert "1.1.1.1:8080" in router._pool._failed_at
+    assert router._pool.stats()["ip_failures"] == 1
     assert router.host_state("x") is None  # 路由状态机未动
 
 
@@ -178,15 +179,15 @@ def test_dynamic_timeout_tightens_on_fast_window():
     client = _dynamic_client()
     for _ in range(6):
         client._record_rtt("1.1.1.1:8080", 0.2)  # 好窗口 P95=0.2s
-    # clamp(0.2×3, 0.5, 2) = 0.6s：快速判死边缘慢 IP
-    assert client._read_timeout("1.1.1.1:8080") == pytest.approx(0.6)
+    # clamp(0.2×3, 1.5, 2) = 1.5s：下限覆盖整页均值，不再把正常页判成超时
+    assert client._read_timeout("1.1.1.1:8080") == pytest.approx(1.5)
 
 
 def test_dynamic_timeout_floors_and_caps():
     client = _dynamic_client(timeout_sec=2)
     for t in (0.1, 0.1, 0.1, 0.1, 0.1):
         client._record_rtt("1.1.1.1:8080", t)  # P95×3=0.3 < 下限
-    assert client._read_timeout("1.1.1.1:8080") == pytest.approx(0.5)  # 触底防误杀
+    assert client._read_timeout("1.1.1.1:8080") == pytest.approx(1.5)  # 触底防误杀
     for t in (1.9, 1.9, 1.9, 1.9, 1.9):
         client._record_rtt(None, t)  # 直连桶 P95×3=5.7 > 静态上限
     assert client._read_timeout(None) == 2.0  # 封顶到静态配置
@@ -198,7 +199,7 @@ def test_dynamic_timeout_buckets_are_independent():
         client._record_rtt("1.1.1.1:8080", 0.2)  # 代理桶热身
     # 直连桶仍冷：不受代理桶样本影响
     assert client._read_timeout(None) == 2.0
-    assert client._read_timeout("1.1.1.1:8080") == pytest.approx(0.6)
+    assert client._read_timeout("1.1.1.1:8080") == pytest.approx(1.5)
 
 
 def test_dynamic_timeout_passed_to_request():
@@ -219,7 +220,7 @@ def test_dynamic_timeout_passed_to_request():
         client._record_rtt("1.1.1.1:8080", 0.2)
     client.get_text("http://x", {}, {})  # 同一 IP 已验证存活
     _, kwargs = session.get.call_args
-    assert kwargs["timeout"] == pytest.approx((3, 0.6))  # 连接超时回静态 3s，读超时动态收紧
+    assert kwargs["timeout"] == pytest.approx((3, 1.5))  # 连接超时回静态 3s，读超时收到下限
 
 
 def test_first_use_connect_timeout_only_for_unproven_proxy():
@@ -229,3 +230,149 @@ def test_first_use_connect_timeout_only_for_unproven_proxy():
     client._proven_proxies.add("9.9.9.9:8080")
     assert client._connect_timeout("9.9.9.9:8080") == 3  # 已验证 → 静态
     assert client._connect_timeout(None) == 3  # 直连不受影响
+
+
+# --- 非渠道异常的探测单飞兜底 / evict 线程隔离 ---
+
+
+def test_non_channel_error_releases_probe_single_flight():
+    # 探测请求路径上 validator 自身抛 ValueError（非 ChannelError）：
+    # 异常原样上抛，同时 probe 单飞必须被解除（保守退回代理态）
+    router = _router_returning(["1.1.1.1:8080"], mode="auto")
+    router.report_result("x", None, success=False, banned=True)
+    router.host_state("x").mode = "probe"
+    session = MagicMock(spec=requests.Session)
+    session.get.return_value = MagicMock(status_code=200, text="ok")
+    client = HttpClient(session, router, RetryPolicy(max_retries=0), timeout_sec=5)
+
+    def boom(_text: str) -> bool:
+        raise ValueError("校验回调自身 bug")
+
+    with pytest.raises(ValueError, match="校验回调自身 bug"):
+        client.get_text("http://x", {}, {}, validator=boom)
+    state = router.host_state("x")
+    assert state.probe_in_flight is False
+    assert state.mode == "proxy"
+
+
+def test_evict_last_proxy_uses_thread_local_route():
+    # 两个 worker 先后打同一 host：A 淘汰自己的旧快照 IP 时，
+    # 不得误淘汰 B 刚记录的在途 IP（旧 host->单值 实现会互踩）
+    class _ThreadRouter:
+        def __init__(self) -> None:
+            self.evicted: list[str] = []
+
+        def acquire(self, host: str) -> str | None:
+            return {
+                "worker-A": "1.1.1.1:8080",
+                "worker-B": "2.2.2.2:8080",
+            }[threading.current_thread().name]
+
+        def report_result(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        def report_proxy_failure(self, proxy: str | None) -> None:
+            if proxy is not None:
+                self.evicted.append(proxy)
+
+        def release(self, proxy: str | None) -> None:
+            pass
+
+    fake = _ThreadRouter()
+    session = MagicMock(spec=requests.Session)
+    session.get.return_value = MagicMock(status_code=200, text="ok")
+    client = HttpClient(session, fake, RetryPolicy(max_retries=0), timeout_sec=5)  # type: ignore[arg-type]
+
+    def worker_b() -> None:
+        client.get_text("http://x", {}, {})  # 旧实现在此覆盖 host->单值
+
+    # 关键时序：A 先取数，B 恰好在 A「取数之后、淘汰之前」完成——
+    # 模拟全量翻页时另一页 worker 在该窗口内覆盖共享记录
+    this = threading.current_thread()
+    orig_name = this.name
+    this.name = "worker-A"
+    try:
+        client.get_text("http://x", {}, {})
+        t = threading.Thread(target=worker_b, name="worker-B")
+        t.start()
+        t.join()
+        client.evict_last_proxy("http://x")
+    finally:
+        this.name = orig_name
+    assert fake.evicted == ["1.1.1.1:8080"]
+
+
+# --- 失败分级：读超时软失败（同 IP 重试一次），连接失败硬淘汰 ---
+
+
+def _always_client(session: MagicMock, num: int = 2, max_retries: int = 3):
+    pool_session = MagicMock(spec=requests.Session)
+    pool_session.get.return_value = MagicMock(
+        text="\n".join(f"1.1.1.{i}:8080" for i in range(1, num + 1))
+    )
+    ps = ProxySettings(api="http://x", num=num, ttl_sec=30, mode="always")
+    router = ProxyRouter(ProxyPool(ps, pool_session), ps)
+    client = HttpClient(
+        session,
+        router,
+        RetryPolicy(max_retries=max_retries, backoff_sec=0.0, connect_backoff_sec=0.0),
+        timeout_sec=5,
+    )
+    return client, router
+
+
+def test_read_timeout_retries_same_proxy_once() -> None:
+    # 读超时多为慢页/抖动：同一出口重试一次（省一次握手），IP 不淘汰
+    session = MagicMock(spec=requests.Session)
+    session.get.side_effect = [
+        requests.ReadTimeout("slow"),
+        MagicMock(status_code=200, text="ok"),
+    ]
+    client, router = _always_client(session)
+    assert client.get_text("http://h/x", {}, {}) == "ok"
+    used = [c.kwargs["proxies"]["https"] for c in session.get.call_args_list]
+    assert used == ["http://1.1.1.1:8080", "http://1.1.1.1:8080"]
+    assert router._pool.stats()["soft_failures"] == 1
+    assert router._pool.stats()["ip_failures"] == 0
+
+
+def test_two_read_timeouts_switch_proxy() -> None:
+    # 同一出口连续两次读超时才淘汰换 IP：软失败有额度，不是无限复用
+    session = MagicMock(spec=requests.Session)
+    session.get.side_effect = [
+        requests.ReadTimeout("slow"),
+        requests.ReadTimeout("slow"),
+        MagicMock(status_code=200, text="ok"),
+    ]
+    client, router = _always_client(session)
+    assert client.get_text("http://h/x", {}, {}) == "ok"
+    used = [c.kwargs["proxies"]["https"] for c in session.get.call_args_list]
+    assert used == ["http://1.1.1.1:8080", "http://1.1.1.1:8080", "http://1.1.1.2:8080"]
+    assert router._pool.stats()["soft_failures"] == 2
+    assert router._pool.stats()["ip_failures"] == 1
+
+
+def test_connect_error_evicts_proxy_immediately() -> None:
+    # 连接失败说明出口不可用：不重试同 IP，直接换新的
+    session = MagicMock(spec=requests.Session)
+    session.get.side_effect = [
+        requests.ConnectionError("boom"),
+        MagicMock(status_code=200, text="ok"),
+    ]
+    client, router = _always_client(session)
+    assert client.get_text("http://h/x", {}, {}) == "ok"
+    used = [c.kwargs["proxies"]["https"] for c in session.get.call_args_list]
+    assert used == ["http://1.1.1.1:8080", "http://1.1.1.2:8080"]
+    assert router._pool.stats()["ip_failures"] == 1
+    assert router._pool.stats()["soft_failures"] == 0
+
+
+def test_request_exception_classification_order() -> None:
+    # ConnectTimeout 同时是 ConnectionError：必须先判 connect 档，否则会被错归为软失败
+    from em.core.errors import ProxyConnectError, UpstreamReadTimeout
+    from em.core.transport import _classify
+
+    assert isinstance(_classify(requests.ConnectTimeout("t")), ProxyConnectError)
+    assert isinstance(_classify(requests.ReadTimeout("t")), UpstreamReadTimeout)
+    assert isinstance(_classify(requests.ConnectionError("c")), ProxyConnectError)
+    assert isinstance(_classify(requests.RequestException("x")), NetworkError)

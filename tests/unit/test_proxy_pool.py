@@ -61,7 +61,7 @@ def test_least_in_flight_first_distribution() -> None:
     pool.release("2.2.2.2:8080")
     # 1.1/2.2 在飞 1、3.3 在飞 2 → 优先在飞最小者（并列保序取 1.1）
     assert pool.acquire() == "1.1.1.1:8080"
-    # release 多余调用安全；report_failure 释放其在飞占用并淘汰
+    # release 多余调用安全；report_failure 只淘汰，在飞计数留给 release 归零
     pool.release("3.3.3.3:8080")
     pool.release("3.3.3.3:8080")  # 归零清除，多余调用安全
     pool.report_failure("1.1.1.1:8080")
@@ -158,6 +158,279 @@ def test_invalid_settings_raise() -> None:
         ProxySettings(api="x", num=0)
     with pytest.raises(ConfigError):
         ProxySettings(api="x", ttl_sec=3, safety_margin_sec=3)
+    with pytest.raises(ConfigError):
+        ProxySettings(api="x", prefilter_sources=-1)
+    with pytest.raises(ConfigError):
+        ProxySettings(api="x", degraded_mode="bogus")  # type: ignore[arg-type]
+
+
+# --- 整批全死后的处置：adopt（暂停） vs lenient（降级快筛）---
+
+
+def test_lenient_mode_probes_with_fallback_after_all_dead() -> None:
+    # 整批全死 → 不暂停，改用快筛继续过滤：hang IP 不必交给业务侧用两次超时鉴死
+    session = _session_sequence(["1.1.1.1:8080\n1.1.1.2:8080", "2.2.2.2:8080\n2.2.2.3:8080"])
+    settings = ProxySettings(api="http://p/get", num=2, ttl_sec=60, degraded_mode="lenient")
+    strict: list[str] = []
+    fast: list[str] = []
+    pool = ProxyPool(
+        settings,
+        session,
+        prober=lambda ip: strict.append(ip) or False,
+        fallback_prober=lambda ip: fast.append(ip) or True,
+    )
+    assert pool.acquire() == "2.2.2.2:8080"
+    assert strict == ["1.1.1.1:8080", "1.1.1.2:8080"]  # 首批用正常探测
+    assert fast == ["2.2.2.2:8080", "2.2.2.3:8080"]  # 全死后改用快筛，而非直接放行
+    stats = pool.stats()
+    assert stats["prefilter_rejected"] == 2
+    assert stats["prefilter_lenient_rejected"] == 0
+
+
+def test_adopt_mode_skips_probe_in_degraded_window() -> None:
+    # 默认 adopt：整批全死后直接放行下一批，一次探测都不做（保持旧行为，便于 A/B）
+    session = _session_sequence(["1.1.1.1:8080\n1.1.1.2:8080", "2.2.2.2:8080\n2.2.2.3:8080"])
+    # 显式指定 adopt：这是回退路径，默认值已是 lenient
+    settings = ProxySettings(api="http://p/get", num=2, ttl_sec=60, degraded_mode="adopt")
+    strict: list[str] = []
+    fast: list[str] = []
+    pool = ProxyPool(
+        settings,
+        session,
+        prober=lambda ip: strict.append(ip) or False,
+        fallback_prober=lambda ip: fast.append(ip) or True,
+    )
+    assert pool.acquire() == "2.2.2.2:8080"
+    assert strict == ["1.1.1.1:8080", "1.1.1.2:8080"]
+    assert fast == []  # adopt 模式不启用快筛
+    # 未验证就放行的 IP 数与触发次数都必须可量化（评估降级策略的暴露面与触发率）
+    assert pool.stats()["degraded_adopted"] == 2
+    assert pool.stats()["degraded_events"] == 1
+
+
+# --- 预筛范围：收费备用源不预筛（淘汰等于浪费配额）---
+
+
+def test_prefilter_skipped_for_backup_source() -> None:
+    # 主源空返回 → 备用源交付；备用源不参与预筛，判死回调一次都不该被调用
+    session = MagicMock(spec=requests.Session)
+    session.get.side_effect = [
+        MagicMock(text="IP资源不足"),
+        MagicMock(text="5.5.5.5:8080\n6.6.6.6:8080"),
+    ]
+    settings = ProxySettings(
+        api="http://p/get,http://b/get", num=2, ttl_sec=60, prefilter_sources=1
+    )
+    calls: list[str] = []
+    pool = ProxyPool(settings, session, prober=lambda ip: calls.append(ip) or False)
+    assert pool.acquire() == "5.5.5.5:8080"
+    assert calls == []  # 收费源直接进池
+    assert pool.stats()["prefilter_rejected"] == 0
+    assert [v["rejected"] for v in pool.stats()["source_stats"].values()] == [0, 0]
+
+
+def test_prefilter_applies_to_primary_by_default() -> None:
+    # 主源仍按老口径预筛：默认值不改变单源/主源行为
+    session = MagicMock(spec=requests.Session)
+    session.get.return_value = MagicMock(text="1.1.1.1:8080\n2.2.2.2:8080")
+    settings = ProxySettings(api="http://p/get,http://b/get", num=2, ttl_sec=60)
+    calls: list[str] = []
+    pool = ProxyPool(settings, session, prober=lambda ip: calls.append(ip) or ip == "2.2.2.2:8080")
+    assert pool.acquire() == "2.2.2.2:8080"
+    assert calls == ["1.1.1.1:8080", "2.2.2.2:8080"]
+    assert pool.stats()["prefilter_rejected"] == 1
+
+
+def test_prefilter_sources_zero_disables_prefilter() -> None:
+    # N=0：完全关闭预筛（死 IP 交给业务请求自然淘汰），连主源也不探测
+    session = _session_returning(["1.1.1.1:8080"])
+    settings = ProxySettings(api="http://p/get", num=1, ttl_sec=30, prefilter_sources=0)
+    calls: list[str] = []
+    pool = ProxyPool(settings, session, prober=lambda ip: calls.append(ip) or False)
+    assert pool.acquire() == "1.1.1.1:8080"
+    assert calls == []
+
+
+# --- 连败熔断：全死窗口不再持续买 IP ---
+
+
+def test_consecutive_dead_batches_trip_breaker() -> None:
+    # 连续 2 批全死即熔断：不再回源，直接返回 None（全死窗口里继续买是纯支出）
+    session = _session_sequence(["1.1.1.1:8080", "2.2.2.2:8080", "3.3.3.3:8080"])
+    settings = ProxySettings(api="http://p/get", num=1, ttl_sec=60, degraded_mode="lenient")
+    pool = ProxyPool(settings, session, prober=lambda ip: False, fallback_prober=lambda ip: False)
+    assert pool.acquire() is None
+    assert session.get.call_count == 2  # 阈值 2：第三批不再买
+    assert pool.stats()["source_breaker_trips"] == 1
+
+
+def test_breaker_fails_over_to_backup_source() -> None:
+    # 主源熔断后应立刻改用备用源，而不是整体停摆
+    session = MagicMock(spec=requests.Session)
+    session.get.side_effect = [
+        MagicMock(text="1.1.1.1:8080\n1.1.1.2:8080"),
+        MagicMock(text="2.2.2.2:8080\n2.2.2.3:8080"),
+        MagicMock(text="9.9.9.9:8080\n9.9.9.8:8080"),
+    ]
+    settings = ProxySettings(
+        api="http://p/get,http://b/get",
+        num=2,
+        ttl_sec=60,
+        prefilter_sources=1,
+        degraded_mode="lenient",
+    )
+    pool = ProxyPool(settings, session, prober=lambda ip: False, fallback_prober=lambda ip: False)
+    assert pool.acquire() == "9.9.9.9:8080"
+    stats = pool.stats()
+    assert stats["source_breaker_trips"] == 1
+    assert stats["fetch_calls"] == 3
+    assert stats["ips_adopted"] == 2  # 备用源不预筛，直接进池
+
+
+def test_breaker_recovers_after_cooldown(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_now = [0.0]
+    monkeypatch.setattr("em.core.proxy.time.monotonic", lambda: fake_now[0])
+    session = _session_sequence(["1.1.1.1:8080", "2.2.2.2:8080", "3.3.3.3:8080"])
+    settings = ProxySettings(api="http://p/get", num=1, ttl_sec=60, degraded_mode="lenient")
+    alive = {"3.3.3.3:8080": True}
+    pool = ProxyPool(
+        settings,
+        session,
+        prober=lambda ip: alive.get(ip, False),
+        fallback_prober=lambda ip: False,
+    )
+    assert pool.acquire() is None  # 两批全死 → 熔断
+    assert session.get.call_count == 2
+    fake_now[0] = 61.0  # 冷却到期：允许再次回源
+    assert pool.acquire() == "3.3.3.3:8080"
+    assert session.get.call_count == 3
+
+
+def test_live_batch_resets_dead_streak() -> None:
+    # 死一批 → 活一批 → 再连续死两批：连败被成功打断过，因此只在第二次连死时熔断
+    session = _session_sequence(
+        ["1.1.1.1:8080", "2.2.2.2:8080", "3.3.3.3:8080", "4.4.4.4:8080"]
+    )
+    settings = ProxySettings(api="http://p/get", num=1, ttl_sec=60, degraded_mode="lenient")
+    alive = {"2.2.2.2:8080": True}
+    # 第 2 批落在降级窗口内，走快筛；快筛同样认得 2.2.2.2
+    pool = ProxyPool(
+        settings,
+        session,
+        prober=lambda ip: alive.get(ip, False),
+        fallback_prober=lambda ip: alive.get(ip, False),
+    )
+    assert pool.acquire() == "2.2.2.2:8080"  # 第 2 批命中 → 连败清零
+    assert pool.stats()["source_breaker_trips"] == 0
+
+    pool.report_failure("2.2.2.2:8080")  # 强制下一轮回源
+    assert pool.acquire() is None  # 第 3、4 批连死 → 才熔断
+    assert session.get.call_count == 4
+    assert pool.stats()["source_breaker_trips"] == 1
+
+
+# --- 续期：硬到期前 3s 后台换血，旧 IP 继续服务 ---
+
+
+def test_renew_due_enters_window_before_hard_expiry(monkeypatch: pytest.MonkeyPatch) -> None:
+    # TTL=10、余量=2 → 硬到期 8s；提前量 3s → 5s 起进入续期窗口，但对外仍发旧 IP
+    fake_now = [0.0]
+    monkeypatch.setattr("em.core.proxy.time.monotonic", lambda: fake_now[0])
+    session = _session_sequence(["1.1.1.1:8080", "2.2.2.2:8080"])
+    pool = ProxyPool(_settings(ttl_sec=10, safety_margin_sec=2), session)
+    assert pool.acquire() == "1.1.1.1:8080"
+    assert pool._renew_due() is False
+    fake_now[0] = 4.9
+    assert pool._renew_due() is False
+    fake_now[0] = 5.0
+    assert pool._renew_due() is True
+    assert pool._is_live("1.1.1.1:8080") is True  # 还没硬到期，仍在服务
+    assert pool._take_live() == "1.1.1.1:8080"
+
+
+def test_renew_worker_replaces_batch(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_now = [0.0]
+    monkeypatch.setattr("em.core.proxy.time.monotonic", lambda: fake_now[0])
+    session = _session_sequence(["1.1.1.1:8080", "2.2.2.2:8080"])
+    pool = ProxyPool(_settings(ttl_sec=10, safety_margin_sec=2), session)
+    assert pool.acquire() == "1.1.1.1:8080"
+    fake_now[0] = 6.0
+    pool._renewing = True
+    pool._renew_worker()
+    assert pool._renewing is False
+    assert pool._current == "2.2.2.2:8080"
+    assert session.get.call_count == 2
+
+
+def test_renewal_failure_keeps_old_batch(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 续期失败（回源空/异常）不丢旧 IP：它已被业务证明可用，撑到硬到期比没 IP 强
+    fake_now = [0.0]
+    monkeypatch.setattr("em.core.proxy.time.monotonic", lambda: fake_now[0])
+    session = MagicMock(spec=requests.Session)
+    session.get.return_value = MagicMock(text="1.1.1.1:8080")
+    pool = ProxyPool(_settings(ttl_sec=10, safety_margin_sec=2), session)
+    assert pool.acquire() == "1.1.1.1:8080"
+    session.get.side_effect = requests.RequestException("boom")
+    fake_now[0] = 6.0
+    pool._renewing = True
+    pool._renew_worker()
+    assert pool._current == "1.1.1.1:8080"
+    assert pool._take_live() == "1.1.1.1:8080"
+
+
+def test_acquire_returns_old_ip_without_waiting_for_renewal(monkeypatch) -> None:
+    # 续期在后台线程：业务线程拿旧 IP 立即返回，不陪回源等 0.2s
+    real_monotonic = time.monotonic
+    fake_now = [0.0]
+    monkeypatch.setattr("em.core.proxy.time.monotonic", lambda: fake_now[0])
+    calls: list[str] = []
+
+    def slow_get(url, **_kw):
+        calls.append(url)
+        if len(calls) == 1:
+            return MagicMock(text="1.1.1.1:8080")
+        time.sleep(0.2)  # 续期回源慢
+        return MagicMock(text="2.2.2.2:8080")
+
+    session = MagicMock(spec=requests.Session)
+    session.get.side_effect = slow_get
+    pool = ProxyPool(_settings(ttl_sec=10, safety_margin_sec=2), session)
+    assert pool.acquire() == "1.1.1.1:8080"
+
+    fake_now[0] = 6.0
+    t0 = real_monotonic()
+    assert pool.acquire() == "1.1.1.1:8080"
+    assert real_monotonic() - t0 < 0.1
+
+    deadline = real_monotonic() + 3
+    while pool._renewing and real_monotonic() < deadline:
+        time.sleep(0.01)
+    assert pool._current == "2.2.2.2:8080"
+
+
+def test_renew_disabled_when_ttl_too_short(monkeypatch: pytest.MonkeyPatch) -> None:
+    # TTL 5 / 余量 3 → 提前量算下来 <=0：不做后台续期，否则每次采纳即触发，变成连环回源
+    fake_now = [0.0]
+    monkeypatch.setattr("em.core.proxy.time.monotonic", lambda: fake_now[0])
+    session = _session_sequence(["1.1.1.1:8080"])
+    pool = ProxyPool(_settings(ttl_sec=5, safety_margin_sec=3), session)
+    assert pool.acquire() == "1.1.1.1:8080"
+    fake_now[0] = 4.0
+    assert pool._renew_due() is False
+
+
+def test_available_counts_only_live_ips(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 并发收敛依据：只数未到硬到期的 IP，过期/淘汰后立刻归零
+    fake_now = [0.0]
+    monkeypatch.setattr("em.core.proxy.time.monotonic", lambda: fake_now[0])
+    session = _session_returning(["1.1.1.1:8080", "2.2.2.2:8080", "3.3.3.3:8080"])
+    pool = ProxyPool(_settings(num=3, ttl_sec=10, safety_margin_sec=2), session)
+    assert pool.available() == 0
+    pool.acquire()
+    assert pool.available() == 3
+    fake_now[0] = 8.0  # 硬到期
+    assert pool.available() == 0
+    assert pool.hold("1.1.1.1:8080") is False
 
 
 def _session_sequence(ips: list[str]) -> requests.Session:
@@ -166,6 +439,44 @@ def _session_sequence(ips: list[str]) -> requests.Session:
     responses = [MagicMock(text=ip) for ip in ips]
     session.get.side_effect = responses + [responses[-1]] * 10
     return session
+
+
+def test_single_source_ignores_failover_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 单源配置：主源慢/空时不能进入"降级备用源"窗口——窗口内 urls 为空，
+    # 整段时间一个 IP 都拿不到（真网复现过 second acquire None in 0.000s）
+    fake_now = [0.0]
+    monkeypatch.setattr("em.core.proxy.time.monotonic", lambda: fake_now[0])
+    urls: list[str] = []
+
+    def get(url, **_kw):
+        urls.append(url)
+        fake_now[0] += 4.0  # 超过 _PRIMARY_SLOW_SEC，会触发降级窗口
+        return MagicMock(text="1.1.1.1:8080" if len(urls) == 1 else "2.2.2.2:8080")
+
+    session = MagicMock(spec=requests.Session)
+    session.get.side_effect = get
+    pool = ProxyPool(_settings(ttl_sec=10, safety_margin_sec=2), session)
+    assert pool.acquire() == "1.1.1.1:8080"
+    fake_now[0] += 9.0  # 旧 IP 硬到期（10 - 2）
+    assert pool.acquire() == "2.2.2.2:8080"  # 即便过慢也不能被窗口挡成 None
+    assert len(urls) == 2
+
+
+def test_failure_does_not_clear_other_in_flight_counts() -> None:
+    # 同一 IP 被多个 worker 持有时，一个失败只该减自己那一份（由 finally 的 release
+    # 归还）；若在 report_failure 里整条清空，该 IP 复采后会被当空闲，新请求全压上去
+    session = _session_returning(["1.1.1.1:8080"])
+    pool = ProxyPool(_settings(), session)
+    first = pool.acquire()
+    second = pool.acquire()
+    assert first == second == "1.1.1.1:8080"
+    assert pool._in_flight["1.1.1.1:8080"] == 2
+    pool.report_failure("1.1.1.1:8080")
+    assert pool._in_flight["1.1.1.1:8080"] == 2  # 另一个仍在飞，计数不能丢
+    pool.release("1.1.1.1:8080")
+    assert pool._in_flight["1.1.1.1:8080"] == 1
+    pool.release("1.1.1.1:8080")
+    assert pool._in_flight == {}
 
 
 def test_failed_ip_not_immediately_reused() -> None:
@@ -187,7 +498,7 @@ def test_prefilter_rejects_dead_ips_before_pool() -> None:
     verdicts = {"1.1.1.1:8080": False, "2.2.2.2:8080": True, "3.3.3.3:8080": True}
     pool = ProxyPool(_settings(num=3), session, prober=lambda ip: verdicts.get(ip, True))
     assert pool.acquire() == "2.2.2.2:8080"  # 1.1.1.1 被筛死，2.2.2.2 为首个存活
-    assert "1.1.1.1:8080" in pool._failed_at  # noqa: SLF001
+    assert "1.1.1.1:8080" in pool._failed_at
     assert pool.stats()["prefilter_rejected"] == 1
 
 
@@ -253,12 +564,14 @@ def test_prefilter_none_keeps_legacy_behavior() -> None:
 
 
 def test_prefilter_marks_dead_for_refill_skip() -> None:
-    # 预筛判死的 IP 进入黑名单：后续回源命中同一 IP 时直接跳过（不再重复预筛）
+    # 预筛判死的 IP 进入黑名单：后续回源命中同一 IP 时直接跳过（不再重复预筛）；
+    # 连续两批都拿不到新 IP 即熔断，不再无限回源
     session = _session_sequence(["1.1.1.1:8080", "1.1.1.1:8080", "2.2.2.2:8080"])
     pool = ProxyPool(_settings(num=1), session, prober=lambda ip: ip != "1.1.1.1:8080")
-    assert pool.acquire() == "2.2.2.2:8080"  # 第 1 批筛死 → 第 2 批同 IP 被黑名单跳过
-    assert session.get.call_count == 3
+    assert pool.acquire() is None
+    assert session.get.call_count == 2  # 第二批已在黑名单，不再探测/不再买第三批
     assert pool.stats()["prefilter_rejected"] == 1
+    assert pool.stats()["source_breaker_trips"] == 1
 
 
 def test_prefilter_and_refill_time_accumulated() -> None:
@@ -356,13 +669,16 @@ def test_multi_source_fallback_on_slow_primary(monkeypatch: pytest.MonkeyPatch) 
     assert _urls(session)[-1] == backup
 
 
-def test_blacklist_exhausted_falls_back_to_hard_use() -> None:
-    # IP 池只有 1 个 IP，失败后 3 次重拉都拿到它 → 硬用（避免拿不到代理）
+def test_blacklist_exhausted_degrades_instead_of_hard_use() -> None:
+    # 只有一个 IP 且已判死：不再硬用（硬用会形成"每请求 N 次 API"的循环），
+    # 连败熔断后返回 None，由上层退化直连或等冷却结束再试
     session = _session_sequence(["1.1.1.1:8080"])
     pool = ProxyPool(_settings(), session)
     assert pool.acquire() == "1.1.1.1:8080"
     pool.report_failure("1.1.1.1:8080")
-    assert pool.acquire() == "1.1.1.1:8080"
+    assert pool.acquire() is None
+    assert pool.stats()["source_breaker_trips"] == 1
+    assert session.get.call_count == 3  # 两次空批后停止回源
 
 
 def test_blacklist_purged_after_ttl(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -382,3 +698,100 @@ def test_blacklist_purged_after_ttl(monkeypatch: pytest.MonkeyPatch) -> None:
     # 超过 TTL：1.1.1.1 出黑名单，可重新拿到
     fake_now[0] = 35.0
     assert pool.acquire() == "1.1.1.1:8080"
+
+
+# --- 采购账本（对应后台"消耗 IP 数"）---
+
+
+def test_ledger_purchase_funnel() -> None:
+    # 厂商按返回条数计费：交付量、去重、预筛淘汰、进池、服役、有产出必须逐段对得上，
+    # 否则只能靠后台面板反推消耗（本用例锁住五段漏斗的口径）
+    session = _session_returning(["1.1.1.1:8080", "2.2.2.2:8080", "3.3.3.3:8080"])
+    pool = ProxyPool(_settings(num=3), session, prober=lambda ip: ip != "1.1.1.1:8080")
+    proxy = pool.acquire()
+    assert proxy == "2.2.2.2:8080"
+    pool.report_success(proxy)
+    stats = pool.stats()
+    assert stats["fetch_calls"] == 1
+    assert stats["ips_returned"] == 3  # 计费口径
+    assert stats["ips_unique"] == 3
+    assert stats["prefilter_rejected"] == 1
+    assert stats["ips_adopted"] == 2
+    assert stats["ips_served"] == 1
+    assert stats["ips_productive"] == 1
+
+
+def test_ledger_counts_truncated_and_duplicate_delivery() -> None:
+    # 厂商返回超过 num 的行：交付量按全量记，进池按 num 截断——差额就是被丢弃的已付费 IP
+    session = _session_returning(["1.1.1.1:8080", "1.1.1.1:8080", "2.2.2.2:8080", "3.3.3.3:8080"])
+    pool = ProxyPool(_settings(num=2), session)
+    assert pool.acquire() == "1.1.1.1:8080"
+    stats = pool.stats()
+    assert stats["ips_returned"] == 4
+    assert stats["ips_unique"] == 3  # 重复返回同样计费，只有去重后才知道真实利用率
+    assert stats["ips_adopted"] == 2
+
+
+def test_source_stats_split_by_source() -> None:
+    # 分源账本是"主备顺序该按谁在前"的唯一客观依据：主源空返回也要记一次 calls
+    session = MagicMock(spec=requests.Session)
+    session.get.side_effect = [MagicMock(text="IP资源不足"), MagicMock(text="5.5.5.5:8080")]
+    pool, _, _ = _multi_source_pool(session)
+    assert pool.acquire() == "5.5.5.5:8080"
+    stats = pool.stats()["source_stats"]
+    assert [v["calls"] for v in stats.values()] == [1, 1]
+    assert [v["returned"] for v in stats.values()] == [0, 1]
+    assert [v["adopted"] for v in stats.values()] == [0, 1]
+
+
+# --- 失败分级：硬失败立即淘汰，软失败（读超时）两次才淘汰 ---
+
+
+def test_soft_failure_keeps_ip_until_second_strike() -> None:
+    session = _session_returning(["1.1.1.1:8080"])
+    pool = ProxyPool(_settings(), session)
+    assert pool.acquire() == "1.1.1.1:8080"
+    pool.report_failure("1.1.1.1:8080", hard=False)  # 读超时：先记一笔
+    assert pool.stats()["soft_failures"] == 1
+    assert pool.stats()["ip_failures"] == 0
+    assert pool.acquire() == "1.1.1.1:8080"  # 仍可复用，未回源
+    assert session.get.call_count == 1
+    pool.report_failure("1.1.1.1:8080", hard=False)  # 连续第二次才淘汰
+    assert pool.stats()["ip_failures"] == 1
+    assert "1.1.1.1:8080" in pool._failed_at
+
+
+def test_hard_failure_evicts_immediately() -> None:
+    session = _session_sequence(["1.1.1.1:8080", "2.2.2.2:8080"])
+    pool = ProxyPool(_settings(), session)
+    assert pool.acquire() == "1.1.1.1:8080"
+    pool.report_failure("1.1.1.1:8080")  # 连接失败：默认硬失败
+    assert pool.stats()["ip_failures"] == 1
+    assert pool.stats()["soft_failures"] == 0
+    assert pool.acquire() == "2.2.2.2:8080"
+
+
+def test_success_clears_soft_strikes() -> None:
+    # 抖动恢复后计数必须清零，否则两次不连续的超时会累积成淘汰
+    session = _session_returning(["1.1.1.1:8080"])
+    pool = ProxyPool(_settings(), session)
+    proxy = pool.acquire()
+    pool.report_failure(proxy, hard=False)
+    pool.report_success(proxy)
+    pool.report_failure(proxy, hard=False)
+    assert pool.stats()["ip_failures"] == 0
+    assert pool.stats()["ips_productive"] == 1
+
+
+def test_hold_reuses_ip_and_keeps_in_flight_paired() -> None:
+    # 同 IP 重试：hold 加一次在飞占用，release 必须能一一配对，不出现负计数
+    session = _session_returning(["1.1.1.1:8080"])
+    pool = ProxyPool(_settings(), session)
+    proxy = pool.acquire()
+    assert pool.hold(proxy) is True
+    assert pool._in_flight[proxy] == 2
+    pool.release(proxy)
+    pool.release(proxy)
+    assert pool._in_flight == {}
+    pool.report_failure(proxy)  # 淘汰后不可续用
+    assert pool.hold(proxy) is False
