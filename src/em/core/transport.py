@@ -18,6 +18,8 @@ from em.core.errors import (
     HttpStatusError,
     InvalidContentError,
     NetworkError,
+    ProxyConnectError,
+    UpstreamReadTimeout,
 )
 from em.core.proxy import ProxyRouter
 from em.core.resilience import RetryPolicy, should_retry, sleep_backoff
@@ -30,6 +32,22 @@ def _is_banned(exc: Exception) -> bool:
     if isinstance(exc, HttpStatusError):
         return exc.status_code in (403, 429)
     return False
+
+
+def _classify(exc: requests.RequestException) -> NetworkError:
+    """把 requests 异常按"换 IP 是否有用"分档，供池子决定淘汰力度。
+
+    connect 档（连接超时/被拒/远端断链/TLS 失败）说明出口不可用，换 IP 立刻见效；
+    read 档（连接已建立但读超时）多为慢页或瞬时抖动，换 IP 只是再付一次握手并把
+    好出口黑掉一个 TTL，因此单独归为软失败，由上层"同 IP 重试一次"消化。
+    """
+    if isinstance(exc, requests.ConnectTimeout):
+        return ProxyConnectError(str(exc))
+    if isinstance(exc, requests.ReadTimeout):
+        return UpstreamReadTimeout(str(exc))
+    if isinstance(exc, requests.ConnectionError):
+        return ProxyConnectError(str(exc))
+    return NetworkError(str(exc))
 
 
 class HttpClient:
@@ -56,8 +74,10 @@ class HttpClient:
             "direct": deque(maxlen=defaults.DYNAMIC_TIMEOUT_WINDOW),
             "proxy": deque(maxlen=defaults.DYNAMIC_TIMEOUT_WINDOW),
         }
-        # 每个 host 最近一次请求使用的代理（供应用层发现坏 IP 时定点淘汰）
-        self._last_proxy: dict[str, str | None] = {}
+        # 本线程最近一次请求的 (host, proxy)：应用层发现旧快照时定点淘汰。
+        # 必须线程本地：全量翻页多 worker 同打一个 host，host->单值 会被并发
+        # 请求互相覆盖，导致 A 线程淘汰掉 B 线程正在用的好 IP
+        self._local = threading.local()
         # 已通过业务请求验证存活的代理 IP：首次使用用收紧的连接超时快速判死
         self._proven_proxies: set[str] = set()
         # 直连/代理分桶耗时（含失败尝试）+ 代理获取等待耗时，供链路优化定位
@@ -86,11 +106,20 @@ class HttpClient:
         """
         host = urlparse(url).hostname or ""
         last_exc: Exception | None = None
+        proxy: str | None = None
+        reuse = False  # 软失败（读超时）后沿用同一出口重试：省一次握手，也避免误判淘汰
+        reuse_budget = 1  # 每个出口只复用一次，第二次软失败即换 IP
         for attempt in range(self._policy.max_retries + 1):
             t0 = time.monotonic()
-            proxy = self._router.acquire(host)
-            wait = time.monotonic() - t0
-            self._last_proxy[host] = proxy
+            if reuse and proxy is not None and self._router.hold(proxy):
+                reuse = False
+                wait = 0.0  # 沿用上一轮的取用，无新的获取等待
+            else:
+                proxy = self._router.acquire(host)
+                reuse = False
+                reuse_budget = 1
+                wait = time.monotonic() - t0
+            self._local.last_route = (host, proxy)
             try:
                 t1 = time.monotonic()
                 text = self._attempt(
@@ -106,19 +135,31 @@ class HttpClient:
                 return text
             except ChannelError as exc:
                 self._record_timing(proxy, wait, time.monotonic() - t1, failed=True)
-                self._router.report_result(host, proxy, success=False, banned=_is_banned(exc))
+                soft = isinstance(exc, UpstreamReadTimeout)
+                self._router.report_result(
+                    host, proxy, success=False, banned=_is_banned(exc), soft=soft
+                )
                 last_exc = exc
                 if not should_retry(exc):
                     raise
                 if attempt >= self._policy.max_retries:
                     break
+                if soft and proxy is not None and reuse_budget > 0:
+                    reuse_budget -= 1
+                    reuse = True
                 log.warning(
-                    "请求失败(%s): %s，换 IP 重试 [%d/%d]",
+                    "请求失败(%s): %s，%s重试 [%d/%d]",
                     type(exc).__name__,
                     str(exc)[:120],
+                    "同 IP " if reuse else "换 IP ",
                     attempt + 1,
                     self._policy.max_retries,
                 )
+            except Exception:
+                # 非渠道异常（如校验回调自身抛错）不重试、不淘汰 IP，
+                # 但必须解除探测单飞，否则该 host 的 probe_in_flight 永久卡死
+                self._router.abandon(host, proxy)
+                raise
             finally:
                 # 无论成败归还取用，驱动代理池"最少在飞优先"的分发计数
                 self._router.release(proxy)
@@ -178,14 +219,27 @@ class HttpClient:
         with self._timing_lock:
             return dict(self._timing)
 
+    def available_proxies(self, url: str) -> int:
+        """该 URL 所属 host 的可用出口数（0=直连态或池空）：分页并发按它收敛。"""
+        return self._router.available(urlparse(url).hostname or "")
+
     def proxy_stats(self) -> dict[str, Any]:
         """代理池健康指标透传（回源/预筛耗时等），供上层日志归因。"""
-        return self._router.stats().get("pool", {})
+        out: dict[str, Any] = self._router.stats().get("pool") or {}
+        return out
 
     def evict_last_proxy(self, url: str) -> None:
-        """淘汰该 host 最近一次请求使用的代理 IP（如应用层检测到旧快照），不动路由状态机。"""
-        host = urlparse(url).hostname or ""
-        self._router.report_proxy_failure(self._last_proxy.get(host))
+        """淘汰本线程最近一次请求使用的代理 IP（如应用层检测到旧快照），不动路由状态机。
+
+        按线程而非 host 查找：多 worker 并发打同一 host 时，host->单值 的旧
+        实现会被别的线程覆盖，误伤其正在用的 IP；host 不一致时不淘汰。
+        """
+        record: tuple[str, str | None] | None = getattr(self._local, "last_route", None)
+        if record is None:
+            return
+        host, proxy = record
+        if proxy is not None and host == (urlparse(url).hostname or ""):
+            self._router.report_proxy_failure(proxy)
 
     def _attempt(
         self,
@@ -207,7 +261,7 @@ class HttpClient:
                 url, params=params, headers=headers, proxies=proxies, timeout=timeout
             )
         except requests.RequestException as exc:
-            raise NetworkError(str(exc)) from exc
+            raise _classify(exc) from exc
         if resp.status_code != 200:
             raise HttpStatusError(resp.status_code)
         if not resp.text:

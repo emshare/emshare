@@ -13,6 +13,13 @@ class InterfaceNotFoundError(EmError):
     """接口检索未命中：接口名未知。"""
 
 
+class PageDeadlineExceeded(EmError):
+    """单页超过时间预算：标记为失败页，交给定向补漏，不阻塞整轮。
+
+    不是渠道异常——预算耗尽只说明"这一页不值得我们继续等"，重试与否由补漏轮决定。
+    """
+
+
 class ChannelError(EmError):
     """上游渠道异常基类。"""
 
@@ -23,6 +30,21 @@ class NetworkError(ChannelError):
     """连接失败 / 超时等传输层错误：可换 IP 重试。"""
 
     retryable = True
+
+
+class ProxyConnectError(NetworkError):
+    """出口连接不可用（connect 超时 / 被重置 / 远端断链）：换 IP 立刻见效，判死该出口。
+
+    与 ``UpstreamReadTimeout`` 分开是为了让代理池能把"出口坏了"和"这一页慢了"
+    区别对待：前者应立即淘汰，后者换 IP 只是再付一次握手成本。
+    """
+
+
+class UpstreamReadTimeout(NetworkError):
+    """连接已建立但读取超时：多为慢页或瞬时抖动，按软失败处理（同 IP 重试一次）。
+
+    代理池据此把 IP 的淘汰推迟到连续两次软失败，避免把好出口在 TTL 内误杀。
+    """
 
 
 class EmptyResponseError(ChannelError):
