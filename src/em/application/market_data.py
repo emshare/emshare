@@ -8,7 +8,7 @@ import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any
 
 import requests
 
@@ -23,7 +23,7 @@ from em.application.dataframe import (
 )
 from em.application.ledger import record as record_ledger
 from em.channels.eastmoney import config as em_config
-from em.core.errors import ChannelError, PageDeadlineExceeded
+from em.core.errors import PageDeadlineExceeded
 from em.core.proxy import ProxyPool, ProxyRouter, ProxySettings, proxy_url
 from em.core.resilience import RetryPolicy
 from em.core.settings import Settings
@@ -66,11 +66,6 @@ _WORKERS_PER_PROXY = 2
 # 必须长于代理池的空返回负缓存（_EMPTY_REFILL_COOLDOWN_SEC=1s）：否则重试正好落在
 # 负缓存窗口内，池子必然还是空的，白白烧掉一次页级尝试
 _PAGE_RETRY_BACKOFF_SEC = 1.1
-# 单发接口的外层补试：传输层 5 次换 IP 仍失败时，等一个换血窗口再整轮重试一次。
-# stock_list_all 有页级重试兜底，单发接口没有——soak 实测 7 个接口里 2 个各失败 1 次，
-# 全部是 ProxyConnectError（连续 5 个出口都连不上目标 host）
-_SINGLE_RETRY_ATTEMPTS = 2
-_SINGLE_RETRY_BACKOFF_SEC = _PAGE_RETRY_BACKOFF_SEC
 # 单页时间预算：正常页 0.3~1.5s，含 2~3 次换 IP 重试约 5s；
 # 15s 是"确实不对劲"的界线（5 次重试各 1.5s 连接超时 ≈ 8.5s，再留余量）。
 # 超预算的页标记失败交给定向补漏，而不是让它把整轮钉住（最坏曾达 ~42s/页）
@@ -179,8 +174,7 @@ def board_constituent_em(
     client = _build_client(settings or Settings.from_env())
     source = registry.EastMoneySource(client)
     request = registry.board_constituent_request(query)
-    flow = registry.flow_field(query)
-    return _with_retry(lambda: source.fetch_page(request, flow))
+    return source.fetch_page(request, registry.flow_field(query))
 
 
 def stock_list_em(query: MarketQuery | None = None, settings: Settings | None = None) -> QuotePage:
@@ -188,8 +182,7 @@ def stock_list_em(query: MarketQuery | None = None, settings: Settings | None = 
     query = query or MarketQuery()
     client = _build_client(settings or Settings.from_env())
     source = registry.EastMoneySource(client)
-    request = registry.stock_list_request(query)
-    return _with_retry(lambda: source.fetch_page(request))
+    return source.fetch_page(registry.stock_list_request(query))
 
 
 def _suspicious_pages(
@@ -224,35 +217,6 @@ def _effective_workers(workers: int, live_proxies: int) -> int:
     if live_proxies <= 0:
         return workers
     return max(1, min(workers, live_proxies * _WORKERS_PER_PROXY))
-
-
-_T = TypeVar("_T")
-
-
-def _with_retry(call: Callable[[], _T]) -> _T:
-    """单发接口的外层补试：整轮再换一批出口试一次。
-
-    只补 ``ChannelError.retryable``（403/429/连接/空响应/坏内容），404 这类重试无意义。
-    传输层内部已换过 5 个 IP，这一层是"换一批"的粒度——soak 里两次失败都是连续
-    5 个出口连不上目标 host，缺的是新批次，不是同批再多试几次。
-    """
-    last: ChannelError | None = None
-    for attempt in range(_SINGLE_RETRY_ATTEMPTS):
-        try:
-            return call()
-        except ChannelError as exc:
-            if not exc.retryable:
-                raise
-            last = exc
-            if attempt + 1 < _SINGLE_RETRY_ATTEMPTS:
-                log.warning(
-                    "单发接口失败，%.1fs 后整轮补试: %s",
-                    _SINGLE_RETRY_BACKOFF_SEC,
-                    str(exc)[:80],
-                )
-                time.sleep(_SINGLE_RETRY_BACKOFF_SEC)
-    assert last is not None
-    raise last
 
 
 def _ledger_line(pool: dict[str, Any], pages: int) -> str:
@@ -491,8 +455,7 @@ def stock_kline_em(
     query = query or KlineQuery()
     client = _build_client(settings or Settings.from_env())
     source = registry.EastMoneySource(client)
-    request = registry.kline_request(query)
-    return _with_retry(lambda: source.fetch_kline(request))
+    return source.fetch_kline(registry.kline_request(query))
 
 
 def df_stock_kline_em(
@@ -511,8 +474,7 @@ def stock_trends_em(
     query = query or TrendQuery()
     client = _build_client(settings or Settings.from_env())
     source = registry.EastMoneySource(client)
-    request = registry.trends_request(query)
-    return _with_retry(lambda: source.fetch_trends(request))
+    return source.fetch_trends(registry.trends_request(query))
 
 
 def df_stock_trends_em(
@@ -531,8 +493,7 @@ def stock_fund_flow_em(
     query = query or FundFlowQuery()
     client = _build_client(settings or Settings.from_env())
     source = registry.EastMoneySource(client)
-    request = registry.fund_flow_request(query)
-    return _with_retry(lambda: source.fetch_fund_flow(request))
+    return source.fetch_fund_flow(registry.fund_flow_request(query))
 
 
 def df_stock_fund_flow_em(
@@ -551,8 +512,7 @@ def board_fund_flow_em(
     query = query or BoardFundFlowQuery()
     client = _build_client(settings or Settings.from_env())
     source = registry.EastMoneySource(client)
-    request = registry.board_fund_flow_request(query)
-    return _with_retry(lambda: source.fetch_board_fund_flow(request))
+    return source.fetch_board_fund_flow(registry.board_fund_flow_request(query))
 
 
 def df_board_fund_flow_em(
@@ -571,8 +531,7 @@ def board_industry_list_em(
     query = query or BoardListQuery()
     client = _build_client(settings or Settings.from_env())
     source = registry.EastMoneySource(client)
-    request = registry.board_industry_list_request(query)
-    return _with_retry(lambda: source.fetch_board_list(request))
+    return source.fetch_board_list(registry.board_industry_list_request(query))
 
 
 def df_board_industry_list_em(
