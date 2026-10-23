@@ -22,6 +22,13 @@ from em.core.settings import Settings
 from em.core.transport import HttpClient
 
 
+@pytest.fixture(autouse=True)
+def _no_ledger_writes(monkeypatch):
+    """测试不得写开发者本地账本：本文件会真实调用 stock_list_all_em（用假客户端），
+    不隔离的话每跑一次测试就往 .em_ledger.jsonl 里灌一行脏数据。"""
+    monkeypatch.setenv("EM_LEDGER_PATH", "none")
+
+
 def test_page_retry_backoff_between_attempts(monkeypatch):
     # 首页 3 次兜底尝试全失败：退避 2 次（末次失败直接返回，不多等 0.5s），最终抛最后异常
     session = MagicMock(spec=requests.Session)
@@ -270,8 +277,14 @@ def test_ledger_line_uses_page_count_not_record_count(monkeypatch, caplog) -> No
 
     monkeypatch.setattr("em.application.market_data._build_client", lambda s: _FakeClient())
     monkeypatch.setattr("em.application.market_data.registry.EastMoneySource", _FakeSource)
+    saved: list[tuple] = []
+    monkeypatch.setattr("em.application.market_data.record_ledger", lambda *a: saved.append(a))
     caplog.set_level("INFO", logger="em.application.market_data")
 
     page = stock_list_all_em()
     assert len(page.items) == 5
     assert any("单有效 IP 1.0 页" in r.message for r in caplog.records)
+    # 落盘用同一口径：页数而非记录数，记录数单独一项
+    assert len(saved) == 1
+    assert saved[0][2] == 1  # pages
+    assert saved[0][3] == 5  # items

@@ -21,6 +21,7 @@ from em.application.dataframe import (
     to_kline_dataframe,
     to_trend_dataframe,
 )
+from em.application.ledger import record as record_ledger
 from em.channels.eastmoney import config as em_config
 from em.core.errors import PageDeadlineExceeded
 from em.core.proxy import ProxyPool, ProxyRouter, ProxySettings, proxy_url
@@ -261,6 +262,7 @@ def stock_list_all_em(
     """
     if workers < 1:
         raise ValueError("workers 必须 >= 1")
+    started = time.monotonic()  # 端到端墙钟，落进账本用于跨天比较
     query = query or MarketQuery()
     client = _build_client(settings or Settings.from_env())
     source = registry.EastMoneySource(client)
@@ -412,6 +414,8 @@ def stock_list_all_em(
                 name, stat.get("calls", 0), stat.get("returned", 0),
                 stat.get("rejected", 0), stat.get("adopted", 0),
             )
+    # 旁路记账：追加一行 JSONL，供跨天按源比较（写失败只告警，不影响本次结果）
+    record_ledger(pool, ts, total_pages, len(seen), time.monotonic() - started)
     # 按代码排序输出：并发抓取的 dict 插入序是页完成序，对调用方不稳定
     return QuotePage(total=total, items=tuple(sorted(seen.values(), key=lambda q: q.code)))
 
