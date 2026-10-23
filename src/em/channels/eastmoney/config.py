@@ -42,6 +42,10 @@ FQT_ADJUSTS = {"qfq": 1, "hfq": 2, "none": 0}
 # K 线字段集：fields1 取证券元信息，fields2 逐条返回
 KLINE_FIELDS1 = "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13"
 KLINE_FIELDS2 = "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61"
+# K 线一次返回全量序列（实测 8502 行）：响应体远大于 clist 的 100 行，全局 3s 读预算
+# 会在首轮就判超时（实测 3 次请求 2 次失败、15.1s）。该接口是单请求、无分页，
+# 放宽读预算不会放大失败成本
+KLINE_READ_TIMEOUT_SEC = 8.0
 # 分时字段集：fields1 取证券元信息，fields2 逐分钟返回
 TRENDS_FIELDS1 = "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13,f17"
 TRENDS_FIELDS2 = "f51,f52,f53,f54,f55,f56,f57,f58"

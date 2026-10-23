@@ -7,6 +7,7 @@
 import pytest
 
 from em.application import registry
+from em.channels.eastmoney import config
 from em.channels.eastmoney.source import EastMoneySource, _is_valid_payload
 from em.core.errors import InvalidContentError
 from em.domain.queries import (
@@ -22,12 +23,19 @@ from em.domain.queries import (
 class FakeClient:
     """返回预设文本的 HttpClient 桩：与真实传输层一致地执行协议校验。"""
 
-    def __init__(self, text: str) -> None:
+    def __init__(self, text: str, timeouts: list[float | None] | None = None) -> None:
         self._text = text
+        self.timeouts = timeouts if timeouts is not None else []
 
     def get_text(
-        self, url: str, params: object, headers: object, validator: object = None
+        self,
+        url: str,
+        params: object,
+        headers: object,
+        validator: object = None,
+        read_timeout: float | None = None,
     ) -> str:
+        self.timeouts.append(read_timeout)
         if validator is not None and not validator(self._text):
             raise InvalidContentError(f"桩：未通过校验: {self._text[:40]!r}")
         return self._text
@@ -75,3 +83,18 @@ def test_valid_payload_predicate() -> None:
     assert _is_valid_payload('{"rc":0,"data":{}}') is True
     assert _is_valid_payload('{"rc":1,"data":null}') is False
     assert _is_valid_payload("<html>bad gateway</html>") is False
+
+
+def test_kline_declares_larger_read_budget() -> None:
+    # K 线一次返回全量序列（实测 8502 行）：必须声明更大的读预算；
+    # 其余接口不传（None），沿用按历史耗时自适应的动态值
+    timeouts: list[float | None] = []
+    EastMoneySource(FakeClient('{"rc":0,"data":{"klines":[]}}', timeouts)).fetch_kline(
+        registry.kline_request(KlineQuery())
+    )
+    assert timeouts == [config.KLINE_READ_TIMEOUT_SEC]
+
+    EastMoneySource(FakeClient('{"rc":0,"data":{"diff":[]}}', timeouts)).fetch_page(
+        registry.stock_list_request(MarketQuery())
+    )
+    assert timeouts[-1] is None

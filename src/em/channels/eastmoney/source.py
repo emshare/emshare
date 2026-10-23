@@ -39,9 +39,20 @@ def _is_valid_payload(text: str) -> bool:
     return is_ok(parse_jsonp(text))
 
 
-def _fetch_json(client: HttpClient, request: Any) -> dict[str, Any]:
-    """取文本 → 解析为 JSON 字典（协议校验已在传输层完成，此处只做解析）。"""
-    text = client.get_text(request.url(), request.params(), config.HEADERS, _is_valid_payload)
+def _fetch_json(
+    client: HttpClient, request: Any, read_timeout: float | None = None
+) -> dict[str, Any]:
+    """取文本 → 解析为 JSON 字典（协议校验已在传输层完成，此处只做解析）。
+
+    ``read_timeout`` 端点级读预算下限，供大响应体接口（如 K 线全量序列）声明。
+    """
+    text = client.get_text(
+        request.url(),
+        request.params(),
+        config.HEADERS,
+        _is_valid_payload,
+        read_timeout=read_timeout,
+    )
     return parse_jsonp(text)  # type: ignore[return-value]
 
 
@@ -58,7 +69,8 @@ class EastMoneySource:
         return to_quote_page(data, flow_field)
 
     def fetch_kline(self, request: KlineRequest) -> KlineSeries:
-        data = _fetch_json(self._client, request)
+        # 全量序列（单请求无分页）：用更大的读预算，避免首轮就被判超时
+        data = _fetch_json(self._client, request, config.KLINE_READ_TIMEOUT_SEC)
         return to_kline_series(data, request.period, request.adjust)
 
     def fetch_trends(self, request: TrendsRequest) -> TrendSeries:

@@ -102,11 +102,14 @@ class HttpClient:
         params: Mapping[str, Any],
         headers: Mapping[str, str],
         validator: Callable[[str], bool] | None = None,
+        read_timeout: float | None = None,
     ) -> str:
         """发起 GET 并返回文本。
 
         ``validator`` 在 HTTP 200 文本上做协议级校验（如是否合法 JSONP）；
         不通过视为出口代理劫持，按失败上报并换 IP 重试——避免 200 错误页被误记为成功。
+        ``read_timeout`` 是端点级读预算下限（大响应体用），**允许超过静态上限**：
+        它是"这个接口需要多久"的声明，与按历史耗时自适应的动态值不是一回事。
         """
         host = urlparse(url).hostname or ""
         last_exc: Exception | None = None
@@ -128,7 +131,7 @@ class HttpClient:
                 t1 = time.monotonic()
                 text = self._attempt(
                     url, params, headers, proxy, validator,
-                    self._read_timeout(proxy), self._connect_timeout(proxy),
+                    self._read_timeout(proxy, read_timeout), self._connect_timeout(proxy),
                 )
                 elapsed = time.monotonic() - t1
                 self._record_timing(proxy, wait, elapsed, failed=False)
@@ -201,8 +204,11 @@ class HttpClient:
         if len(self._proven_proxies) > self._PROVEN_CAP:
             self._proven_proxies.clear()
 
-    def _read_timeout(self, proxy: str | None) -> float:
+    def _read_timeout(self, proxy: str | None, hint: float | None = None) -> float:
         """动态读超时：本桶成功耗时 P95 × 余量，clamp 到 [下限, 静态配置]。
+
+        ``hint`` 为端点级下限（如 K 线一次返回全量序列），结果取 ``max``——
+        只会放宽、不会收紧，且允许超过静态上限。
 
         好窗口收紧后快速判死边缘慢 IP；差窗口 P95 抬高后自动放宽到静态上限，
         不误杀仍能响应的 IP。样本不足（冷启动）或功能关闭时退静态值。
@@ -210,15 +216,18 @@ class HttpClient:
         撞上会抛 ``RuntimeError: deque mutated during iteration``。
         """
         static = float(self._timeout[1])
-        if not self._dynamic_timeout:
-            return static
-        with self._timing_lock:
-            win = list(self._rtt["proxy" if proxy else "direct"])
-        if len(win) < defaults.DYNAMIC_TIMEOUT_MIN_SAMPLES:
-            return static
-        ordered = sorted(win)
-        p95 = ordered[math.ceil(0.95 * len(ordered)) - 1]
-        return min(max(p95 * defaults.DYNAMIC_TIMEOUT_FACTOR, defaults.DYNAMIC_TIMEOUT_FLOOR_SEC), static)
+        value = static
+        if self._dynamic_timeout:
+            with self._timing_lock:
+                win = list(self._rtt["proxy" if proxy else "direct"])
+            if len(win) >= defaults.DYNAMIC_TIMEOUT_MIN_SAMPLES:
+                ordered = sorted(win)
+                p95 = ordered[math.ceil(0.95 * len(ordered)) - 1]
+                value = min(
+                    max(p95 * defaults.DYNAMIC_TIMEOUT_FACTOR, defaults.DYNAMIC_TIMEOUT_FLOOR_SEC),
+                    static,
+                )
+        return max(value, hint) if hint is not None else value
 
     def _connect_timeout(self, proxy: str | None) -> float:
         """代理 IP 首次业务使用时收紧连接超时：未经业务验证的 IP 多卡在连接阶段，

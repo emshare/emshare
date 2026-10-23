@@ -232,6 +232,28 @@ def test_proven_proxies_set_is_bounded() -> None:
     assert client._proven_proxies == set()
 
 
+def test_read_timeout_hint_raises_budget() -> None:
+    # 端点级下限：只放宽不收紧，且允许超过静态上限（大响应体接口声明自己的预算）
+    client = _dynamic_client(timeout_sec=2)
+    assert client._read_timeout("1.1.1.1:8080") == 2.0
+    assert client._read_timeout("1.1.1.1:8080", 8.0) == 8.0
+    assert client._read_timeout("1.1.1.1:8080", 1.2) == 2.0
+
+
+def test_read_timeout_hint_passed_to_request() -> None:
+    session_for_pool = MagicMock(spec=requests.Session)
+    session_for_pool.get.return_value = MagicMock(text="1.1.1.1:8080")
+    ps = ProxySettings(api="http://x", num=1, ttl_sec=30, mode="always")
+    router = ProxyRouter(ProxyPool(ps, session_for_pool), ps)
+    session = MagicMock(spec=requests.Session)
+    session.get.return_value = MagicMock(status_code=200, text="ok")
+    client = HttpClient(session, router, RetryPolicy(max_retries=0), timeout_sec=2)
+
+    client.get_text("http://x", {}, {}, read_timeout=8.0)
+    _, kwargs = session.get.call_args
+    assert kwargs["timeout"] == (1.5, 8.0)  # 首次使用连接 1.5s，读预算用端点声明
+
+
 def test_first_use_connect_timeout_only_for_unproven_proxy():
     # 首次使用的代理 IP 收紧连接超时快速判死；已验证 IP 与直连用静态值
     client = _dynamic_client()
