@@ -6,8 +6,9 @@ import functools
 import logging
 import threading
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import requests
 
@@ -21,6 +22,7 @@ from em.application.dataframe import (
     to_trend_dataframe,
 )
 from em.channels.eastmoney import config as em_config
+from em.core.errors import PageDeadlineExceeded
 from em.core.proxy import ProxyPool, ProxyRouter, ProxySettings
 from em.core.resilience import RetryPolicy
 from em.core.settings import Settings
@@ -56,29 +58,58 @@ _CLIST_PAGE_SIZE_MAX = 100
 _CLIST_SNAPSHOT_SORT = "f12"
 # 全量翻页默认并发度（有界并发，过高易触发代理源限频与东财封禁）
 _DEFAULT_FETCH_WORKERS = 5
+# 每个可用出口允许的并发数：实测 2 个出口跑 5 并发与跑 2 并发失败率相当（10 vs 12 次），
+# 但并发砍半会让墙钟翻倍；按每出口 2 个预算收敛，只有单出口时才真正收紧
+_WORKERS_PER_PROXY = 2
 # 页级兜底重试的短退避：整批 IP 全死/代理源限流后立即重发大概率撞同一批，
 # 短等一个换血窗口（代理池回源 ~0.2s、负缓存 1s 量级），0.5s 折中
 _PAGE_RETRY_BACKOFF_SEC = 0.5
-# 回源预筛探测地址：极小 clist 请求（pz=1），1.5s 内拿不到有效 JSONP 视为死 IP
-_PROXY_PROBE_URL = (
-    "https://pushguest.eastmoney.com/api/qt/clist/get"
-    "?pn=1&pz=1&po=1&np=1&fltt=2&invt=2&fid=f12&fs=m:0+t:6&fields=f12"
-)
-_PROXY_PROBE_TIMEOUT = (1.0, 1.5)  # (连接, 读取)：死 IP 多卡连接或短读超时
-_probe_session = requests.Session()  # 预筛探测复用连接（低频、多代理出口）
+# 单页时间预算：正常页 0.3~1.5s，含 2~3 次换 IP 重试约 5s；
+# 15s 是"确实不对劲"的界线（5 次重试各 1.5s 连接超时 ≈ 8.5s，再留余量）。
+# 超预算的页标记失败交给定向补漏，而不是让它把整轮钉住（最坏曾达 ~42s/页）
+_PAGE_DEADLINE_SEC = 15.0
+# 回源预筛探测请求与业务请求同源：复用业务的请求构建器与页大小（pz=100）。
+# 旧实现用 pz=1 的极小请求，会出现"探测 1.4s 通过、真页 pz=100 超时"的口径漂移——
+# 探测成本花在错的判据上；同一构建器还保证 host/fs/fields/ut 不会各自漂移。
+_PROXY_PROBE_QUERY = MarketQuery(sort=_CLIST_SNAPSHOT_SORT, page=1, size=_CLIST_PAGE_SIZE_MAX)
+# (连接, 读取)：死 IP 仍卡连接，1.0s 快速判死；读取取业务读超时（上限 3s），
+# 保证"探测放行的 IP，业务也能在同样预算内完成"——探测比业务宽松会放过必然超时的出口
+_PROXY_PROBE_CONNECT_TIMEOUT_SEC = 1.0
+_PROXY_PROBE_MAX_SEC = 3.0
+# 降级快筛的读预算：实测整页均值 0.79~1.25s，1.5s 仍能卡住"连上但不响应"的 hang，
+# 又给正常慢页留了余量；整批全死后用它继续过滤，而不是把未验证 IP 直接放给业务
+_PROXY_PROBE_LENIENT_SEC = 1.5
 
 
-def _probe_proxy(ip: str) -> bool:
-    """预筛探测：该代理 IP 能否在 1.5s 内拿到东财有效 JSONP。线程安全。"""
-    proxies = {"http": f"http://{ip}", "https": f"http://{ip}"}
-    try:
-        resp = _probe_session.get(
-            _PROXY_PROBE_URL, headers=em_config.HEADERS,
-            proxies=proxies, timeout=_PROXY_PROBE_TIMEOUT,
-        )
-    except requests.RequestException:
-        return False
-    return resp.status_code == 200 and '"rc"' in resp.text
+def _make_prober(session: requests.Session, read_timeout: float) -> Callable[[str], bool]:
+    """构造回源预筛回调：用业务 Session 探测，把已建立的连接预热给业务请求。
+
+    ``requests`` 的 ``HTTPAdapter`` 按 (代理, 目标 host) 缓存连接池，探测与业务请求
+    同 Session、同 host、同出口时，业务请求可直接复用探测已完成的 TCP/TLS 握手——
+    实测代理页均 0.87s 里握手占大头，省掉一次就是每个 IP 一次的净收益。
+    单独开一个探测 Session 会把这笔握手白付一遍，故此处不这么写。
+    """
+
+    # 探测请求由业务构建器派生一次：口径与真实分页请求完全一致，不会随渠道参数漂移
+    request = registry.stock_list_request(_PROXY_PROBE_QUERY)
+    url, params = request.url(), request.params()
+
+    timeout = (_PROXY_PROBE_CONNECT_TIMEOUT_SEC, read_timeout)
+
+    def probe(ip: str) -> bool:
+        proxies = {"http": f"http://{ip}", "https": f"http://{ip}"}
+        try:
+            resp = session.get(
+                url, params=params, headers=em_config.HEADERS,
+                proxies=proxies, timeout=timeout,
+            )
+        except requests.RequestException as exc:
+            # 区分 connect/read 只能靠日志：判死原因决定该调超时还是该换源
+            log.debug("预筛判死 %s: %s: %s", ip, type(exc).__name__, str(exc)[:80])
+            return False
+        return resp.status_code == 200 and '"rc"' in resp.text
+
+    return probe
 
 
 @functools.lru_cache(maxsize=8)
@@ -99,10 +130,18 @@ def _build_client(settings: Settings) -> HttpClient:
         direct_fails=settings.proxy_direct_fails,
         proxy_successes=settings.proxy_proxy_successes,
         cooldown_sec=settings.proxy_cooldown_sec,
+        prefilter_sources=settings.proxy_prefilter_sources,
+        degraded_mode=settings.proxy_degraded_mode,
     )
-    pool = ProxyPool(
-        ps, session, prober=_probe_proxy if settings.proxy_prefilter else None
+    probe_read = min(float(settings.request_timeout_sec), _PROXY_PROBE_MAX_SEC)
+    prober = _make_prober(session, probe_read) if settings.proxy_prefilter else None
+    # 降级快筛只在 lenient 模式下由池子选用；adopt 模式仍走"暂停预筛"的老行为
+    fallback = (
+        _make_prober(session, min(probe_read, _PROXY_PROBE_LENIENT_SEC))
+        if settings.proxy_prefilter
+        else None
     )
+    pool = ProxyPool(ps, session, prober=prober, fallback_prober=fallback)
     router = ProxyRouter(pool, ps)
     policy = RetryPolicy(
         max_retries=settings.max_retries,
@@ -166,6 +205,43 @@ def _suspicious_pages(
     return sus
 
 
+def _effective_workers(workers: int, live_proxies: int) -> int:
+    """并发度按可用出口数收敛：每个出口给 ``_WORKERS_PER_PROXY`` 个并发预算。
+
+    不按 1:1 收敛：实测 2 个出口配 2 个 worker 与配 5 个 worker 失败率几乎一样
+    （12 vs 10 次），但墙钟从 22s 涨到 51s——出口数少时的瓶颈是并发不足，不是 IP 被打死。
+    ``live_proxies <= 0`` 表示拿不到代理（直连态或池空），保持调用方给定的并发。
+    """
+    if live_proxies <= 0:
+        return workers
+    return max(1, min(workers, live_proxies * _WORKERS_PER_PROXY))
+
+
+def _ledger_line(pool: dict[str, Any], pages: int) -> str:
+    """把采购账本拼成一行：厂商按次计费，"买 → 用 → 有产出"必须同屏可见。
+
+    只看 ``ips_adopted`` 会高估效率（它不含预筛淘汰的已付费 IP），因此这里同时给出
+    交付量、去重数、淘汰率与"单有效 IP 页数"——后者才是衡量代理成本的真正指标。
+    """
+    calls = int(pool.get("fetch_calls", 0) or 0)
+    returned = int(pool.get("ips_returned", 0) or 0)
+    unique = int(pool.get("ips_unique", 0) or 0)
+    rejected = int(pool.get("prefilter_rejected", 0) or 0)
+    adopted = int(pool.get("ips_adopted", 0) or 0)
+    served = int(pool.get("ips_served", 0) or 0)
+    productive = int(pool.get("ips_productive", 0) or 0)
+    soft = int(pool.get("soft_failures", 0) or 0)
+    degraded = int(pool.get("degraded_adopted", 0) or 0)
+    rejected_pct = 100.0 * rejected / returned if returned else 0.0
+    pages_per_ip = pages / productive if productive else 0.0
+    return (
+        f"代理账本：采购 {returned}（{calls} 次回源）｜去重 {unique}｜"
+        f"预筛淘汰 {rejected}（{rejected_pct:.0f}%）｜进池 {adopted}｜服役 {served}｜"
+        f"有产出 {productive}｜单有效 IP {pages_per_ip:.1f} 页｜软失败 {soft}｜"
+        f"降级放行 {degraded}"
+    )
+
+
 def stock_list_all_em(
     query: MarketQuery | None = None,
     settings: Settings | None = None,
@@ -179,7 +255,8 @@ def stock_list_all_em(
     先抓首页拿 ``total`` 推算总页数，再用 ``workers`` 个线程并发抓余下各页，按 ``code``
     去重。补漏为**定向重抓**：东财后端节点不一致表现为"邻页码集合重叠（替换型漂移）"，
     首轮即可定位问题页，只重抓可疑页（实测缺 3 码仅涉 3 页）；若可疑页清零仍缺码，
-    再做至多一次全量兜底轮。
+    再做至多一次全量兜底轮。单页超过 ``_PAGE_DEADLINE_SEC`` 即标记失败交给补漏，
+    避免个别页把整轮钉住（最坏曾达 ~42s/页）。
     """
     if workers < 1:
         raise ValueError("workers 必须 >= 1")
@@ -203,7 +280,15 @@ def stock_list_all_em(
         last_exc: Exception | None = None
         dup_used = 0
         attempts = 3 + dup_retries
+        deadline = time.monotonic() + _PAGE_DEADLINE_SEC
         for attempt in range(attempts):
+            # 首轮必须放行（冷启动页要拿 total）；此后超预算即止损，交给定向补漏
+            if attempt and time.monotonic() > deadline:
+                last_exc = PageDeadlineExceeded(
+                    f"第{page_no}页超过单页预算 {_PAGE_DEADLINE_SEC:.0f}s"
+                )
+                log.info("第%d页超预算（>%.0fs），标记失败交给补漏", page_no, _PAGE_DEADLINE_SEC)
+                break
             try:
                 page = source.fetch_page(request)
             except Exception as exc:  # 传输层已换 IP 重试 10 次，此处兜底整页重试
@@ -239,7 +324,12 @@ def stock_list_all_em(
         failed: set[int] = set()
         if not page_nos:
             return failed
-        with ThreadPoolExecutor(max_workers=min(workers, len(page_nos))) as pool:
+        # 并发收敛按 host 判断：auto 模式下直连态不该被池里别的 host 的 IP 数压住
+        list_url = registry.stock_list_request(MarketQuery(page=1, size=1)).url()
+        size = min(_effective_workers(workers, client.available_proxies(list_url)), len(page_nos))
+        if size < min(workers, len(page_nos)):
+            log.info("并发按可用出口收敛：%d -> %d", workers, size)
+        with ThreadPoolExecutor(max_workers=size) as pool:
             futures = {
                 pool.submit(fetch_one, pn, total_pages, dup_retries): pn for pn in page_nos
             }
@@ -308,6 +398,15 @@ def stock_list_all_em(
         ts["backoff_sec"],
         ts["failed_attempts"],
     )
+    # 采购账本：与后台"消耗 IP 数"对账的唯一依据（厂商按返回条数计费，用没用到都算）
+    log.info("%s", _ledger_line(pool, total_pages))
+    for name, stat in sorted((pool.get("source_stats") or {}).items()):
+        if stat.get("calls"):
+            log.info(
+                "  源 %s：回源 %d 次，交付 %d，预筛淘汰 %d，进池 %d",
+                name, stat.get("calls", 0), stat.get("returned", 0),
+                stat.get("rejected", 0), stat.get("adopted", 0),
+            )
     # 按代码排序输出：并发抓取的 dict 插入序是页完成序，对调用方不稳定
     return QuotePage(total=total, items=tuple(sorted(seen.values(), key=lambda q: q.code)))
 
