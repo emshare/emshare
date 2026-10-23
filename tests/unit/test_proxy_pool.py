@@ -756,6 +756,9 @@ def test_ledger_purchase_funnel() -> None:
     assert stats["ips_adopted"] == 2
     assert stats["ips_served"] == 1
     assert stats["ips_productive"] == 1
+    # 预筛范围要随快照暴露：报表靠它区分"淘汰率是测出来的"还是"根本没筛"
+    assert len(stats["prefiltered"]) == 1
+    assert str(stats["prefiltered"][0]).startswith("src0:")
 
 
 def test_ledger_counts_truncated_and_duplicate_delivery() -> None:

@@ -51,16 +51,38 @@ def main(argv: list[str] | None = None) -> int:
         f"｜单有效 IP {pages / max(productive, 1):.1f} 页"
         f"｜失败 {failed}｜熔断 {trips}｜降级放行 {degraded}"
     )
+    ranked: list[tuple[str, dict[str, float], str]] = []
+    for name, stat in aggregate_sources(rows).items():
+        if stat["pref"] >= 1.0:
+            tag = "是"
+        elif stat["tagged"] >= 1.0:
+            tag = "否"
+        else:
+            tag = "?"  # 旧账本没有 prefiltered 字段
+        ranked.append((name, stat, tag))
+    # 预筛源优先排名：未预筛的"淘汰率恒为 0"是构造出来的，不能混在同一列里比
+    ranked.sort(key=lambda x: (x[2] != "是", -x[1]["adopted_per_call"]))
+
     print()
-    print(f"{'源':<32}{'次数':>4}{'回源':>6}{'交付':>6}{'淘汰':>6}{'淘汰率':>8}{'进池':>6}{'每次进池':>10}")
-    for name, stat in sorted(
-        aggregate_sources(rows).items(), key=lambda kv: kv[1]["adopted_per_call"], reverse=True
-    ):
+    print(
+        f"{'源':<32}{'预筛':>4}{'次数':>5}{'回源':>6}{'交付':>6}"
+        f"{'淘汰':>6}{'淘汰率':>8}{'进池':>6}{'每次进池':>10}"
+    )
+    flagged = False
+    for name, stat, tag in ranked:
+        comparable = tag == "是"
+        flagged = flagged or not comparable
+        rate = f"{stat['reject_rate']:>7.0%}" if comparable else f"{'-':>7}"
+        per = f"{stat['adopted_per_call']:>9.2f}" + (" " if comparable else "*")
         print(
-            f"{name:<32}{int(stat['runs']):>4}{int(stat['calls']):>6}{int(stat['returned']):>6}"
-            f"{int(stat['rejected']):>6}{stat['reject_rate']:>7.0%}{int(stat['adopted']):>6}"
-            f"{stat['adopted_per_call']:>10.2f}"
+            f"{name:<32}{tag:>4}{int(stat['runs']):>5}{int(stat['calls']):>6}"
+            f"{int(stat['returned']):>6}{int(stat['rejected']):>6}{rate}"
+            f"{int(stat['adopted']):>6}{per}"
         )
+    if flagged:
+        print()
+        print("  * 未参与预筛（或旧账本无标记）：淘汰率与每次进池不可与预筛源比较——")
+        print("    未经筛选的 IP 全部进池，死 IP 由业务侧淘汰，数字天然好看。")
     print()
     print("提示：出现次数 <3 的源先不下结论；`每次进池` 是同一批里能用的 IP 数，越高越好。")
     return 0

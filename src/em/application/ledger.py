@@ -65,6 +65,8 @@ def build_row(
         "proxy_wait_sec": round(float(timing.get("proxy_wait_sec", 0.0) or 0.0), 3),
         "backoff_sec": round(float(timing.get("backoff_sec", 0.0) or 0.0), 3),
         "failed_attempts": int(timing.get("failed_attempts", 0) or 0),
+        # 参与预筛的源：报表据此区分"淘汰率是测出来的"还是"根本没筛"
+        "prefiltered": list(pool.get("prefiltered") or []),
         "sources": {name: dict(stat) for name, stat in (pool.get("source_stats") or {}).items()},
     }
 
@@ -108,12 +110,27 @@ def load(path: Path) -> list[dict[str, Any]]:
 
 
 def aggregate_sources(rows: list[dict[str, Any]]) -> dict[str, dict[str, float]]:
-    """按源聚合采购侧指标（淘汰率、每次回源进池数），供主备顺序决策。"""
+    """按源聚合采购侧指标（淘汰率、每次回源进池数），供主备顺序决策。
+
+    ``pref`` 标记该源是否参与过预筛（1=是）；``tagged`` 表示至少有一行带
+    ``prefiltered`` 字段——旧账本没有该字段，只能标"未知"而不是"未预筛"。
+    """
     agg: dict[str, dict[str, float]] = {}
     for row in rows:
+        tagged = 1.0 if "prefiltered" in row else 0.0
+        prefiltered = set(row.get("prefiltered") or [])
         for name, stat in (row.get("sources") or {}).items():
             item = agg.setdefault(
-                name, {"runs": 0.0, "calls": 0.0, "returned": 0.0, "rejected": 0.0, "adopted": 0.0}
+                name,
+                {
+                    "runs": 0.0,
+                    "calls": 0.0,
+                    "returned": 0.0,
+                    "rejected": 0.0,
+                    "adopted": 0.0,
+                    "pref": 0.0,
+                    "tagged": 0.0,
+                },
             )
             calls = float(stat.get("calls", 0) or 0)
             item["runs"] += 1.0 if calls else 0.0
@@ -121,6 +138,8 @@ def aggregate_sources(rows: list[dict[str, Any]]) -> dict[str, dict[str, float]]
             item["returned"] += float(stat.get("returned", 0) or 0)
             item["rejected"] += float(stat.get("rejected", 0) or 0)
             item["adopted"] += float(stat.get("adopted", 0) or 0)
+            item["pref"] = max(item["pref"], 1.0 if name in prefiltered else 0.0)
+            item["tagged"] = max(item["tagged"], tagged)
     for item in agg.values():
         returned = item["returned"]
         item["reject_rate"] = item["rejected"] / returned if returned else 0.0

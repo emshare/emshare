@@ -384,6 +384,16 @@ class ProxyPool:
             out["ips_served"] = len(self._ips_served)
             out["ips_productive"] = len(self._ips_productive)
             out["source_stats"] = {k: dict(v) for k, v in self._source_stats.items()}
+            # 哪些源参与预筛：未预筛的源"淘汰率恒为 0"是构造出来的，不能与预筛源比质量
+            out["prefiltered"] = (
+                [
+                    self._source_labels[url]
+                    for i, url in enumerate(self._apis)
+                    if i < self._settings.prefilter_sources
+                ]
+                if self._prober is not None
+                else []
+            )
             return out
 
     def _is_live(self, proxy: str | None) -> bool:

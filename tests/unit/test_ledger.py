@@ -52,6 +52,7 @@ _REQUIRED_KEYS = {
     "source_breaker_trips",
     "proxy_requests",
     "failed_attempts",
+    "prefiltered",
     "sources",
 }
 
@@ -109,6 +110,36 @@ def test_load_skips_broken_lines(tmp_path) -> None:
 
     assert [r["pages"] for r in ledger.load(path)] == [1, 2]
     assert ledger.load(tmp_path / "missing.jsonl") == []
+
+
+def test_build_row_records_prefiltered_sources() -> None:
+    # 未预筛的源"淘汰率恒为 0"是构造出来的，必须在账本里标出，否则报表会把它排到第一
+    row = ledger.build_row(_pool(prefiltered=["src0:x#1"]), _TIMING, 56, 5580, 8.0)
+    assert row["prefiltered"] == ["src0:x#1"]
+
+
+def test_aggregate_marks_unprefiltered_sources() -> None:
+    rows = [
+        {
+            "prefiltered": ["good#1"],
+            "sources": {
+                "good#1": {"calls": 1, "returned": 5, "rejected": 3, "adopted": 2},
+                "backup#2": {"calls": 1, "returned": 5, "rejected": 0, "adopted": 5},
+            },
+        }
+    ]
+    agg = ledger.aggregate_sources(rows)
+
+    assert agg["good#1"]["pref"] == 1.0
+    assert agg["good#1"]["tagged"] == 1.0
+    assert agg["backup#2"]["pref"] == 0.0  # 未预筛
+    assert agg["backup#2"]["tagged"] == 1.0  # 但账本有标记，可以确定
+
+
+def test_aggregate_marks_legacy_rows_as_untagged() -> None:
+    # 旧账本没有 prefiltered 字段：只能标"未知"，不能当成"未预筛"
+    rows = [{"sources": {"x#1": {"calls": 1, "returned": 5, "rejected": 0, "adopted": 5}}}]
+    assert ledger.aggregate_sources(rows)["x#1"]["tagged"] == 0.0
 
 
 def test_aggregate_sources_ranks_by_yield() -> None:
