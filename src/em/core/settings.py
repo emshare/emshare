@@ -9,6 +9,8 @@ from em.core.errors import ConfigError
 
 ProxyMode = Literal["auto", "always", "never"]
 _VALID_MODES = ("auto", "always", "never")
+DegradedMode = Literal["adopt", "lenient"]
+_VALID_DEGRADED = ("adopt", "lenient")
 
 
 def _int_env(name: str, default: int) -> int:
@@ -60,6 +62,16 @@ def _mode_env(name: str, default: ProxyMode) -> ProxyMode:
     return val  # type: ignore[return-value]
 
 
+def _degraded_env(name: str, default: DegradedMode) -> DegradedMode:
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    val = raw.strip().lower()
+    if val not in _VALID_DEGRADED:
+        raise ConfigError(f"{name} 必须是 {','.join(_VALID_DEGRADED)}，实际为 {raw!r}")
+    return val  # type: ignore[return-value]
+
+
 @dataclass(frozen=True)
 class Settings:
     """运行期配置。优先级：环境变量 > 代码默认值。"""
@@ -72,6 +84,8 @@ class Settings:
     proxy_timeout_sec: int = 8
     proxy_mode: ProxyMode = "auto"
     proxy_prefilter: bool = defaults.DEFAULT_PROXY_PREFILTER
+    proxy_prefilter_sources: int = 1
+    proxy_degraded_mode: DegradedMode = "lenient"
     proxy_direct_fails: int = 3
     proxy_proxy_successes: int = 5
     proxy_cooldown_sec: int = 300
@@ -90,6 +104,10 @@ class Settings:
             raise ConfigError("proxy_ttl_sec 必须大于 proxy_safety_margin_sec")
         if self.proxy_mode not in _VALID_MODES:
             raise ConfigError(f"proxy_mode 必须是 {','.join(_VALID_MODES)}")
+        if self.proxy_prefilter_sources < 0:
+            raise ConfigError("proxy_prefilter_sources 不能为负")
+        if self.proxy_degraded_mode not in _VALID_DEGRADED:
+            raise ConfigError(f"proxy_degraded_mode 必须是 {','.join(_VALID_DEGRADED)}")
         if self.proxy_direct_fails < 1:
             raise ConfigError("proxy_direct_fails 必须 >= 1")
         if self.proxy_proxy_successes < 1:
@@ -122,6 +140,8 @@ class Settings:
             proxy_timeout_sec=_int_env("EM_PROXY_TIMEOUT_SEC", 8),
             proxy_mode=_mode_env("EM_PROXY_MODE", "auto"),
             proxy_prefilter=_bool_env("EM_PROXY_PREFILTER", defaults.DEFAULT_PROXY_PREFILTER),
+            proxy_prefilter_sources=_int_env("EM_PROXY_PREFILTER_SOURCES", 1),
+            proxy_degraded_mode=_degraded_env("EM_PROXY_DEGRADED_MODE", "lenient"),
             proxy_direct_fails=_int_env("EM_PROXY_DIRECT_FAILS", 3),
             proxy_proxy_successes=_int_env("EM_PROXY_PROXY_SUCCESSES", 5),
             proxy_cooldown_sec=_int_env("EM_PROXY_COOLDOWN_SEC", 300),
