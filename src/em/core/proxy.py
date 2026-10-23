@@ -20,10 +20,14 @@ from em.core.errors import ConfigError
 
 log = logging.getLogger(__name__)
 
-_PROXY_RE = re.compile(r"^\d{1,3}(?:\.\d{1,3}){3}:\d+$")
+# 代理条目：ip:port，可选 http(s):// 前缀与 user:pass@ 认证（厂商裸返回 ip:port 为主）。
+# 不接受 socks：requests 需要 PySocks 才能用，本项目不引新依赖。
+_PROXY_RE = re.compile(r"^(?:https?://)?(?:[^@\s]+@)?\d{1,3}(?:\.\d{1,3}){3}:\d+$")
 # 回源空返回（IP 资源不足/限频）后的负缓存窗口：此期间排队线程直接退化直连，
 # 不再连环调用代理 API（单飞只能合并同刻等待，挡不住前一个回源结束后的后继线程）
 _EMPTY_REFILL_COOLDOWN_SEC = 1.0
+# 回源轮间短退避：整批不可用后立刻重拉等于连打限流中的 API，0.2s 与连接类退避同量级
+_REFILL_ROUND_BACKOFF_SEC = 0.2
 # 代理 API 回源的连接超时（秒）：读取仍用 ProxySettings.timeout_sec，二者分别计时
 _PROXY_API_CONNECT_TIMEOUT_SEC = 3
 # proxy 态池空时的重试等待：回源单飞通常零点几秒产出新批次，
@@ -75,6 +79,15 @@ class ProxySettings:
             raise ConfigError(f"degraded_mode 必须是 {','.join(_VALID_DEGRADED)}")
 
 
+def proxy_url(entry: str) -> str:
+    """把代理条目规范成 requests 可用的 URL：裸 ``ip:port`` 补 ``http://`` 前缀。
+
+    显式 schema 或带认证的原样返回——``https://`` 表示"到代理本身的连接走 TLS"，
+    与目标站点是否 HTTPS 无关。
+    """
+    return entry if "://" in entry else f"http://{entry}"
+
+
 def fetch_proxies(
     settings: ProxySettings, session: requests.Session, url: str | None = None
 ) -> list[str]:
@@ -93,6 +106,8 @@ def fetch_proxies(
     lines = [ln.strip() for ln in text.splitlines() if _PROXY_RE.match(ln.strip())]
     if not lines and text:
         log.warning("代理源返回非预期格式，退化直连: %s", text[:80])
+    # 原样返回（不去重）：采购账本要按交付行数对账，重复行同样计费；
+    # 去重只影响"可用名额"，在 _fetch_batch 截断前做
     return lines
 
 
@@ -410,8 +425,9 @@ class ProxyPool:
         for url in urls:
             t0 = time.monotonic()
             lines = fetch_proxies(self._settings, self._session, url)
-            # 按 num 截断在计费之后：交付量与使用量分开记账，才能看出重复/超量的浪费
-            ips = lines[: self._settings.num]
+            # 计费按原始交付量算；去重只影响可用名额——同一 IP 重复返回不该占掉 num，
+            # 但它确实被计费了，所以"交付"与"进池"要分开记账
+            ips = list(dict.fromkeys(lines))[: self._settings.num]
             elapsed = time.monotonic() - t0
             with self._lock:
                 self._stats["fetch_calls"] += 1
@@ -460,7 +476,7 @@ class ProxyPool:
             self._purge_failures()
         fetched: list[str] = []
         source: str | None = None
-        for _ in range(3):
+        for round_no in range(3):
             fetched, source = self._fetch_batch()
             if not fetched:
                 with self._lock:
@@ -471,29 +487,30 @@ class ProxyPool:
                 blacklist = set(self._failed_at)
                 degraded = time.monotonic() < self._prefilter_degraded_until
             fresh = [ip for ip in fetched if ip not in blacklist]
-            if not fresh:
-                self._note_dead_batch(source)  # 整批都在黑名单：等同不可用
-                continue
-            if not self._prefilter_enabled(source):
-                # 该源不参与预筛（收费源，淘汰等于浪费配额）
-                self._reset_dead_streak(source)
-                return self._adopt(fresh, source)
-            if degraded and not self._lenient:
-                # adopt 模式：降级窗口内不探测，直接进池由业务自然淘汰。
-                # 未探测的放行没有质量结论，按"交付成功"中断连败——否则死/活交替的源
-                # 会每两轮就被熔断，而 adopt 模式本来就靠业务侧兜底，不需要这层保护。
-                # 单独计数：这是"未验证就放行"的暴露面，评估降级策略时必须能看到
-                with self._lock:
-                    self._stats["degraded_adopted"] += len(fresh)
-                self._reset_dead_streak(source)
-                return self._adopt(fresh, source)
-            # lenient 模式在降级窗口内改用快筛，仍然过滤，只是判据更短
-            alive = self._prefilter(fresh, source, lenient=degraded)
-            if alive:
-                self._reset_dead_streak(source)
-                return self._adopt(alive, source)
-            # 整批筛死：计入该源连败，达到阈值即熔断，下一轮自动换源或快速返回
+            if fresh:
+                if not self._prefilter_enabled(source):
+                    # 该源不参与预筛（收费源，淘汰等于浪费配额）
+                    self._reset_dead_streak(source)
+                    return self._adopt(fresh, source)
+                if degraded and not self._lenient:
+                    # adopt 模式：降级窗口内不探测，直接进池由业务自然淘汰。
+                    # 未探测的放行没有质量结论，按"交付成功"中断连败——否则死/活交替
+                    # 的源会每两轮被熔断，而 adopt 本来就靠业务侧兜底，不需要这层保护。
+                    # 单独计数：这是"未验证就放行"的暴露面，评估降级策略时必须能看到
+                    with self._lock:
+                        self._stats["degraded_adopted"] += len(fresh)
+                    self._reset_dead_streak(source)
+                    return self._adopt(fresh, source)
+                # lenient 模式在降级窗口内改用快筛，仍然过滤，只是判据更短
+                alive = self._prefilter(fresh, source, lenient=degraded)
+                if alive:
+                    self._reset_dead_streak(source)
+                    return self._adopt(alive, source)
+            # 本批不可用（整批黑名单/筛死）：计入连败，短退避后再拉下一轮。
+            # 不退避会连打正在限流的代理 API，把冷却窗口拖得更长
             self._note_dead_batch(source)
+            if round_no < 2:
+                time.sleep(_REFILL_ROUND_BACKOFF_SEC)
         # 3 轮仍不可用（多源各自失败一次等）：硬用最后一批，避免彻底拿不到代理
         return self._adopt(fetched, source)
 

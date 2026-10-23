@@ -23,7 +23,7 @@ from em.application.dataframe import (
 )
 from em.channels.eastmoney import config as em_config
 from em.core.errors import PageDeadlineExceeded
-from em.core.proxy import ProxyPool, ProxyRouter, ProxySettings
+from em.core.proxy import ProxyPool, ProxyRouter, ProxySettings, proxy_url
 from em.core.resilience import RetryPolicy
 from em.core.settings import Settings
 from em.core.transport import HttpClient
@@ -61,9 +61,10 @@ _DEFAULT_FETCH_WORKERS = 5
 # 每个可用出口允许的并发数：实测 2 个出口跑 5 并发与跑 2 并发失败率相当（10 vs 12 次），
 # 但并发砍半会让墙钟翻倍；按每出口 2 个预算收敛，只有单出口时才真正收紧
 _WORKERS_PER_PROXY = 2
-# 页级兜底重试的短退避：整批 IP 全死/代理源限流后立即重发大概率撞同一批，
-# 短等一个换血窗口（代理池回源 ~0.2s、负缓存 1s 量级），0.5s 折中
-_PAGE_RETRY_BACKOFF_SEC = 0.5
+# 页级兜底重试的短退避：整批 IP 全死/代理源限流后立即重发大概率撞同一批。
+# 必须长于代理池的空返回负缓存（_EMPTY_REFILL_COOLDOWN_SEC=1s）：否则重试正好落在
+# 负缓存窗口内，池子必然还是空的，白白烧掉一次页级尝试
+_PAGE_RETRY_BACKOFF_SEC = 1.1
 # 单页时间预算：正常页 0.3~1.5s，含 2~3 次换 IP 重试约 5s；
 # 15s 是"确实不对劲"的界线（5 次重试各 1.5s 连接超时 ≈ 8.5s，再留余量）。
 # 超预算的页标记失败交给定向补漏，而不是让它把整轮钉住（最坏曾达 ~42s/页）
@@ -97,7 +98,7 @@ def _make_prober(session: requests.Session, read_timeout: float) -> Callable[[st
     timeout = (_PROXY_PROBE_CONNECT_TIMEOUT_SEC, read_timeout)
 
     def probe(ip: str) -> bool:
-        proxies = {"http": f"http://{ip}", "https": f"http://{ip}"}
+        proxies = {"http": proxy_url(ip), "https": proxy_url(ip)}
         try:
             resp = session.get(
                 url, params=params, headers=em_config.HEADERS,
@@ -268,26 +269,29 @@ def stock_list_all_em(
     lock = threading.Lock()
     total = 0
 
-    def fetch_one(page_no: int, total_pages: int, dup_retries: int) -> Exception | None:
+    def fetch_one(
+        page_no: int, total_pages: int, dup_retries: int, budget: float | None = None
+    ) -> Exception | None:
         """抓单页并入 ``seen``/``page_codes``；返回 None 成功，否则最后一次异常。
 
         总尝试 = 3 次（传输失败/空页兜底）+ ``dup_retries`` 次（零新增旧快照换 IP）。
+        ``budget`` 为单页时间预算，缺省用 ``_PAGE_DEADLINE_SEC``；首页传两倍——
+        它是串行冷启动，要先等回源与预筛产出 IP，且失败会中断整个调用。
         """
         nonlocal total
+        budget = _PAGE_DEADLINE_SEC if budget is None else budget
         request = registry.stock_list_request(
             MarketQuery(sort=_CLIST_SNAPSHOT_SORT, page=page_no, size=_CLIST_PAGE_SIZE_MAX)
         )
         last_exc: Exception | None = None
         dup_used = 0
         attempts = 3 + dup_retries
-        deadline = time.monotonic() + _PAGE_DEADLINE_SEC
+        deadline = time.monotonic() + budget
         for attempt in range(attempts):
             # 首轮必须放行（冷启动页要拿 total）；此后超预算即止损，交给定向补漏
             if attempt and time.monotonic() > deadline:
-                last_exc = PageDeadlineExceeded(
-                    f"第{page_no}页超过单页预算 {_PAGE_DEADLINE_SEC:.0f}s"
-                )
-                log.info("第%d页超预算（>%.0fs），标记失败交给补漏", page_no, _PAGE_DEADLINE_SEC)
+                last_exc = PageDeadlineExceeded(f"第{page_no}页超过单页预算 {budget:.0f}s")
+                log.info("第%d页超预算（>%.0fs），标记失败交给补漏", page_no, budget)
                 break
             try:
                 page = source.fetch_page(request)
@@ -341,8 +345,9 @@ def stock_list_all_em(
     def suspicious_pages(total_pages: int) -> set[int]:
         return _suspicious_pages(page_codes, total_pages)
 
-    # 首轮：首页确定 total/总页数，其余并发全抓
-    err = fetch_one(1, 1, dup_retries=0)
+    # 首轮：首页确定 total/总页数，其余并发全抓。首页给两倍预算：它串行冷启动、
+    # 要先等回源+预筛产出 IP，失败还会中断整个调用
+    err = fetch_one(1, 1, dup_retries=0, budget=_PAGE_DEADLINE_SEC * 2)
     if err is not None:
         raise err
     total_pages = -(-total // _CLIST_PAGE_SIZE_MAX)

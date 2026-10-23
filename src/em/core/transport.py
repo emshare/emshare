@@ -21,7 +21,7 @@ from em.core.errors import (
     ProxyConnectError,
     UpstreamReadTimeout,
 )
-from em.core.proxy import ProxyRouter
+from em.core.proxy import ProxyRouter, proxy_url
 from em.core.resilience import RetryPolicy, should_retry, sleep_backoff
 
 log = logging.getLogger(__name__)
@@ -52,6 +52,10 @@ def _classify(exc: requests.RequestException) -> NetworkError:
 
 class HttpClient:
     """带换 IP 重试的 HTTP 客户端；耗尽重试则抛出最后一次异常。"""
+
+    # 已验证出口集合的上限：它只用来省一次"首次使用"收紧的连接超时，
+    # 超限直接清空等价于回到默认（新 IP 都按 1.5s 连接超时判死），无正确性影响
+    _PROVEN_CAP = 1024
 
     def __init__(
         self,
@@ -130,7 +134,7 @@ class HttpClient:
                 self._record_timing(proxy, wait, elapsed, failed=False)
                 self._record_rtt(proxy, elapsed)
                 if proxy is not None:
-                    self._proven_proxies.add(proxy)
+                    self._remember_proven(proxy)
                 self._router.report_result(host, proxy, success=True)
                 return text
             except ChannelError as exc:
@@ -188,19 +192,28 @@ class HttpClient:
 
     def _record_rtt(self, proxy: str | None, elapsed: float) -> None:
         """成功请求耗时入滑动窗口（失败尝试不入窗，避免慢请求拉高 P95 的正反馈）。"""
-        self._rtt["proxy" if proxy else "direct"].append(elapsed)
+        with self._timing_lock:
+            self._rtt["proxy" if proxy else "direct"].append(elapsed)
+
+    def _remember_proven(self, proxy: str) -> None:
+        """记住已验证出口；超过上限即清空，回到"新 IP 收紧连接超时"的默认。"""
+        self._proven_proxies.add(proxy)
+        if len(self._proven_proxies) > self._PROVEN_CAP:
+            self._proven_proxies.clear()
 
     def _read_timeout(self, proxy: str | None) -> float:
         """动态读超时：本桶成功耗时 P95 × 余量，clamp 到 [下限, 静态配置]。
 
-        好窗口（clist 单页 <0.3s）收紧到 ~1s 快速判死边缘慢 IP；
-        差窗口 P95 抬高后自动放宽到静态上限，不误杀仍能响应的 IP。
-        样本不足（冷启动）或功能关闭时退静态值。线程安全：deque append/读取各自原子。
+        好窗口收紧后快速判死边缘慢 IP；差窗口 P95 抬高后自动放宽到静态上限，
+        不误杀仍能响应的 IP。样本不足（冷启动）或功能关闭时退静态值。
+        拷贝在 ``_timing_lock`` 内完成：``sorted()`` 会迭代 deque，与并发 append
+        撞上会抛 ``RuntimeError: deque mutated during iteration``。
         """
         static = float(self._timeout[1])
         if not self._dynamic_timeout:
             return static
-        win = self._rtt["proxy" if proxy else "direct"]
+        with self._timing_lock:
+            win = list(self._rtt["proxy" if proxy else "direct"])
         if len(win) < defaults.DYNAMIC_TIMEOUT_MIN_SAMPLES:
             return static
         ordered = sorted(win)
@@ -251,7 +264,7 @@ class HttpClient:
         read_timeout: float | None = None,
         connect_timeout: float | None = None,
     ) -> str:
-        proxies = {"http": f"http://{proxy}", "https": f"http://{proxy}"} if proxy else None
+        proxies = {"http": proxy_url(proxy), "https": proxy_url(proxy)} if proxy else None
         timeout = (
             connect_timeout if connect_timeout is not None else self._timeout[0],
             read_timeout if read_timeout is not None else self._timeout[1],

@@ -61,7 +61,7 @@ def test_page_deadline_stops_retrying(monkeypatch) -> None:
 
         def fetch_page(self, request, flow_field: str = "f62"):
             pages.append(request.page)
-            fake_now[0] += 3.0  # 每次取数耗 3s（模拟连续换 IP 重试）
+            fake_now[0] += 6.0  # 每次取数耗 6s（模拟连续换 IP 重试）
             raise NetworkError("boom")
 
     class _FakeClient:
@@ -83,7 +83,7 @@ def test_page_deadline_stops_retrying(monkeypatch) -> None:
     with pytest.raises(PageDeadlineExceeded):
         stock_list_all_em()
 
-    # t=0 首试、t=3 第二试、t=6 已超 5s → 第三次不再发；整轮立即返回失败页
+    # 首页预算 = 2 x 5s：t=0 首试、t=6 第二试、t=12 已超 10s → 第三次不再发
     assert len(pages) == 2
 
 
@@ -175,6 +175,14 @@ def test_ledger_line_handles_empty_pool() -> None:
     line = _ledger_line({}, pages=0)
     assert "采购 0" in line
     assert "单有效 IP 0.0 页" in line
+
+
+def test_page_retry_backoff_exceeds_empty_refill_cooldown() -> None:
+    # 页级重试必须落在代理池的"空返回负缓存"之后，否则重试时池子必然还是空的，
+    # 白白烧掉一次页级尝试（两个常量分属两层，这里锁住它们的相对关系）
+    from em.core.proxy import _EMPTY_REFILL_COOLDOWN_SEC
+
+    assert _PAGE_RETRY_BACKOFF_SEC > _EMPTY_REFILL_COOLDOWN_SEC
 
 
 def test_effective_workers_caps_by_live_proxies() -> None:

@@ -223,6 +223,15 @@ def test_dynamic_timeout_passed_to_request():
     assert kwargs["timeout"] == pytest.approx((3, 1.5))  # 连接超时回静态 3s，读超时收到下限
 
 
+def test_proven_proxies_set_is_bounded() -> None:
+    # 长时间运行不该无限累积：超上限直接清空，等价回到"新 IP 收紧连接超时"的默认
+    client, _ = _client_always_failing(max_retries=0)
+    client._PROVEN_CAP = 2
+    for ip in ("1.1.1.1:8080", "2.2.2.2:8080", "3.3.3.3:8080"):
+        client._remember_proven(ip)
+    assert client._proven_proxies == set()
+
+
 def test_first_use_connect_timeout_only_for_unproven_proxy():
     # 首次使用的代理 IP 收紧连接超时快速判死；已验证 IP 与直连用静态值
     client = _dynamic_client()

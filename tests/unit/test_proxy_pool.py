@@ -7,7 +7,7 @@ import pytest
 import requests
 
 from em.core.errors import ConfigError
-from em.core.proxy import ProxyPool, ProxySettings
+from em.core.proxy import ProxyPool, ProxySettings, fetch_proxies, proxy_url
 
 
 def _settings(num: int = 1, ttl_sec: int = 30, safety_margin_sec: int = 3) -> ProxySettings:
@@ -151,6 +151,29 @@ def test_unexpected_format_warns_and_degrades(caplog) -> None:
     caplog.set_level("WARNING", logger="em.core.proxy")
     assert pool.acquire() is None
     assert any("非预期格式" in r.message for r in caplog.records)
+
+
+def test_proxy_url_normalizes_entries() -> None:
+    # 裸 ip:port 补 http://；显式 scheme 与认证原样保留
+    assert proxy_url("1.1.1.1:8080") == "http://1.1.1.1:8080"
+    assert proxy_url("https://1.1.1.1:8443") == "https://1.1.1.1:8443"
+    assert proxy_url("u:p@1.1.1.1:8080") == "http://u:p@1.1.1.1:8080"
+
+
+def test_fetch_proxies_accepts_auth_and_rejects_socks() -> None:
+    # 支持显式 scheme 与 user:pass@ 认证；socks 需要 PySocks，本项目不引新依赖；
+    # 重复行原样保留（计费按交付行数对账），去重发生在截断前
+    session = MagicMock(spec=requests.Session)
+    session.get.return_value = MagicMock(
+        text="1.1.1.1:8080\n1.1.1.1:8080\nuser:pw@2.2.2.2:8080\nhttps://3.3.3.3:8443\n"
+        "socks5://4.4.4.4:1080\n垃圾"
+    )
+    assert fetch_proxies(_settings(num=9), session) == [
+        "1.1.1.1:8080",
+        "1.1.1.1:8080",
+        "user:pw@2.2.2.2:8080",
+        "https://3.3.3.3:8443",
+    ]
 
 
 def test_invalid_settings_raise() -> None:
@@ -327,6 +350,20 @@ def test_live_batch_resets_dead_streak() -> None:
     assert pool.acquire() is None  # 第 3、4 批连死 → 才熔断
     assert session.get.call_count == 4
     assert pool.stats()["source_breaker_trips"] == 1
+
+
+def test_refill_backs_off_between_rounds(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 整批不可用后不能零间隔连打代理 API：每轮之间短退避，最后一轮失败后不再等
+    from em.core.proxy import _REFILL_ROUND_BACKOFF_SEC
+
+    slept: list[float] = []
+    monkeypatch.setattr("em.core.proxy.time.sleep", slept.append)
+    session = _session_sequence(["1.1.1.1:8080", "2.2.2.2:8080", "3.3.3.3:8080"])
+    settings = ProxySettings(api="http://p/get", num=1, ttl_sec=60, degraded_mode="lenient")
+    pool = ProxyPool(settings, session, prober=lambda ip: False, fallback_prober=lambda ip: False)
+    assert pool.acquire() is None
+    # 两轮失败各退避一次，第三轮直接返回（熔断后不再回源）
+    assert slept == [_REFILL_ROUND_BACKOFF_SEC] * 2
 
 
 # --- 续期：硬到期前 3s 后台换血，旧 IP 继续服务 ---
@@ -727,9 +764,10 @@ def test_ledger_counts_truncated_and_duplicate_delivery() -> None:
     pool = ProxyPool(_settings(num=2), session)
     assert pool.acquire() == "1.1.1.1:8080"
     stats = pool.stats()
-    assert stats["ips_returned"] == 4
+    assert stats["ips_returned"] == 4  # 计费按交付行数
     assert stats["ips_unique"] == 3  # 重复返回同样计费，只有去重后才知道真实利用率
-    assert stats["ips_adopted"] == 2
+    assert stats["ips_adopted"] == 2  # 重复项不占 num 名额：进池的是两个不同 IP
+    assert pool._current != pool._standby[0]
 
 
 def test_source_stats_split_by_source() -> None:
