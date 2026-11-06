@@ -86,7 +86,7 @@ class Settings:
     proxy_prefilter: bool = defaults.DEFAULT_PROXY_PREFILTER
     proxy_prefilter_sources: int = 1
     proxy_degraded_mode: DegradedMode = "lenient"
-    proxy_direct_fails: int = 3
+    proxy_direct_fails: int = 2
     proxy_proxy_successes: int = 5
     proxy_cooldown_sec: int = 300
     request_timeout_sec: int = defaults.DEFAULT_TIMEOUT_SEC
@@ -142,7 +142,7 @@ class Settings:
             proxy_prefilter=_bool_env("EM_PROXY_PREFILTER", defaults.DEFAULT_PROXY_PREFILTER),
             proxy_prefilter_sources=_int_env("EM_PROXY_PREFILTER_SOURCES", 1),
             proxy_degraded_mode=_degraded_env("EM_PROXY_DEGRADED_MODE", "lenient"),
-            proxy_direct_fails=_int_env("EM_PROXY_DIRECT_FAILS", 3),
+            proxy_direct_fails=_int_env("EM_PROXY_DIRECT_FAILS", 2),
             proxy_proxy_successes=_int_env("EM_PROXY_PROXY_SUCCESSES", 5),
             proxy_cooldown_sec=_int_env("EM_PROXY_COOLDOWN_SEC", 300),
             request_timeout_sec=_int_env("EM_REQUEST_TIMEOUT_SEC", defaults.DEFAULT_TIMEOUT_SEC),

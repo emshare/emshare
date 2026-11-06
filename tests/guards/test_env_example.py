@@ -27,7 +27,7 @@ def test_env_example_parses_to_valid_settings(monkeypatch) -> None:
     assert s.backoff_jitter_sec == 0.1
     assert s.proxy_timeout_sec == 8
     assert s.proxy_mode == "auto"
-    assert s.proxy_direct_fails == 3
+    assert s.proxy_direct_fails == 2
     assert s.proxy_proxy_successes == 5
     assert s.proxy_cooldown_sec == 300
     assert s.proxy_prefilter_sources == 1  # 收费备用源默认不预筛

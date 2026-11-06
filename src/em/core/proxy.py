@@ -50,7 +50,7 @@ class ProxySettings:
     safety_margin_sec: int = 3
     timeout_sec: int = 8
     mode: ProxyMode = "auto"
-    direct_fails: int = 3
+    direct_fails: int = 2
     proxy_successes: int = 5
     cooldown_sec: int = 300
     # 参与回源预筛的源数量（按 ``api`` 书写顺序，前 N 个）。
