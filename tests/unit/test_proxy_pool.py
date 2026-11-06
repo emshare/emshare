@@ -672,7 +672,7 @@ def test_multi_source_failover_recovers_after_window(monkeypatch: pytest.MonkeyP
         MagicMock(text="5.5.5.5:8080"),
         MagicMock(text="6.6.6.6:8080"),
     ]
-    pool, primary, backup = _multi_source_pool(session)
+    pool, primary, _backup = _multi_source_pool(session)
     assert pool.acquire() == "5.5.5.5:8080"
     pool.report_failure("5.5.5.5:8080")
     assert pool.acquire() == "6.6.6.6:8080"

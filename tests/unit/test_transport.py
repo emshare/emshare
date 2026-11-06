@@ -78,7 +78,10 @@ def test_invalid_content_reported_as_failure_and_retried():
     client = HttpClient(
         session, router, RetryPolicy(max_retries=3, backoff_sec=0.0), timeout_sec=5
     )
-    validator = lambda text: text.startswith("{")
+
+    def validator(text: str) -> bool:
+        return text.startswith("{")
+
     assert client.get_text("http://x", {}, {}, validator=validator) == '{"rc":0,"data":{}}'
     # 坏代理 IP 被真实 ProxyPool 记入黑名单并计数，第二次换新 IP
     assert "1.1.1.1:8080" in router._pool._failed_at
