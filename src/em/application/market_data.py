@@ -102,8 +102,11 @@ def _make_prober(session: requests.Session, read_timeout: float) -> Callable[[st
         proxies = {"http": proxy_url(ip), "https": proxy_url(ip)}
         try:
             resp = session.get(
-                url, params=params, headers=em_config.HEADERS,
-                proxies=proxies, timeout=timeout,
+                url,
+                params=params,
+                headers=em_config.HEADERS,
+                proxies=proxies,
+                timeout=timeout,
             )
         except requests.RequestException as exc:
             # 区分 connect/read 只能靠日志：判死原因决定该调超时还是该换源
@@ -185,9 +188,7 @@ def stock_list_em(query: MarketQuery | None = None, settings: Settings | None = 
     return source.fetch_page(registry.stock_list_request(query))
 
 
-def _suspicious_pages(
-    page_codes: dict[int, set[str]], total_pages: int
-) -> set[int]:
+def _suspicious_pages(page_codes: dict[int, set[str]], total_pages: int) -> set[int]:
     """根据各页最近码集合定位需补漏的页号。
 
     东财多后端节点的分页快照不一致表现为"替换型漂移"：某页 100 条中混入邻页的码，
@@ -336,9 +337,7 @@ def stock_list_all_em(
         if size < min(workers, len(page_nos)):
             log.info("并发按可用出口收敛：%d -> %d", workers, size)
         with ThreadPoolExecutor(max_workers=size) as pool:
-            futures = {
-                pool.submit(fetch_one, pn, total_pages, dup_retries): pn for pn in page_nos
-            }
+            futures = {pool.submit(fetch_one, pn, total_pages, dup_retries): pn for pn in page_nos}
             for future in as_completed(futures):
                 if future.result() is not None:
                     failed.add(futures[future])
@@ -380,7 +379,13 @@ def stock_list_all_em(
         added = len(seen) - before
         log.info(
             "补漏第%d轮：重抓 %d 页（%s），新增 %d，累计 %d/%d，失败页 %d",
-            round_no, len(targets), mode, added, len(seen), total, len(failed),
+            round_no,
+            len(targets),
+            mode,
+            added,
+            len(seen),
+            total,
+            len(failed),
         )
         # 定向轮零新增且无失败：重抓同批不会有结果，下轮直接全量兜底或收敛
         force_full = mode == "定向" and added == 0 and not failed and len(seen) < total
@@ -411,8 +416,11 @@ def stock_list_all_em(
         if stat.get("calls"):
             log.info(
                 "  源 %s：回源 %d 次，交付 %d，预筛淘汰 %d，进池 %d",
-                name, stat.get("calls", 0), stat.get("returned", 0),
-                stat.get("rejected", 0), stat.get("adopted", 0),
+                name,
+                stat.get("calls", 0),
+                stat.get("returned", 0),
+                stat.get("rejected", 0),
+                stat.get("adopted", 0),
             )
     # 旁路记账：追加一行 JSONL，供跨天按源比较（写失败只告警，不影响本次结果）
     record_ledger(pool, ts, total_pages, len(seen), time.monotonic() - started)
@@ -445,7 +453,9 @@ def df_stock_list_all_em(
     columns: dict[str, str] | None = None,
 ) -> pd.DataFrame:
     """``stock_list_all_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
-    return to_dataframe(stock_list_all_em(settings=settings, max_rounds=max_rounds, workers=workers), columns)
+    return to_dataframe(
+        stock_list_all_em(settings=settings, max_rounds=max_rounds, workers=workers), columns
+    )
 
 
 def stock_kline_em(

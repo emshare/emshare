@@ -23,7 +23,9 @@ from em.application.ledger import aggregate_sources, ledger_path, load
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="采购账本报表（按源汇总）")
-    ap.add_argument("--path", default=None, help="账本文件；缺省取 EM_LEDGER_PATH / .em_ledger.jsonl")
+    ap.add_argument(
+        "--path", default=None, help="账本文件；缺省取 EM_LEDGER_PATH / .em_ledger.jsonl"
+    )
     ap.add_argument("--limit", type=int, default=20, help="只看最近 N 次运行（默认 20）")
     args = ap.parse_args(argv)
 

@@ -16,9 +16,9 @@ DEFAULT_PROXY_PREFILTER = True
 # 动态读超时（P95 滑动窗口）：按直连/代理分桶统计最近成功请求耗时，
 # 读超时 = clamp(P95 × 倍数, 下限, 静态配置)。失败尝试不入窗，避免慢请求拉高 P95 的正反馈。
 DEFAULT_REQUEST_DYNAMIC_TIMEOUT = True
-DYNAMIC_TIMEOUT_WINDOW = 20        # 滑动窗口样本数（最近 N 次成功请求）
-DYNAMIC_TIMEOUT_MIN_SAMPLES = 5    # 冷启动最少样本，不足时退静态超时
-DYNAMIC_TIMEOUT_FACTOR = 3.0       # P95 倍数余量
+DYNAMIC_TIMEOUT_WINDOW = 20  # 滑动窗口样本数（最近 N 次成功请求）
+DYNAMIC_TIMEOUT_MIN_SAMPLES = 5  # 冷启动最少样本，不足时退静态超时
+DYNAMIC_TIMEOUT_FACTOR = 3.0  # P95 倍数余量
 # 下限：p95×3 会被快窗口压得过低（实测代理整页均值 0.79~1.25s），
 # 0.5s 的下限等于把正常页判成超时，因此抬到覆盖均值的量级
 DYNAMIC_TIMEOUT_FLOOR_SEC = 1.5

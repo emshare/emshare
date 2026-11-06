@@ -46,7 +46,7 @@
 ```python
 from em import stock_list_all_em
 
-page = stock_list_all_em()          # 默认 5 并发、至多 5 轮补漏
+page = stock_list_all_em()  # 默认 5 并发、至多 5 轮补漏
 print(page.total, len(page.items))  # 5580 5580
 assert [q.code for q in page.items] == sorted(q.code for q in page.items)
 ```

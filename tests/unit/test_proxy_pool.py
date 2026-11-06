@@ -331,9 +331,7 @@ def test_breaker_recovers_after_cooldown(monkeypatch: pytest.MonkeyPatch) -> Non
 
 def test_live_batch_resets_dead_streak() -> None:
     # 死一批 → 活一批 → 再连续死两批：连败被成功打断过，因此只在第二次连死时熔断
-    session = _session_sequence(
-        ["1.1.1.1:8080", "2.2.2.2:8080", "3.3.3.3:8080", "4.4.4.4:8080"]
-    )
+    session = _session_sequence(["1.1.1.1:8080", "2.2.2.2:8080", "3.3.3.3:8080", "4.4.4.4:8080"])
     settings = ProxySettings(api="http://p/get", num=1, ttl_sec=60, degraded_mode="lenient")
     alive = {"2.2.2.2:8080": True}
     # 第 2 批落在降级窗口内，走快筛；快筛同样认得 2.2.2.2
@@ -544,9 +542,7 @@ def test_prefilter_all_dead_degrades_then_recovers(monkeypatch: pytest.MonkeyPat
     # 窗口过后自动恢复探测——极差时段不空转，好时段保持拦截
     fake_now = [0.0]
     monkeypatch.setattr("em.core.proxy.time.monotonic", lambda: fake_now[0])
-    session = _session_sequence(
-        ["1.1.1.1:8080", "2.2.2.2:8080", "3.3.3.3:8080", "4.4.4.4:8080"]
-    )
+    session = _session_sequence(["1.1.1.1:8080", "2.2.2.2:8080", "3.3.3.3:8080", "4.4.4.4:8080"])
     calls: list[str] = []
 
     def prober(ip: str) -> bool:

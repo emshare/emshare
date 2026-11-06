@@ -75,7 +75,9 @@ def resolve_code(name: str) -> StockRef | None:
     for d in _search(name):
         sec_type = d.get("SecurityTypeName", "")
         if sec_type in _A_STOCK_MARKETS and d.get("Name") == name:
-            return StockRef(code=str(d["Code"]), name=str(d["Name"]), market=_A_STOCK_MARKETS[sec_type])
+            return StockRef(
+                code=str(d["Code"]), name=str(d["Name"]), market=_A_STOCK_MARKETS[sec_type]
+            )
     return None
 
 

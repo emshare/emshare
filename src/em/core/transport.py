@@ -130,8 +130,13 @@ class HttpClient:
             try:
                 t1 = time.monotonic()
                 text = self._attempt(
-                    url, params, headers, proxy, validator,
-                    self._read_timeout(proxy, read_timeout), self._connect_timeout(proxy),
+                    url,
+                    params,
+                    headers,
+                    proxy,
+                    validator,
+                    self._read_timeout(proxy, read_timeout),
+                    self._connect_timeout(proxy),
                 )
                 elapsed = time.monotonic() - t1
                 self._record_timing(proxy, wait, elapsed, failed=False)
@@ -178,9 +183,7 @@ class HttpClient:
             raise RuntimeError("未执行请求（max_retries < 0）")
         raise last_exc
 
-    def _record_timing(
-        self, proxy: str | None, wait: float, elapsed: float, failed: bool
-    ) -> None:
+    def _record_timing(self, proxy: str | None, wait: float, elapsed: float, failed: bool) -> None:
         """按直连/代理分桶累计单次尝试耗时（含失败尝试，IP 质量成本在此显形）。"""
         with self._timing_lock:
             if proxy is None:

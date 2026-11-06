@@ -23,9 +23,7 @@ def _pool(**extra: object) -> dict[str, object]:
         "source_breaker_trips": 0,
         "refill_sec": 0.5,
         "prefilter_sec": 1.5,
-        "source_stats": {
-            "src0:x#1": {"calls": 2, "returned": 10, "rejected": 6, "adopted": 4}
-        },
+        "source_stats": {"src0:x#1": {"calls": 2, "returned": 10, "rejected": 6, "adopted": 4}},
     }
     base.update(extra)
     return base

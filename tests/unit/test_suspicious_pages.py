@@ -22,7 +22,11 @@ def test_adjacent_overlap_marks_both_pages():
 
 def test_short_non_last_page_flagged():
     # 非末页只有 97 条（真码被挤出）→ 标记该页；末页短不算异常
-    pages = {1: _full_page(0), 2: set(list(_full_page(100))[:97]), 3: set(list(_full_page(200))[:80])}
+    pages = {
+        1: _full_page(0),
+        2: set(list(_full_page(100))[:97]),
+        3: set(list(_full_page(200))[:80]),
+    }
     assert _suspicious_pages(pages, total_pages=3) == {2}
 
 

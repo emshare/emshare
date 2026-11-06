@@ -65,9 +65,7 @@ def test_last_attempt_does_not_log_beyond_max(caplog):
 def test_invalid_content_reported_as_failure_and_retried():
     # HTTP 200 但协议校验不过（代理劫持页）：记失败、换 IP 重试，最终成功
     session_for_pool = MagicMock(spec=requests.Session)
-    session_for_pool.get.return_value = MagicMock(
-        text="1.1.1.1:8080\n2.2.2.2:8080\n3.3.3.3:8080"
-    )
+    session_for_pool.get.return_value = MagicMock(text="1.1.1.1:8080\n2.2.2.2:8080\n3.3.3.3:8080")
     ps = ProxySettings(api="http://x", num=3, ttl_sec=30, mode="always")
     router = ProxyRouter(ProxyPool(ps, session_for_pool), ps)
     session = MagicMock(spec=requests.Session)
@@ -75,9 +73,7 @@ def test_invalid_content_reported_as_failure_and_retried():
         MagicMock(status_code=200, text="<html>代理错误页</html>"),
         MagicMock(status_code=200, text='{"rc":0,"data":{}}'),
     ]
-    client = HttpClient(
-        session, router, RetryPolicy(max_retries=3, backoff_sec=0.0), timeout_sec=5
-    )
+    client = HttpClient(session, router, RetryPolicy(max_retries=3, backoff_sec=0.0), timeout_sec=5)
 
     def validator(text: str) -> bool:
         return text.startswith("{")

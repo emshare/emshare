@@ -231,7 +231,16 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="东方财富行情抓取（动态代理 + 自动重试）")
     ap.add_argument(
         "--preset",
-        choices=["board", "market", "market-all", "kline", "trends", "fundflow", "boardflow", "boardlist"],
+        choices=[
+            "board",
+            "market",
+            "market-all",
+            "kline",
+            "trends",
+            "fundflow",
+            "boardflow",
+            "boardlist",
+        ],
         default="board",
         help="接口预设",
     )

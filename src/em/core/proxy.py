@@ -99,7 +99,9 @@ def fetch_proxies(
     """
     url = url or settings.api.split(",")[0].strip()
     try:
-        text = session.get(url, timeout=(_PROXY_API_CONNECT_TIMEOUT_SEC, settings.timeout_sec)).text.strip()
+        text = session.get(
+            url, timeout=(_PROXY_API_CONNECT_TIMEOUT_SEC, settings.timeout_sec)
+        ).text.strip()
     except requests.RequestException as exc:
         log.debug("获取代理失败: %s", exc)
         return []
@@ -454,7 +456,9 @@ class ProxyPool:
                         self._primary_off_until = now + self._PRIMARY_FAILOVER_SEC
                     log.warning(
                         "主源回源 %.1fs 超过 %.0fs（疑似限流），降级备用源 %.0fs",
-                        elapsed, self._PRIMARY_SLOW_SEC, self._PRIMARY_FAILOVER_SEC,
+                        elapsed,
+                        self._PRIMARY_SLOW_SEC,
+                        self._PRIMARY_FAILOVER_SEC,
                     )
                 return ips, url
             if url == primary and not primary_off and self._has_backup:

@@ -35,9 +35,7 @@ def test_page_retry_backoff_between_attempts(monkeypatch):
     session.get.side_effect = requests.ConnectionError("boom")
     ps = ProxySettings(api="http://x", num=1, ttl_sec=30, mode="always")
     router = ProxyRouter(ProxyPool(ps, session), ps)
-    client = HttpClient(
-        session, router, RetryPolicy(max_retries=0, backoff_sec=0.0), timeout_sec=2
-    )
+    client = HttpClient(session, router, RetryPolicy(max_retries=0, backoff_sec=0.0), timeout_sec=2)
     monkeypatch.setattr("em.application.market_data._build_client", lambda s: client)
     slept: list[float] = []
     monkeypatch.setattr("em.application.market_data.time.sleep", slept.append)
