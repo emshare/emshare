@@ -7,6 +7,7 @@ src/em/channels/eastmoney/                 docs/interfaces/eastmoney/
 ├── ashare_boards/              # 沪深京板块    ├── ashare_boards/
 │   ├── board_constituent/      # 板块成分股    │   ├── board_constituent_em.md
 │   ├── board_fund_flow/        # 板块资金流    │   ├── board_fund_flow_em.md
+│   ├── board_kline/            # 板块K线       │   ├── board_kline_em.md
 │   └── board_industry_list/    # 板块列表      │   └── board_industry_list_em.md
 ├── ashare_stocks/              # 沪深京个股    ├── ashare_stocks/
 │   ├── stock_list/             # 个股列表      │   ├── stock_list_em.md

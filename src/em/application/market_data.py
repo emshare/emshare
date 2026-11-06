@@ -39,6 +39,7 @@ from em.domain.models import (
 )
 from em.domain.queries import (
     BoardFundFlowQuery,
+    BoardKlineQuery,
     BoardListQuery,
     BoardQuery,
     FundFlowQuery,
@@ -532,6 +533,25 @@ def df_board_fund_flow_em(
 ) -> pd.DataFrame:
     """``board_fund_flow_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
     return to_board_fund_flow_dataframe(board_fund_flow_em(query, settings), columns)
+
+
+def board_kline_em(
+    query: BoardKlineQuery | None = None, settings: Settings | None = None
+) -> KlineSeries:
+    """抓取板块（行业 / 概念 / 地域）历史 K 线，返回领域模型 ``KlineSeries``。"""
+    query = query or BoardKlineQuery()
+    client = _build_client(settings or Settings.from_env())
+    source = registry.EastMoneySource(client)
+    return source.fetch_kline(registry.board_kline_request(query))
+
+
+def df_board_kline_em(
+    query: BoardKlineQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``board_kline_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_kline_dataframe(board_kline_em(query, settings), columns)
 
 
 def board_industry_list_em(

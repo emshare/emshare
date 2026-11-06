@@ -10,6 +10,7 @@ from em.application.market_data import (
     board_constituent_em,
     board_fund_flow_em,
     board_industry_list_em,
+    board_kline_em,
     stock_fund_flow_em,
     stock_kline_em,
     stock_list_all_em,
@@ -32,6 +33,7 @@ from em.domain.models import (
 )
 from em.domain.queries import (
     BoardFundFlowQuery,
+    BoardKlineQuery,
     BoardListQuery,
     BoardQuery,
     FundFlowQuery,
@@ -240,11 +242,12 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
             "fundflow",
             "boardflow",
             "boardlist",
+            "boardkline",
         ],
         default="board",
         help="接口预设",
     )
-    ap.add_argument("--board", default="BK0438", help="板块代码（board 预设）")
+    ap.add_argument("--board", default="BK0438", help="板块代码（board/boardflow/boardkline 预设）")
     ap.add_argument(
         "--board-type",
         choices=["industry", "concept", "region"],
@@ -264,7 +267,10 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         help="市场（kline/trends/fundflow 预设）",
     )
     ap.add_argument(
-        "--period", choices=list(KLT_PERIODS), default="day", help="K 线周期（kline 预设）"
+        "--period",
+        choices=list(KLT_PERIODS),
+        default="day",
+        help="K 线周期（kline/boardkline 预设）",
     )
     ap.add_argument(
         "--adjust", choices=list(FQT_ADJUSTS), default="qfq", help="复权方式（kline 预设）"
@@ -274,13 +280,13 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--head",
         type=int,
         default=None,
-        help="展示前 N 条（kline/fundflow/market-all 预设，0=全部，可与 --tail 同时使用）",
+        help="展示前 N 条（kline/boardkline/fundflow/market-all 预设，0=全部，可与 --tail 同时使用）",
     )
     ap.add_argument(
         "--tail",
         type=int,
         default=None,
-        help="展示末 N 条（kline/fundflow/market-all 预设，0=全部，可与 --head 同时使用）",
+        help="展示末 N 条（kline/boardkline/fundflow/market-all 预设，0=全部，可与 --head 同时使用）",
     )
     ap.add_argument("--pn", type=int, default=1, help="页码")
     ap.add_argument("--pz", type=int, default=None, help="每页条数")
@@ -346,6 +352,9 @@ def main(argv: list[str] | None = None) -> int:
         elif args.preset == "boardflow":
             board_flow = board_fund_flow_em(BoardFundFlowQuery(board=args.board))
             _render_board_fund_flow(board_flow, head=args.head, tail=args.tail)
+        elif args.preset == "boardkline":
+            board_series = board_kline_em(BoardKlineQuery(board=args.board, period=args.period))
+            _render_kline(board_series, head=args.head, tail=args.tail)
         elif args.preset == "boardlist":
             board_page = board_industry_list_em(
                 BoardListQuery(

@@ -42,6 +42,13 @@ _KLINE_FIELDS = (
     ("turnover_rate", "float | None", "%", "换手率"),
 )
 
+# 板块 K 线与个股共用 Kline 模型，但板块是指数：价格类字段的单位是点而不是元
+_BOARD_KLINE_POINT_FIELDS = frozenset({"open", "close", "high", "low", "change"})
+_BOARD_KLINE_FIELDS = tuple(
+    (name, typ, "点" if name in _BOARD_KLINE_POINT_FIELDS else unit, desc)
+    for name, typ, unit, desc in _KLINE_FIELDS
+)
+
 _TREND_FIELDS = (
     ("time", "str", "—", "时间 YYYY-MM-DD HH:MM"),
     ("price", "float | None", "元", "最新价"),
@@ -278,6 +285,35 @@ _INTERFACES: tuple[Interface, ...] = (
             "    print(f.date, f.main_net_inflow, f.main_net_pct)"
         ),
         dataframe_variant="df_board_fund_flow_em",
+    ),
+    Interface(
+        name="board_kline_em",
+        category="kline",
+        desc="板块历史 K 线（行业/概念/地域，日/周/月/分钟，板块指数点位）",
+        documented=True,
+        inputs=(
+            Param("board", "str", False, '"BK0438"', "板块代码（如 BK0438 食品饮料）"),
+            Param(
+                "period",
+                "str",
+                False,
+                '"day"',
+                "周期：day 日K / week 周K / month 月K / 5m / 15m / 30m / 60m，未知回退 day",
+            ),
+            Param("beg", "str", False, '"0"', "起始日期 YYYYMMDD，0 表示不限"),
+            Param("end", "str", False, '"20500101"', "结束日期 YYYYMMDD"),
+        ),
+        outputs=tuple(Field(*f) for f in _BOARD_KLINE_FIELDS),
+        example=(
+            "from em import board_kline_em\n"
+            "from em.domain.queries import BoardKlineQuery\n"
+            "\n"
+            'series = board_kline_em(BoardKlineQuery(board="BK0438", period="day"))\n'
+            "print(series.code, series.name, len(series.items))\n"
+            "for k in series.items[-3:]:\n"
+            "    print(k.date, k.open, k.close, k.change_pct)"
+        ),
+        dataframe_variant="df_board_kline_em",
     ),
     Interface(
         name="board_industry_list_em",

@@ -52,6 +52,14 @@
 - 源码：`src/em/channels/eastmoney/ashare_boards/board_fund_flow/board_fund_flow_em.py`
 
 
+### `板块（行业 / 概念 / 地域）历史 K 线`
+接口：`board_kline_em`, `df_board_kline_em`->（DataFrame版）
+描述：板块历史 K 线（push2his kline，secid 前缀 90，日 / 周 / 月 / 5分 / 15分 / 30分 / 60分，价格为指数点位，不复权）。
+
+- 详情：[board_kline_em.md](./ashare_boards/board_kline_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_boards/board_kline/board_kline_em.py`
+
+
 ### `通用转换`
 接口：`to_dataframe`
 描述：任意 `QuotePage` → `DataFrame`，默认中文列名，可传 `columns` 覆盖。

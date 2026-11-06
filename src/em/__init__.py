@@ -2,7 +2,8 @@
 
 分层：domain（领域模型）← core（基座）← channels（渠道）← application（组合根）。
 对外公共面统一从本模块导出，渠道明细从 ``em.channels`` 子包取。
-``*_em`` 返回领域模型（``QuotePage`` / ``KlineSeries`` / ``TrendSeries`` / ``FundFlowSeries``），
+``*_em`` 返回领域模型（``QuotePage`` / ``KlineSeries`` / ``TrendSeries`` / ``FundFlowSeries`` 等，
+``board_kline_em`` 与 ``stock_kline_em`` 共用 ``KlineSeries``），
 ``df_*_em`` 返回 pandas DataFrame（需 pandas）。
 ``search`` / ``interface_info`` / ``list_categories`` 提供离线接口检索（对齐 akshare）。
 ``resolve_code`` / ``resolve_board`` 提供中文名→代码解析（东财搜索接口，单请求）；
@@ -38,9 +39,11 @@ from em.application.market_data import (
     board_constituent_em,
     board_fund_flow_em,
     board_industry_list_em,
+    board_kline_em,
     df_board_constituent_em,
     df_board_fund_flow_em,
     df_board_industry_list_em,
+    df_board_kline_em,
     df_stock_fund_flow_em,
     df_stock_kline_em,
     df_stock_list_all_em,
@@ -72,9 +75,11 @@ __all__ = [
     "board_fund_flow_by_name",
     "board_fund_flow_em",
     "board_industry_list_em",
+    "board_kline_em",
     "df_board_constituent_em",
     "df_board_fund_flow_em",
     "df_board_industry_list_em",
+    "df_board_kline_em",
     "df_stock_fund_flow_em",
     "df_stock_kline_em",
     "df_stock_list_all_em",

@@ -23,8 +23,10 @@ def test_search_market_by_keyword() -> None:
 
 
 def test_search_kline_by_keyword() -> None:
-    rows = search("K线")
-    assert rows and rows[0]["接口名"] == "stock_kline_em"
+    # 个股与板块 K 线对“K线”同分，同分按接口名排序；加“个股”即可区分
+    names = [r["接口名"] for r in search("K线")[:2]]
+    assert set(names) == {"stock_kline_em", "board_kline_em"}
+    assert search("个股 K线")[0]["接口名"] == "stock_kline_em"
 
 
 def test_search_trends_by_keyword() -> None:
@@ -146,10 +148,29 @@ def test_list_categories() -> None:
     assert cats == [
         {"类目": "board", "接口数": 2},
         {"类目": "fund_flow", "接口数": 2},
-        {"类目": "kline", "接口数": 1},
+        {"类目": "kline", "接口数": 2},
         {"类目": "market", "接口数": 1},
         {"类目": "trends", "接口数": 1},
     ]
+
+
+def test_search_board_kline_by_keyword() -> None:
+    rows = search("板块 K线")
+    assert rows and rows[0]["接口名"] == "board_kline_em"
+
+
+def test_interface_info_board_kline() -> None:
+    info = interface_info("board_kline_em")
+    assert info["category"] == "kline"
+    assert info["dataframe_variant"] == "df_board_kline_em"
+    assert [p["name"] for p in info["inputs"]] == ["board", "period", "beg", "end"]
+    units = {f["name"]: f["unit"] for f in info["outputs"]}
+    assert len(units) == 11
+    # 板块是指数：价格类字段单位为点，成交额仍为元
+    assert units["close"] == "点"
+    assert units["change"] == "点"
+    assert units["amount"] == "元"
+    assert "board_kline_em(" in info["example"]
 
 
 # -- DataFrame 包装（需 pandas，缺失则跳过）--

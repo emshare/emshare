@@ -61,6 +61,19 @@ class BoardFundFlowQuery:
 
 
 @dataclass(frozen=True)
+class BoardKlineQuery:
+    """板块（行业 / 概念 / 地域）历史 K 线（push2his，日 / 周 / 月 / 分钟）。
+
+    板块是指数，复权对其无意义（实测 ``fqt=0`` 与 ``fqt=1`` 返回完全一致），故不设 ``adjust``。
+    """
+
+    board: str = "BK0438"  # 板块代码，如 BK0438
+    period: str = "day"  # day / week / month / 5m / 15m / 30m / 60m
+    beg: str = "0"  # 起始日期 YYYYMMDD，0 表示不限
+    end: str = "20500101"  # 结束日期 YYYYMMDD
+
+
+@dataclass(frozen=True)
 class BoardListQuery:
     """板块列表（行业 / 概念 / 地域，clist 游客接口）。
 
