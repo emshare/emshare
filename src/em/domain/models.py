@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from em.domain.units import Lot, Pct, Point, Yuan
+from em.domain.units import Hkd, Lot, Pct, Point, Shares, Yuan
 
 
 @dataclass(frozen=True)
@@ -204,3 +204,28 @@ class IndexListPage:
 
     total: int
     items: tuple[IndexQuote, ...]
+
+
+@dataclass(frozen=True)
+class HkQuote:
+    """单条港股行情。价格与成交额单位为港元，成交量单位为股（不是手）。"""
+
+    code: str
+    name: str
+    price: Hkd = None  # 最新价
+    change_pct: Pct = None  # 涨跌幅
+    change: Hkd = None  # 涨跌额
+    open: Hkd = None  # 今开
+    high: Hkd = None  # 最高
+    low: Hkd = None  # 最低
+    pre_close: Hkd = None  # 昨收
+    volume: Shares = None  # 成交量
+    turnover: Hkd = None  # 成交额
+
+
+@dataclass(frozen=True)
+class HkStockListPage:
+    """一页港股列表结果。"""
+
+    total: int
+    items: tuple[HkQuote, ...]

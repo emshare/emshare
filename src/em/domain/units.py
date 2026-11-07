@@ -13,6 +13,8 @@ Yuan = Annotated[float | None, "unit:元"]
 Pct = Annotated[float | None, "unit:%"]
 Lot = Annotated[float | None, "unit:手"]
 Point = Annotated[float | None, "unit:点"]  # 指数点位
+Hkd = Annotated[float | None, "unit:港元"]
+Shares = Annotated[float | None, "unit:股"]
 
 
 def scaled(value: object, factor: float = SCALED_INT) -> float | None:

@@ -18,6 +18,7 @@ from em.application.dataframe import (
     to_board_list_dataframe,
     to_dataframe,
     to_fund_flow_dataframe,
+    to_hk_stock_list_dataframe,
     to_index_list_dataframe,
     to_kline_dataframe,
     to_trend_dataframe,
@@ -33,6 +34,7 @@ from em.domain.models import (
     BoardFundFlowSeries,
     BoardListPage,
     FundFlowSeries,
+    HkStockListPage,
     IndexListPage,
     KlineSeries,
     Quote,
@@ -45,6 +47,7 @@ from em.domain.queries import (
     BoardListQuery,
     BoardQuery,
     FundFlowQuery,
+    HkStockListQuery,
     IndexListQuery,
     KlineQuery,
     MarketQuery,
@@ -599,3 +602,22 @@ def df_index_list_em(
 ) -> pd.DataFrame:
     """``index_list_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
     return to_index_list_dataframe(index_list_em(query, settings), columns)
+
+
+def hk_stock_list_em(
+    query: HkStockListQuery | None = None, settings: Settings | None = None
+) -> HkStockListPage:
+    """抓取港股列表（主板 / 创业板），返回领域模型 ``HkStockListPage``。"""
+    query = query or HkStockListQuery()
+    client = _build_client(settings or Settings.from_env())
+    source = registry.EastMoneySource(client)
+    return source.fetch_hk_stock_list(registry.hk_stock_list_request(query))
+
+
+def df_hk_stock_list_em(
+    query: HkStockListQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``hk_stock_list_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_hk_stock_list_dataframe(hk_stock_list_em(query, settings), columns)

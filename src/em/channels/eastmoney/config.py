@@ -76,3 +76,9 @@ INDEX_LIST_FIELDS = "f12,f13,f14,f2,f3,f4,f5,f6,f7,f10,f15,f16,f17,f18"
 # 指数 f13（secid 市场前缀）-> 领域市场；北证指数也挂在 0 前缀下，按代码段另行区分
 INDEX_MARKETS = {0: "sz", 1: "sh", 2: "csi"}
 BJ_INDEX_CODE_PREFIX = "899"
+# 港股列表字段集（对齐 akshare stock_hk_spot_em 输出列）
+# f1 价格小数位 / f12 代码 / f14 名称 / f2 最新价 / f3 涨跌幅 / f4 涨跌额 / f5 成交量（股）
+# f6 成交额 / f15 最高 / f16 最低 / f17 今开 / f18 昨收
+HK_STOCK_LIST_FIELDS = "f1,f12,f14,f2,f3,f4,f5,f6,f15,f16,f17,f18"
+# fltt=1 时价格放大 10**f1 倍；A 股与指数 f1=2，港股 f1=3。缺 f1 时按 A 股口径
+DEFAULT_PRICE_DECIMALS = 2

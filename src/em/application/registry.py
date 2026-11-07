@@ -19,6 +19,7 @@ from em.channels.eastmoney.ashare_stocks.stock_fund_flow.stock_fund_flow_em impo
 from em.channels.eastmoney.ashare_stocks.stock_kline.stock_kline_em import kline_request
 from em.channels.eastmoney.ashare_stocks.stock_list.stock_list_em import stock_list_request
 from em.channels.eastmoney.ashare_stocks.stock_trends.stock_trends_em import trends_request
+from em.channels.eastmoney.hk_market.hk_stock_list.hk_stock_list_em import hk_stock_list_request
 from em.channels.eastmoney.source import EastMoneySource
 
 __all__ = [
@@ -29,6 +30,7 @@ __all__ = [
     "board_kline_request",
     "flow_field",
     "fund_flow_request",
+    "hk_stock_list_request",
     "index_list_request",
     "kline_request",
     "stock_list_request",

@@ -11,6 +11,7 @@ from em.application.market_data import (
     board_fund_flow_em,
     board_industry_list_em,
     board_kline_em,
+    hk_stock_list_em,
     index_list_em,
     stock_fund_flow_em,
     stock_kline_em,
@@ -21,6 +22,7 @@ from em.application.market_data import (
 from em.channels.eastmoney.ashare_indices.index_list import INDEX_SERIES_FS
 from em.channels.eastmoney.ashare_stocks.stock_list import MARKET_SCOPE_FS
 from em.channels.eastmoney.config import FQT_ADJUSTS, FUND_FLOW_FIELDS, KLT_PERIODS
+from em.channels.eastmoney.hk_market.hk_stock_list import HK_SCOPE_FS
 from em.core.env import load_dotenv
 from em.core.errors import EmError, EmptyResponseError, HttpStatusError, NetworkError
 from em.core.settings import Settings
@@ -28,6 +30,7 @@ from em.domain.models import (
     BoardFundFlowSeries,
     BoardListPage,
     FundFlowSeries,
+    HkStockListPage,
     IndexListPage,
     Kline,
     KlineSeries,
@@ -41,6 +44,7 @@ from em.domain.queries import (
     BoardListQuery,
     BoardQuery,
     FundFlowQuery,
+    HkStockListQuery,
     IndexListQuery,
     KlineQuery,
     MarketQuery,
@@ -248,6 +252,19 @@ def _render_index_list(page: IndexListPage) -> None:
     print("-" * 100)
 
 
+def _render_hk_stock_list(page: HkStockListPage) -> None:
+    print(f"\n✅ 共 {page.total} 条，本次返回 {len(page.items)} 条（价格 / 成交额单位：港元）")
+    print("-" * 90)
+    for q in page.items:
+        print(
+            f"  {q.code:<6} {q.name:<10}"
+            f"  最新价:{_fmt(q.price, '>9.3f')}"
+            f"  涨跌幅:{_fmt(q.change_pct, '>6.2f')}%"
+            f"  成交额:{_fmt_amount(q.turnover):>10}"
+        )
+    print("-" * 90)
+
+
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="东方财富行情抓取（动态代理 + 自动重试）")
     ap.add_argument(
@@ -263,9 +280,16 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
             "boardlist",
             "boardkline",
             "indexlist",
+            "hklist",
         ],
         default="board",
         help="接口预设",
+    )
+    ap.add_argument(
+        "--hk-scope",
+        choices=list(HK_SCOPE_FS),
+        default="all",
+        help="港股范围（hklist 预设）：all 主板 + 创业板 / main 主板 / gem 创业板",
     )
     ap.add_argument(
         "--series",
@@ -284,7 +308,9 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--level", choices=["1", "2", "3", "all"], default="1", help="行业分级（boardlist 预设）"
     )
     ap.add_argument("--rank", choices=list(FUND_FLOW_FIELDS), default="10d", help="资金流周期")
-    ap.add_argument("--sort", default="f3", help="排序字段（market/boardlist/indexlist 预设）")
+    ap.add_argument(
+        "--sort", default="f3", help="排序字段（market/boardlist/indexlist/hklist 预设）"
+    )
     ap.add_argument(
         "--scope",
         choices=list(MARKET_SCOPE_FS),
@@ -407,6 +433,13 @@ def main(argv: list[str] | None = None) -> int:
                 IndexListQuery(series=args.series, sort=args.sort, page=args.pn, size=args.pz or 20)
             )
             _render_index_list(index_page)
+        elif args.preset == "hklist":
+            hk_page = hk_stock_list_em(
+                HkStockListQuery(
+                    scope=args.hk_scope, sort=args.sort, page=args.pn, size=args.pz or 20
+                )
+            )
+            _render_hk_stock_list(hk_page)
         else:
             page = board_constituent_em(
                 BoardQuery(board=args.board, period=args.rank, page=args.pn, size=args.pz or 8)

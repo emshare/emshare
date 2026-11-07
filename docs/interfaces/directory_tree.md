@@ -6,9 +6,9 @@
 em/                                          # 东方财富行情抓取
 ├── src/em/                                  # 源码包
 │   ├── domain/                              # 领域模型（最内层，零渠道依赖）
-│   │   ├── models.py                        # Quote/Kline/Trend/FundFlow/IndexQuote 及各自 Series/Page
-│   │   ├── queries.py                       # BoardQuery/MarketQuery/KlineQuery/TrendQuery/FundFlowQuery/BoardKlineQuery/IndexListQuery 等
-│   │   ├── units.py                         # 单位别名与换算（元 / % / 手 / 点）
+│   │   ├── models.py                        # Quote/Kline/Trend/FundFlow/IndexQuote/HkQuote 及各自 Series/Page
+│   │   ├── queries.py                       # BoardQuery/MarketQuery/KlineQuery/TrendQuery/FundFlowQuery/BoardKlineQuery/IndexListQuery/HkStockListQuery 等
+│   │   ├── units.py                         # 单位别名与换算（元 / % / 手 / 点 / 港元 / 股）
 │   │   └── __init__.py
 │   ├── core/                                # 基座：配置 / 弹性 / 代理 / 传输
 │   │   ├── errors.py                        # 异常分层 + retryable 归类
@@ -32,7 +32,8 @@ em/                                          # 东方财富行情抓取
 │   │   │   └── stock_fund_flow/             # 个股历史资金流（stock_fund_flow_em.py）
 │   │   ├── ashare_indices/                  # 沪深京指数
 │   │   │   └── index_list/                  # 指数列表（index_list_em.py）
-│   │   ├── hk_market/.gitkeep               # 港股市场（占位）
+│   │   ├── hk_market/                       # 港股市场
+│   │   │   └── hk_stock_list/               # 港股列表（hk_stock_list_em.py）
 │   │   ├── us_market/.gitkeep               # 美股市场（占位）
 │   │   ├── fund_market/.gitkeep             # 基金市场（占位）
 │   │   ├── bond_market/.gitkeep             # 债券市场（占位）
@@ -50,7 +51,7 @@ em/                                          # 东方财富行情抓取
 │   │   └── __init__.py
 │   ├── application/                         # 组合根
 │   │   ├── registry.py                      # 唯一的渠道入口登记
-│   │   ├── market_data.py                   # board_constituent_em/industry_list/board_kline/market/index_list/kline/trends/fund_flow + _df 版
+│   │   ├── market_data.py                   # board_constituent_em/industry_list/board_kline/market/index_list/hk_stock_list/kline/trends/fund_flow + _df 版
 │   │   ├── dataframe.py                     # 领域模型 -> DataFrame（中文列名）
 │   │   ├── catalog.py                       # 接口检索：search/interface_info/list_categories
 │   │   └── __init__.py
@@ -67,6 +68,7 @@ em/                                          # 东方财富行情抓取
 │   │   ├── test_board_fund_flow.py / test_board_fund_flow_dataframe.py
 │   │   ├── test_board_kline.py / test_board_kline_dataframe.py
 │   │   ├── test_index_list.py / test_index_list_dataframe.py
+│   │   ├── test_hk_stock_list.py / test_hk_stock_list_dataframe.py
 │   │   ├── test_board_industry_list.py / test_board_industry_list_dataframe.py
 │   │   ├── test_dataframe.py                # QuotePage DataFrame
 │   │   ├── test_mapping.py                  # 报文映射
@@ -81,7 +83,7 @@ em/                                          # 东方财富行情抓取
 │   │   ├── test_docs_sync.py                # 文档与源码同步守卫
 │   │   ├── test_env_example.py              # .env.example 完整性守卫
 │   │   └── __init__.py
-│   ├── fixtures/eastmoney/                  # 固定报文（kline/trends/fund_flow/board_fund_flow/board_kline/clist_board/clist_board_industry/clist_index）
+│   ├── fixtures/eastmoney/                  # 固定报文（kline/trends/fund_flow/board_fund_flow/board_kline/clist_board/clist_board_industry/clist_index/clist_hk_stock）
 │   ├── conftest.py
 │   └── __init__.py
 ├── docs/interfaces/eastmoney/               # 接口文档（按渠道分组，详见该目录 directory_tree.md）
@@ -93,5 +95,5 @@ em/                                          # 东方财富行情抓取
 └── .env                                     # 环境变量（不入库，含代理 API 凭证）
 ```
 
-> - 除 `ashare_boards/`、`ashare_stocks/`、`ashare_indices/` 外，其余市场目录暂为空占位，待对应功能实现后填充。
+> - 除 `ashare_boards/`、`ashare_stocks/`、`ashare_indices/`、`hk_market/` 外，其余市场目录暂为空占位，待对应功能实现后填充。
 > - `.env`、`uv.lock`、`123.txt` 不纳入接口文档视野，仅在此标注存在。

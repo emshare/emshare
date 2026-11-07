@@ -127,6 +127,20 @@ _INDEX_LIST_FIELDS = (
     ("volume_ratio", "float | None", "—", "量比"),
 )
 
+_HK_STOCK_LIST_FIELDS = (
+    ("code", "str", "—", "港股代码（5 位）"),
+    ("name", "str", "—", "证券简称"),
+    ("price", "float | None", "港元", "最新价"),
+    ("change_pct", "float | None", "%", "涨跌幅"),
+    ("change", "float | None", "港元", "涨跌额"),
+    ("open", "float | None", "港元", "今开"),
+    ("high", "float | None", "港元", "最高"),
+    ("low", "float | None", "港元", "最低"),
+    ("pre_close", "float | None", "港元", "昨收"),
+    ("volume", "float | None", "股", "成交量（单位股，不是手）"),
+    ("turnover", "float | None", "港元", "成交额"),
+)
+
 
 @dataclass(frozen=True)
 class Param:
@@ -405,6 +419,35 @@ _INTERFACES: tuple[Interface, ...] = (
             "    print(i.code, i.market, i.name, i.price, i.change_pct)"
         ),
         dataframe_variant="df_index_list_em",
+    ),
+    Interface(
+        name="hk_stock_list_em",
+        category="hk",
+        desc="港股列表（主板/创业板，价格与成交额单位为港元，不含 ETF 与债券）",
+        documented=True,
+        inputs=(
+            Param(
+                "scope",
+                "str",
+                False,
+                '"all"',
+                "范围：all 主板 + 创业板 / main 主板 / gem 创业板，未知回退 all",
+            ),
+            Param("sort", "str", False, '"f3"', "排序字段（上游 f* 字段名）"),
+            Param("page", "int", False, "1", "页码，从 1 起"),
+            Param("size", "int", False, "20", "每页条数，上游上限 100"),
+        ),
+        outputs=tuple(Field(*f) for f in _HK_STOCK_LIST_FIELDS),
+        example=(
+            "from em import hk_stock_list_em\n"
+            "from em.domain.queries import HkStockListQuery\n"
+            "\n"
+            'page = hk_stock_list_em(HkStockListQuery(scope="main", sort="f6", size=5))\n'
+            "print(page.total)\n"
+            "for q in page.items:\n"
+            "    print(q.code, q.name, q.price, q.change_pct)"
+        ),
+        dataframe_variant="df_hk_stock_list_em",
     ),
 )
 

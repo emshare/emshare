@@ -68,6 +68,14 @@
 - 源码：`src/em/channels/eastmoney/ashare_indices/index_list/index_list_em.py`
 
 
+### `港股列表`
+接口：`hk_stock_list_em`, `df_hk_stock_list_em`->（DataFrame版）
+描述：港股列表（clist 游客接口，主板 / 创业板，价格按 3 位小数还原，单位港元，不含 ETF 与债券）。
+
+- 详情：[hk_stock_list_em.md](./hk_market/hk_stock_list_em.md)
+- 源码：`src/em/channels/eastmoney/hk_market/hk_stock_list/hk_stock_list_em.py`
+
+
 ### `通用转换`
 接口：`to_dataframe`
 描述：任意 `QuotePage` → `DataFrame`，默认中文列名，可传 `columns` 覆盖。

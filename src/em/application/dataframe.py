@@ -12,6 +12,7 @@ from em.domain.models import (
     BoardFundFlowSeries,
     BoardListPage,
     FundFlowSeries,
+    HkStockListPage,
     IndexListPage,
     KlineSeries,
     QuotePage,
@@ -272,4 +273,41 @@ def to_index_list_dataframe(
     naming = columns or INDEX_LIST_COLUMNS_ZH
     ordered_cols = [naming[f] for f in _INDEX_LIST_FIELD_ORDER]
     rows = [{naming[f]: getattr(i, f) for f in _INDEX_LIST_FIELD_ORDER} for i in page.items]
+    return pd.DataFrame(rows, columns=ordered_cols)  # type: ignore[no-any-return]
+
+
+# 港股列表字段 -> 默认中文列名（对齐 akshare stock_hk_spot_em 的列与顺序）
+HK_STOCK_LIST_COLUMNS_ZH: dict[str, str] = {
+    "code": "代码",
+    "name": "名称",
+    "price": "最新价",
+    "change": "涨跌额",
+    "change_pct": "涨跌幅",
+    "open": "今开",
+    "high": "最高",
+    "low": "最低",
+    "pre_close": "昨收",
+    "volume": "成交量",
+    "turnover": "成交额",
+}
+
+_HK_STOCK_LIST_FIELD_ORDER = tuple(HK_STOCK_LIST_COLUMNS_ZH.keys())
+
+
+def to_hk_stock_list_dataframe(
+    page: HkStockListPage,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """把 ``HkStockListPage`` 转为 ``DataFrame``；默认 akshare 风格中文列名。
+
+    列顺序固定为 ``HK_STOCK_LIST_COLUMNS_ZH`` 的字段顺序，空页也保留列头。
+    """
+    try:
+        import pandas as pd
+    except ImportError as exc:  # pragma: no cover - 环境依赖
+        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+
+    naming = columns or HK_STOCK_LIST_COLUMNS_ZH
+    ordered_cols = [naming[f] for f in _HK_STOCK_LIST_FIELD_ORDER]
+    rows = [{naming[f]: getattr(q, f) for f in _HK_STOCK_LIST_FIELD_ORDER} for q in page.items]
     return pd.DataFrame(rows, columns=ordered_cols)  # type: ignore[no-any-return]

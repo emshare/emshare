@@ -97,3 +97,13 @@ class IndexListQuery:
     sort: str = "f3"  # 排序字段（上游 f* 字段名）
     page: int = 1
     size: int = 20
+
+
+@dataclass(frozen=True)
+class HkStockListQuery:
+    """港股列表（clist 游客接口），按板块范围筛选。"""
+
+    scope: str = "all"  # all 主板 + 创业板 / main 主板 / gem 创业板
+    sort: str = "f3"  # 排序字段（上游 f* 字段名）
+    page: int = 1
+    size: int = 20

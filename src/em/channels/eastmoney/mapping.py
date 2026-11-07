@@ -12,6 +12,8 @@ from em.domain.models import (
     BoardListPage,
     FundFlow,
     FundFlowSeries,
+    HkQuote,
+    HkStockListPage,
     IndexListPage,
     IndexQuote,
     Kline,
@@ -292,4 +294,39 @@ def _to_index(item: dict[str, Any]) -> IndexQuote:
         open=scaled(item.get("f17")),
         pre_close=scaled(item.get("f18")),
         volume_ratio=scaled(item.get("f10")),
+    )
+
+
+def _price_factor(item: dict[str, Any]) -> float:
+    """价格放大倍数：``fltt=1`` 时价格按 ``10 ** f1`` 放大（A 股 f1=2，港股 f1=3）。"""
+    decimals = _to_int(item.get("f1"))
+    return 10.0 ** (config.DEFAULT_PRICE_DECIMALS if decimals is None else decimals)
+
+
+def to_hk_stock_list_page(data: dict[str, Any]) -> HkStockListPage:
+    """把 clist 港股列表响应映射为 ``HkStockListPage``。
+
+    港股价格有 3 位小数（f1=3），价格类字段按 ``10 ** f1`` 还原，不能套用 A 股的 100 倍；
+    涨跌幅仍放大 100 倍。成交量（f5，单位股）与成交额（f6，港元）为原值。
+    停牌或无成交的股票上游返回 ``"-"``，映射为 ``None``。
+    """
+    block = data.get("data") or {}
+    items = tuple(_to_hk_quote(it) for it in (block.get("diff") or []))
+    return HkStockListPage(total=int(block.get("total") or 0), items=items)
+
+
+def _to_hk_quote(item: dict[str, Any]) -> HkQuote:
+    factor = _price_factor(item)
+    return HkQuote(
+        code=str(item.get("f12", "")),
+        name=str(item.get("f14", "")),
+        price=scaled(item.get("f2"), factor),
+        change_pct=scaled(item.get("f3")),
+        change=scaled(item.get("f4"), factor),
+        open=scaled(item.get("f17"), factor),
+        high=scaled(item.get("f15"), factor),
+        low=scaled(item.get("f16"), factor),
+        pre_close=scaled(item.get("f18"), factor),
+        volume=as_float(item.get("f5")),
+        turnover=as_float(item.get("f6")),
     )
