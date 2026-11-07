@@ -182,7 +182,7 @@ def board_constituent_em(
 
 
 def stock_list_em(query: MarketQuery | None = None, settings: Settings | None = None) -> QuotePage:
-    """抓取沪深京 A 股全市场列表，返回领域模型 ``QuotePage``。"""
+    """抓取沪深京 A 股列表（``query.scope`` 可限定市场 / 板块），返回领域模型 ``QuotePage``。"""
     query = query or MarketQuery()
     client = _build_client(settings or Settings.from_env())
     source = registry.EastMoneySource(client)
@@ -256,6 +256,7 @@ def stock_list_all_em(
 
     固定按代码（f12）稳定排序翻页——``query.sort`` 在此忽略：f3 等行情排序盘中实时
     漂移会使并发分页跨页重复（实测 6x 请求放大）；需要特定行情顺序请取完后在本地排序。
+    ``query.scope`` 生效（默认 ``all`` 即全市场），每一页都按同一范围请求。
     先抓首页拿 ``total`` 推算总页数，再用 ``workers`` 个线程并发抓余下各页，按 ``code``
     去重。补漏为**定向重抓**：东财后端节点不一致表现为"邻页码集合重叠（替换型漂移）"，
     首轮即可定位问题页，只重抓可疑页（实测缺 3 码仅涉 3 页）；若可疑页清零仍缺码，
@@ -285,7 +286,12 @@ def stock_list_all_em(
         nonlocal total
         budget = _PAGE_DEADLINE_SEC if budget is None else budget
         request = registry.stock_list_request(
-            MarketQuery(sort=_CLIST_SNAPSHOT_SORT, page=page_no, size=_CLIST_PAGE_SIZE_MAX)
+            MarketQuery(
+                sort=_CLIST_SNAPSHOT_SORT,
+                page=page_no,
+                size=_CLIST_PAGE_SIZE_MAX,
+                scope=query.scope,
+            )
         )
         last_exc: Exception | None = None
         dup_used = 0

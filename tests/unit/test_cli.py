@@ -25,6 +25,7 @@ from em.domain.models import (
     Quote,
     QuotePage,
 )
+from em.domain.queries import MarketQuery
 
 
 def _items(n: int) -> tuple[Kline, ...]:
@@ -309,16 +310,37 @@ def test_render_quotes_default_last_20(capsys) -> None:
 
 def test_main_market_all_renders_without_paging(monkeypatch, capsys) -> None:
     page = QuotePage(total=5580, items=_quotes(3))
-    monkeypatch.setattr("em.cli.stock_list_all_em", lambda: page)
+    queries: list[MarketQuery] = []
+
+    def fake_all(query: MarketQuery) -> QuotePage:
+        queries.append(query)
+        return page
+
+    monkeypatch.setattr("em.cli.stock_list_all_em", fake_all)
     rc = main(["--preset", "market-all", "--tail", "2"])
     assert rc == 0
+    assert [q.scope for q in queries] == ["all"]
     out = capsys.readouterr().out
     assert "共 5580 条" in out
     assert "末 2 条" in out
 
 
+def test_main_market_scope_is_passed_through(monkeypatch) -> None:
+    seen: list[MarketQuery] = []
+
+    def fake_list(query: MarketQuery) -> QuotePage:
+        seen.append(query)
+        return QuotePage(total=0, items=())
+
+    monkeypatch.setattr("em.cli.stock_list_em", fake_list)
+    monkeypatch.setattr("em.cli.stock_list_all_em", fake_list)
+    assert main(["--preset", "market", "--scope", "kc", "--pz", "5"]) == 0
+    assert main(["--preset", "market-all", "--scope", "st"]) == 0
+    assert [(q.scope, q.size) for q in seen] == [("kc", 5), ("st", 20)]
+
+
 def test_main_market_all_error_returns_1(monkeypatch, capsys) -> None:
-    def boom():
+    def boom(query: MarketQuery):
         raise NetworkError("连接被断开")
 
     monkeypatch.setattr("em.cli.stock_list_all_em", boom)

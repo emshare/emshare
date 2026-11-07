@@ -167,12 +167,20 @@ _INTERFACES: tuple[Interface, ...] = (
     Interface(
         name="stock_list_em",
         category="market",
-        desc="沪深京 A 股全市场列表（游客接口，不含资金流）",
+        desc="沪深京 A 股全市场列表（游客接口，不含资金流，可按沪/深/北/科创/创业/新股/ST 筛选）",
         documented=True,
         inputs=(
             Param("sort", "str", False, '"f3"', "排序字段（上游 f* 字段名）"),
             Param("page", "int", False, "1", "页码，从 1 起"),
             Param("size", "int", False, "20", "每页条数，上游上限 50"),
+            Param(
+                "scope",
+                "str",
+                False,
+                '"all"',
+                "范围：all 全部 / sh 沪市 / sz 深市 / bj 北交所 / kc 科创板 / cy 创业板 / "
+                "new 新股 / st 风险警示，未知回退 all",
+            ),
         ),
         outputs=tuple(Field(*f) for f in _QUOTE_FIELDS),
         example=(

@@ -32,7 +32,7 @@
 
 | 名称 | 类型 | 必填 | 默认值 | 描述 |
 | --- | --- | --- | --- | --- |
-| `query` | `MarketQuery` | 否 | `None` | 仅 `sort` 被忽略（内部固定 `f12`）；`page`/`size` 亦由内部接管 |
+| `query` | `MarketQuery` | 否 | `None` | 只有 `scope` 生效（范围见 [`stock_list_em`](stock_list_em.md)，默认 `all`）；`sort` 被忽略（内部固定 `f12`），`page`/`size` 由内部接管 |
 | `settings` | `Settings` | 否 | `None` | 留空从环境变量读取 |
 | `max_rounds` | `int` | 否 | `5` | 补漏轮上限（定向重抓轮数） |
 | `workers` | `int` | 否 | `5` | 翻页并发线程数（≥1） |
@@ -45,8 +45,10 @@
 
 ```python
 from em import stock_list_all_em
+from em.domain.queries import MarketQuery
 
 page = stock_list_all_em()  # 默认 5 并发、至多 5 轮补漏
+kc = stock_list_all_em(MarketQuery(scope="kc"))  # 只拉科创板全量
 print(page.total, len(page.items))  # 5580 5580
 assert [q.code for q in page.items] == sorted(q.code for q in page.items)
 ```

@@ -15,11 +15,12 @@ class BoardQuery:
 
 @dataclass(frozen=True)
 class MarketQuery:
-    """沪深京 A 股全市场列表。"""
+    """沪深京 A 股全市场列表（可按市场 / 板块范围筛选）。"""
 
     sort: str = "f3"
     page: int = 1
     size: int = 20
+    scope: str = "all"  # all / sh / sz / bj / kc 科创板 / cy 创业板 / new 新股 / st 风险警示
 
 
 @dataclass(frozen=True)

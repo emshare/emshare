@@ -92,6 +92,51 @@ def test_page_deadline_stops_retrying(monkeypatch) -> None:
     assert len(pages) == 2
 
 
+def test_stock_list_all_carries_scope_to_every_page(monkeypatch) -> None:
+    # scope 必须带到每一页：翻页请求自行重建 MarketQuery，漏传会静默退回全市场
+    import em.application.market_data as md
+    from em.domain.models import Quote, QuotePage
+    from em.domain.queries import MarketQuery
+
+    monkeypatch.setattr(md.time, "sleep", lambda _s: None)
+    seen_fs: list[str] = []
+    expected = md.registry.stock_list_request(MarketQuery(scope="kc")).fs
+
+    class _FakeSource:
+        name = "eastmoney"
+
+        def __init__(self, client) -> None:
+            pass
+
+        def fetch_page(self, request, flow_field: str = "f62"):
+            seen_fs.append(request.fs)
+            code = f"68{request.page:04d}"
+            return QuotePage(total=250, items=(Quote(code=code, name=code),))
+
+    class _FakeClient:
+        def timing_stats(self) -> dict[str, float]:
+            from collections import defaultdict
+
+            return defaultdict(float)  # 收尾日志会读各计时键，本用例不关心取值
+
+        def proxy_stats(self) -> dict[str, object]:
+            return {}
+
+        def available_proxies(self, url: str) -> int:
+            return 1
+
+        def evict_last_proxy(self, url: str) -> None:
+            pass
+
+    monkeypatch.setattr(md, "_build_client", lambda s: _FakeClient())
+    monkeypatch.setattr(md.registry, "EastMoneySource", _FakeSource)
+
+    stock_list_all_em(MarketQuery(scope="kc"), max_rounds=1, workers=1)
+
+    assert len(seen_fs) >= 3  # total=250、每页 100 → 至少 3 页
+    assert set(seen_fs) == {expected}
+
+
 # --- 预筛预热复用：探测必须走业务 Session ---
 
 

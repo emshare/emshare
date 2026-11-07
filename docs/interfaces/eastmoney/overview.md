@@ -14,7 +14,7 @@
 
 ### `沪深京 A 股全市场列表`
 接口：`stock_list_em`, `df_stock_list_em`->（DataFrame版）
-描述：沪深京 A 股全市场列表（游客接口，不含资金流）。
+描述：沪深京 A 股全市场列表（游客接口，不含资金流，`scope` 可筛沪 / 深 / 北 / 科创 / 创业 / 新股 / ST）。
 
 - 详情：[stock_list_em.md](./ashare_stocks/stock_list_em.md)
 - 源码：`src/em/channels/eastmoney/ashare_stocks/stock_list/stock_list_em.py`

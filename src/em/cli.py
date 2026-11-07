@@ -17,6 +17,7 @@ from em.application.market_data import (
     stock_list_em,
     stock_trends_em,
 )
+from em.channels.eastmoney.ashare_stocks.stock_list import MARKET_SCOPE_FS
 from em.channels.eastmoney.config import FQT_ADJUSTS, FUND_FLOW_FIELDS, KLT_PERIODS
 from em.core.env import load_dotenv
 from em.core.errors import EmError, EmptyResponseError, HttpStatusError, NetworkError
@@ -259,6 +260,12 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     )
     ap.add_argument("--rank", choices=list(FUND_FLOW_FIELDS), default="10d", help="资金流周期")
     ap.add_argument("--sort", default="f3", help="排序字段（market 预设）")
+    ap.add_argument(
+        "--scope",
+        choices=list(MARKET_SCOPE_FS),
+        default="all",
+        help="A 股范围（market/market-all 预设）：沪/深/北/科创/创业/新股/ST",
+    )
     ap.add_argument("--code", default="000001", help="证券代码（kline/trends/fundflow 预设）")
     ap.add_argument(
         "--market",
@@ -329,11 +336,15 @@ def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     try:
         if args.preset == "market":
-            page = stock_list_em(MarketQuery(sort=args.sort, page=args.pn, size=args.pz or 20))
+            page = stock_list_em(
+                MarketQuery(sort=args.sort, page=args.pn, size=args.pz or 20, scope=args.scope)
+            )
             _render(page)
         elif args.preset == "market-all":
             # 全市场快照（约 56 页并发翻页），结果按代码升序，切片展示
-            _render_quotes(stock_list_all_em(), head=args.head, tail=args.tail)
+            _render_quotes(
+                stock_list_all_em(MarketQuery(scope=args.scope)), head=args.head, tail=args.tail
+            )
         elif args.preset == "kline":
             series = stock_kline_em(
                 KlineQuery(
