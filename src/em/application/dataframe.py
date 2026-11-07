@@ -12,6 +12,7 @@ from em.domain.models import (
     BoardFundFlowSeries,
     BoardListPage,
     FundFlowSeries,
+    IndexListPage,
     KlineSeries,
     QuotePage,
     TrendSeries,
@@ -231,4 +232,44 @@ def to_board_list_dataframe(
     naming = columns or BOARD_LIST_COLUMNS_ZH
     ordered_cols = [naming[f] for f in _BOARD_LIST_FIELD_ORDER]
     rows = [{naming[f]: getattr(b, f) for f in _BOARD_LIST_FIELD_ORDER} for b in page.items]
+    return pd.DataFrame(rows, columns=ordered_cols)  # type: ignore[no-any-return]
+
+
+# 指数列表字段 -> 默认中文列名（对齐 akshare stock_zh_index_spot_em，另加“市场”消歧代码）
+INDEX_LIST_COLUMNS_ZH: dict[str, str] = {
+    "code": "代码",
+    "name": "名称",
+    "market": "市场",
+    "price": "最新价",
+    "change_pct": "涨跌幅",
+    "change": "涨跌额",
+    "volume": "成交量",
+    "turnover": "成交额",
+    "amplitude": "振幅",
+    "high": "最高",
+    "low": "最低",
+    "open": "今开",
+    "pre_close": "昨收",
+    "volume_ratio": "量比",
+}
+
+_INDEX_LIST_FIELD_ORDER = tuple(INDEX_LIST_COLUMNS_ZH.keys())
+
+
+def to_index_list_dataframe(
+    page: IndexListPage,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """把 ``IndexListPage`` 转为 ``DataFrame``；默认 akshare 风格中文列名。
+
+    列顺序固定为 ``INDEX_LIST_COLUMNS_ZH`` 的字段顺序，空页也保留列头。
+    """
+    try:
+        import pandas as pd
+    except ImportError as exc:  # pragma: no cover - 环境依赖
+        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+
+    naming = columns or INDEX_LIST_COLUMNS_ZH
+    ordered_cols = [naming[f] for f in _INDEX_LIST_FIELD_ORDER]
+    rows = [{naming[f]: getattr(i, f) for f in _INDEX_LIST_FIELD_ORDER} for i in page.items]
     return pd.DataFrame(rows, columns=ordered_cols)  # type: ignore[no-any-return]

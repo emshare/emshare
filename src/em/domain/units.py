@@ -12,6 +12,7 @@ SCALED_INT = 100.0  # 东财 fltt=1 时价格/涨跌幅放大 100 倍的整数
 Yuan = Annotated[float | None, "unit:元"]
 Pct = Annotated[float | None, "unit:%"]
 Lot = Annotated[float | None, "unit:手"]
+Point = Annotated[float | None, "unit:点"]  # 指数点位
 
 
 def scaled(value: object, factor: float = SCALED_INT) -> float | None:

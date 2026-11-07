@@ -60,6 +60,14 @@
 - 源码：`src/em/channels/eastmoney/ashare_boards/board_kline/board_kline_em.py`
 
 
+### `指数列表`
+接口：`index_list_em`, `df_index_list_em`->（DataFrame版）
+描述：指数列表（clist 游客接口，沪深重要指数 / 上证 / 深证 / 中证系列，带 `market` 消歧 `000001` 这类重名代码）。
+
+- 详情：[index_list_em.md](./ashare_indices/index_list_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_indices/index_list/index_list_em.py`
+
+
 ### `通用转换`
 接口：`to_dataframe`
 描述：任意 `QuotePage` → `DataFrame`，默认中文列名，可传 `columns` 覆盖。

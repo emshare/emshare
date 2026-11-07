@@ -87,3 +87,13 @@ class BoardListQuery:
     sort: str = "f3"  # 排序字段（上游 f* 字段名）
     page: int = 1
     size: int = 20
+
+
+@dataclass(frozen=True)
+class IndexListQuery:
+    """指数列表（clist 游客接口），按指数系列筛选。"""
+
+    series: str = "main"  # main 沪深重要指数 / sh 上证系列 / sz 深证系列 / csi 中证系列
+    sort: str = "f3"  # 排序字段（上游 f* 字段名）
+    page: int = 1
+    size: int = 20

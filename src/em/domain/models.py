@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from em.domain.units import Lot, Pct, Yuan
+from em.domain.units import Lot, Pct, Point, Yuan
 
 
 @dataclass(frozen=True)
@@ -172,3 +172,35 @@ class BoardListPage:
 
     total: int
     items: tuple[Board, ...]
+
+
+@dataclass(frozen=True)
+class IndexQuote:
+    """单条指数行情（上证 / 深证 / 北证 / 中证）。点位类字段单位为点。
+
+    ``code`` 单独不能唯一定位：``000001`` 在沪市是上证指数、在深市是平安银行，
+    取 K 线等后续请求要连同 ``market`` 一起用。
+    """
+
+    code: str
+    name: str
+    market: str | None = None  # sh 沪市 / sz 深市 / bj 北交所 / csi 中证
+    price: Point = None  # 最新点位
+    change_pct: Pct = None  # 涨跌幅
+    change: Point = None  # 涨跌额
+    volume: Lot = None  # 成交量
+    turnover: Yuan = None  # 成交额
+    amplitude: Pct = None  # 振幅
+    high: Point = None  # 最高
+    low: Point = None  # 最低
+    open: Point = None  # 今开
+    pre_close: Point = None  # 昨收
+    volume_ratio: float | None = None  # 量比
+
+
+@dataclass(frozen=True)
+class IndexListPage:
+    """一页指数列表结果。"""
+
+    total: int
+    items: tuple[IndexQuote, ...]

@@ -16,7 +16,8 @@ src/em/channels/eastmoney/                 docs/interfaces/eastmoney/
 │   ├── stock_fund_flow/        # 个股资金流    │   ├── stock_fund_flow_em.md
 │   ├── stock_kline/            # K线(个股+指数)│   ├── stock_kline_em.md
 │   └── stock_trends/           # 分时(个股+指数)│   └── stock_trends_em.md
-├── ashare_indices/.gitkeep     # 沪深京指数    ├── ashare_indices/.gitkeep
+├── ashare_indices/              # 沪深京指数    ├── ashare_indices/
+│   └── index_list/             # 指数列表      │   └── index_list_em.md
 ├── hk_market/.gitkeep          # 港股市场      ├── hk_market/.gitkeep
 ├── us_market/.gitkeep          # 美股市场      ├── us_market/.gitkeep
 ├── fund_market/.gitkeep        # 基金市场      ├── fund_market/.gitkeep
@@ -35,4 +36,4 @@ src/em/channels/eastmoney/                 docs/interfaces/eastmoney/
 └── __init__.py
 ```
 
-> 除 `ashare_boards/`、`ashare_stocks/` 外，其余市场目录暂为空占位，待对应功能实现后填充。
+> 除 `ashare_boards/`、`ashare_stocks/`、`ashare_indices/` 外，其余市场目录暂为空占位，待对应功能实现后填充。

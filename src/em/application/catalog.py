@@ -110,6 +110,23 @@ _BOARD_LIST_FIELDS = (
     ("laggard_change_pct", "float | None", "%", "领跌股涨跌幅"),
 )
 
+_INDEX_LIST_FIELDS = (
+    ("code", "str", "—", "指数代码"),
+    ("name", "str", "—", "指数名称"),
+    ("market", "str | None", "—", "市场：sh / sz / bj / csi，与 code 一起才能唯一定位指数"),
+    ("price", "float | None", "点", "最新点位"),
+    ("change_pct", "float | None", "%", "涨跌幅"),
+    ("change", "float | None", "点", "涨跌额"),
+    ("volume", "float | None", "手", "成交量"),
+    ("turnover", "float | None", "元", "成交额"),
+    ("amplitude", "float | None", "%", "振幅"),
+    ("high", "float | None", "点", "最高"),
+    ("low", "float | None", "点", "最低"),
+    ("open", "float | None", "点", "今开"),
+    ("pre_close", "float | None", "点", "昨收"),
+    ("volume_ratio", "float | None", "—", "量比"),
+)
+
 
 @dataclass(frozen=True)
 class Param:
@@ -358,6 +375,36 @@ _INTERFACES: tuple[Interface, ...] = (
             "    print(b.code, b.name, b.change_pct, b.up_count, b.down_count)"
         ),
         dataframe_variant="df_board_industry_list_em",
+    ),
+    Interface(
+        name="index_list_em",
+        category="index",
+        desc="指数列表（沪深重要指数/上证系列/深证系列/中证系列，含点位、成交量与量比）",
+        documented=True,
+        inputs=(
+            Param(
+                "series",
+                "str",
+                False,
+                '"main"',
+                "指数系列：main 沪深重要指数 / sh 上证系列 / sz 深证系列 / csi 中证系列，"
+                "未知回退 main",
+            ),
+            Param("sort", "str", False, '"f3"', "排序字段（上游 f* 字段名）"),
+            Param("page", "int", False, "1", "页码，从 1 起"),
+            Param("size", "int", False, "20", "每页条数，上游上限 100"),
+        ),
+        outputs=tuple(Field(*f) for f in _INDEX_LIST_FIELDS),
+        example=(
+            "from em import index_list_em\n"
+            "from em.domain.queries import IndexListQuery\n"
+            "\n"
+            'page = index_list_em(IndexListQuery(series="main", size=5))\n'
+            "print(page.total)\n"
+            "for i in page.items:\n"
+            "    print(i.code, i.market, i.name, i.price, i.change_pct)"
+        ),
+        dataframe_variant="df_index_list_em",
     ),
 )
 

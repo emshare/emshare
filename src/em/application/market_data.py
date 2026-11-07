@@ -18,6 +18,7 @@ from em.application.dataframe import (
     to_board_list_dataframe,
     to_dataframe,
     to_fund_flow_dataframe,
+    to_index_list_dataframe,
     to_kline_dataframe,
     to_trend_dataframe,
 )
@@ -32,6 +33,7 @@ from em.domain.models import (
     BoardFundFlowSeries,
     BoardListPage,
     FundFlowSeries,
+    IndexListPage,
     KlineSeries,
     Quote,
     QuotePage,
@@ -43,6 +45,7 @@ from em.domain.queries import (
     BoardListQuery,
     BoardQuery,
     FundFlowQuery,
+    IndexListQuery,
     KlineQuery,
     MarketQuery,
     TrendQuery,
@@ -577,3 +580,22 @@ def df_board_industry_list_em(
 ) -> pd.DataFrame:
     """``board_industry_list_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
     return to_board_list_dataframe(board_industry_list_em(query, settings), columns)
+
+
+def index_list_em(
+    query: IndexListQuery | None = None, settings: Settings | None = None
+) -> IndexListPage:
+    """抓取指数列表（沪深重要指数 / 上证 / 深证 / 中证系列），返回领域模型 ``IndexListPage``。"""
+    query = query or IndexListQuery()
+    client = _build_client(settings or Settings.from_env())
+    source = registry.EastMoneySource(client)
+    return source.fetch_index_list(registry.index_list_request(query))
+
+
+def df_index_list_em(
+    query: IndexListQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``index_list_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_index_list_dataframe(index_list_em(query, settings), columns)

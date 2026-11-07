@@ -148,10 +148,29 @@ def test_list_categories() -> None:
     assert cats == [
         {"类目": "board", "接口数": 2},
         {"类目": "fund_flow", "接口数": 2},
+        {"类目": "index", "接口数": 1},
         {"类目": "kline", "接口数": 2},
         {"类目": "market", "接口数": 1},
         {"类目": "trends", "接口数": 1},
     ]
+
+
+def test_search_index_list_by_keyword() -> None:
+    rows = search("指数列表")
+    assert rows and rows[0]["接口名"] == "index_list_em"
+
+
+def test_interface_info_index_list() -> None:
+    info = interface_info("index_list_em")
+    assert info["category"] == "index"
+    assert info["dataframe_variant"] == "df_index_list_em"
+    assert [p["name"] for p in info["inputs"]] == ["series", "sort", "page", "size"]
+    units = {f["name"]: f["unit"] for f in info["outputs"]}
+    assert len(units) == 14
+    assert units["price"] == "点"
+    assert units["turnover"] == "元"
+    assert "market" in units
+    assert "index_list_em(" in info["example"]
 
 
 def test_search_board_kline_by_keyword() -> None:
@@ -193,7 +212,7 @@ def test_list_categories_df_returns_dataframe() -> None:
     df = list_categories_df()
     assert isinstance(df, pd.DataFrame)
     assert list(df.columns) == ["类目", "接口数"]
-    assert len(df) == 5
+    assert len(df) == 6
 
 
 def test_interface_info_df_returns_param_and_field_tables() -> None:

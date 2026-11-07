@@ -69,3 +69,10 @@ BOARD_INDUSTRY_ALL_FS = "m:90+t:2+f:!50"
 # 板块类型 -> fs 模板（industry 用 s 分级或 t:2 全量，concept / region 用 t 固定值）
 BOARD_CONCEPT_FS = "m:90+t:3+f:!50"
 BOARD_REGION_FS = "m:90+t:1+f:!50"
+# 指数列表字段集（对齐 akshare stock_zh_index_spot_em 输出列）
+# f12 代码 / f13 市场前缀 / f14 名称 / f2 最新点位 / f3 涨跌幅 / f4 涨跌额 / f5 成交量
+# f6 成交额 / f7 振幅 / f10 量比 / f15 最高 / f16 最低 / f17 今开 / f18 昨收
+INDEX_LIST_FIELDS = "f12,f13,f14,f2,f3,f4,f5,f6,f7,f10,f15,f16,f17,f18"
+# 指数 f13（secid 市场前缀）-> 领域市场；北证指数也挂在 0 前缀下，按代码段另行区分
+INDEX_MARKETS = {0: "sz", 1: "sh", 2: "csi"}
+BJ_INDEX_CODE_PREFIX = "899"

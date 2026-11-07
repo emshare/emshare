@@ -4,6 +4,7 @@ import json
 import re
 from typing import Any
 
+from em.channels.eastmoney import config
 from em.domain.models import (
     Board,
     BoardFundFlow,
@@ -11,6 +12,8 @@ from em.domain.models import (
     BoardListPage,
     FundFlow,
     FundFlowSeries,
+    IndexListPage,
+    IndexQuote,
     Kline,
     KlineSeries,
     Quote,
@@ -249,4 +252,44 @@ def _to_board(item: dict[str, Any]) -> Board:
         laggard_code=str(item.get("f208") or "") or None,
         laggard_name=str(item.get("f207") or "") or None,
         laggard_change_pct=scaled(item.get("f222")),
+    )
+
+
+def to_index_list_page(data: dict[str, Any]) -> IndexListPage:
+    """把 clist 指数列表响应映射为 ``IndexListPage``。
+
+    ``fltt=1`` 时点位 / 涨跌幅 / 振幅 / 量比放大 100 倍，用 ``scaled`` 还原；
+    成交量（f5）与成交额（f6）为原值。停牌或未开盘的指数上游返回 ``"-"``，映射为 ``None``。
+    """
+    block = data.get("data") or {}
+    items = tuple(_to_index(it) for it in (block.get("diff") or []))
+    return IndexListPage(total=int(block.get("total") or 0), items=items)
+
+
+def _index_market(prefix: Any, code: str) -> str | None:
+    """f13（secid 市场前缀）-> 领域市场；北证指数也挂在 0 前缀下，按 899 代码段区分。"""
+    key = _to_int(prefix)
+    market = config.INDEX_MARKETS.get(key) if key is not None else None
+    if market == "sz" and code.startswith(config.BJ_INDEX_CODE_PREFIX):
+        return "bj"
+    return market
+
+
+def _to_index(item: dict[str, Any]) -> IndexQuote:
+    code = str(item.get("f12", ""))
+    return IndexQuote(
+        code=code,
+        name=str(item.get("f14", "")),
+        market=_index_market(item.get("f13"), code),
+        price=scaled(item.get("f2")),
+        change_pct=scaled(item.get("f3")),
+        change=scaled(item.get("f4")),
+        volume=as_float(item.get("f5")),
+        turnover=as_float(item.get("f6")),
+        amplitude=scaled(item.get("f7")),
+        high=scaled(item.get("f15")),
+        low=scaled(item.get("f16")),
+        open=scaled(item.get("f17")),
+        pre_close=scaled(item.get("f18")),
+        volume_ratio=scaled(item.get("f10")),
     )
