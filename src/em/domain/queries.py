@@ -132,3 +132,19 @@ class LimitPoolQuery:
 
     pool_type: str = "limit_up"  # limit_up / prev_limit_up / strong / sub_new / broken / limit_down
     date: str | None = None
+
+
+@dataclass(frozen=True)
+class StockInfoQuery:
+    """个股基本信息（push2 stock/get）。"""
+
+    code: str = "000001"
+    market: str = "sz"  # sz 深市 / sh 沪市 / bj 北交所
+
+
+@dataclass(frozen=True)
+class StockBidAskQuery:
+    """个股五档盘口（push2 stock/get 默认字段集）。"""
+
+    code: str = "000001"
+    market: str = "sz"  # sz 深市 / sh 沪市 / bj 北交所

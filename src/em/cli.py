@@ -14,7 +14,9 @@ from em.application.market_data import (
     fund_list_em,
     hk_stock_list_em,
     index_list_em,
+    stock_bid_ask_em,
     stock_fund_flow_em,
+    stock_info_em,
     stock_kline_em,
     stock_limit_pool_em,
     stock_list_all_em,
@@ -52,6 +54,8 @@ from em.domain.models import (
     LimitPoolStock,
     Quote,
     QuotePage,
+    StockBidAsk,
+    StockInfo,
     TrendSeries,
 )
 from em.domain.queries import (
@@ -66,6 +70,8 @@ from em.domain.queries import (
     KlineQuery,
     LimitPoolQuery,
     MarketQuery,
+    StockBidAskQuery,
+    StockInfoQuery,
     TrendQuery,
 )
 
@@ -342,6 +348,46 @@ def _render_limit_pool(page: LimitPoolPage, head: int | None = None) -> None:
     print("-" * 100)
 
 
+def _render_stock_info(info: StockInfo) -> None:
+    print(f"\n✅ {info.code} {info.name}（{info.market or '-'}）")
+    print("-" * 60)
+    print(f"  行业:{info.industry or '-'}  上市时间:{info.listing_date or '-'}")
+    print(f"  最新价:{_fmt(info.price, '.2f')}")
+    print(f"  总股本:{_fmt_amount(info.total_shares)}股  流通股:{_fmt_amount(info.float_shares)}股")
+    print(
+        f"  总市值:{_fmt_amount(info.total_market_cap)}  流通市值:{_fmt_amount(info.float_market_cap)}"
+    )
+    print("-" * 60)
+
+
+def _render_bid_ask(book: StockBidAsk) -> None:
+    print(
+        f"\n✅ {book.code} {book.name}（{book.market or '-'}）"
+        f"  最新:{_fmt(book.price, '.2f')}  均价:{_fmt(book.avg_price, '.2f')}"
+        f"  昨收:{_fmt(book.pre_close, '.2f')}"
+    )
+    print("-" * 60)
+    for i in range(len(book.asks), 0, -1):
+        a = book.asks[i - 1]
+        print(f"  卖{i}  {_fmt(a.price, '>9.2f')}  {_fmt(a.volume, '>10.0f')} 手")
+    print("  " + "-" * 30)
+    for i, b in enumerate(book.bids, start=1):
+        print(f"  买{i}  {_fmt(b.price, '>9.2f')}  {_fmt(b.volume, '>10.0f')} 手")
+    print("-" * 60)
+    print(
+        f"  今开:{_fmt(book.open, '.2f')}  最高:{_fmt(book.high, '.2f')}  最低:{_fmt(book.low, '.2f')}"
+        f"  涨停:{_fmt(book.limit_up, '.2f')}  跌停:{_fmt(book.limit_down, '.2f')}"
+    )
+    print(
+        f"  总手:{_fmt(book.volume, '.0f')}  金额:{_fmt_amount(book.turnover)}"
+        f"  外盘:{_fmt(book.outer_volume, '.0f')}  量比:{_fmt(book.volume_ratio, '.2f')}"
+    )
+
+
+# 这些预设的 secid 只认沪深京（csi / hk 仅 K 线支持）
+_SZ_SH_BJ_PRESETS = ("trends", "fundflow", "stockinfo", "bidask")
+
+
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="东方财富行情抓取（动态代理 + 自动重试）")
     ap.add_argument(
@@ -360,6 +406,8 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
             "hklist",
             "fundlist",
             "limitpool",
+            "stockinfo",
+            "bidask",
         ],
         default="board",
         help="接口预设",
@@ -411,12 +459,14 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         default="all",
         help="A 股范围（market/market-all 预设）：沪/深/北/科创/创业/新股/ST",
     )
-    ap.add_argument("--code", default="000001", help="证券代码（kline/trends/fundflow 预设）")
+    ap.add_argument(
+        "--code", default="000001", help="证券代码（kline/trends/fundflow/stockinfo/bidask 预设）"
+    )
     ap.add_argument(
         "--market",
         choices=list(KLINE_MARKET_IDS),
         default="sz",
-        help="市场（kline/trends/fundflow 预设；csi 中证指数 / hk 港股仅 kline 支持）",
+        help="市场（kline/trends/fundflow/stockinfo/bidask 预设；csi 中证指数 / hk 港股仅 kline 支持）",
     )
     ap.add_argument(
         "--period",
@@ -443,8 +493,8 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     ap.add_argument("--pn", type=int, default=1, help="页码")
     ap.add_argument("--pz", type=int, default=None, help="每页条数")
     args = ap.parse_args(argv)
-    # 分时 / 资金流的 secid 映射只认沪深京：放行 csi / hk 会被静默当成深市代码去查
-    if args.preset in ("trends", "fundflow") and args.market not in MARKET_IDS:
+    # 分时 / 资金流 / 个股信息 / 盘口的 secid 映射只认沪深京：放行 csi / hk 会被静默当成深市代码去查
+    if args.preset in _SZ_SH_BJ_PRESETS and args.market not in MARKET_IDS:
         ap.error(f"--market {args.market} 仅 kline 预设支持，{args.preset} 只支持 sz / sh / bj")
     if args.date:
         try:
@@ -555,6 +605,10 @@ def main(argv: list[str] | None = None) -> int:
                 LimitPoolQuery(pool_type=args.pool_type, date=args.date)
             )
             _render_limit_pool(pool_page, head=args.head)
+        elif args.preset == "stockinfo":
+            _render_stock_info(stock_info_em(StockInfoQuery(code=args.code, market=args.market)))
+        elif args.preset == "bidask":
+            _render_bid_ask(stock_bid_ask_em(StockBidAskQuery(code=args.code, market=args.market)))
         else:
             page = board_constituent_em(
                 BoardQuery(board=args.board, period=args.rank, page=args.pn, size=args.pz or 8)

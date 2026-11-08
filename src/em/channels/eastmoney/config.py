@@ -106,3 +106,11 @@ POOL_MARKETS = {0: "sz", 1: "sh"}
 BJ_STOCK_CODE_PREFIXES = ("4", "8", "92")
 # 强势股池入选理由（上游 cc，对齐 akshare explained_map）
 STRONG_POOL_REASONS = {1: "60日新高", 2: "近期多次涨停", 3: "60日新高且近期多次涨停"}
+# 单只证券快照（个股信息 / 五档盘口）
+STOCK_GET_PATH = "/api/qt/stock/get"
+# 个股信息字段集（对齐 akshare stock_individual_info_em 的 9 项）：
+# f57 代码 / f58 简称 / f59 价格小数位 / f43 最新价 / f84 总股本 / f85 流通股
+# f116 总市值 / f117 流通市值 / f127 行业 / f189 上市日期
+STOCK_INFO_FIELDS = "f57,f58,f59,f43,f84,f85,f116,f117,f127,f189"
+# stock/get 查无此券时的 rc（实测：不存在的代码 100，含非数字的代码 102），data 为 null
+STOCK_NOT_FOUND_RCS = (100, 102)

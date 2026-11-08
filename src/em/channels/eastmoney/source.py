@@ -1,10 +1,12 @@
 """东财列表取数来源：请求 -> 传输 -> 映射，返回领域模型。"""
 
+from collections.abc import Callable
 from typing import Any
 
 from em.channels.eastmoney import config
 from em.channels.eastmoney.mapping import (
     is_ok,
+    is_security_not_found,
     parse_jsonp,
     to_board_fund_flow_series,
     to_board_list_page,
@@ -15,6 +17,8 @@ from em.channels.eastmoney.mapping import (
     to_kline_series,
     to_limit_pool_page,
     to_quote_page,
+    to_stock_bid_ask,
+    to_stock_info,
     to_trend_series,
 )
 from em.channels.eastmoney.request import (
@@ -22,8 +26,10 @@ from em.channels.eastmoney.request import (
     FundFlowRequest,
     KlineRequest,
     LimitPoolRequest,
+    StockGetRequest,
     TrendsRequest,
 )
+from em.core.errors import SecurityNotFoundError
 from em.core.transport import HttpClient
 from em.domain.models import (
     BoardFundFlowSeries,
@@ -35,6 +41,8 @@ from em.domain.models import (
     KlineSeries,
     LimitPoolPage,
     QuotePage,
+    StockBidAsk,
+    StockInfo,
     TrendSeries,
 )
 
@@ -48,8 +56,20 @@ def _is_valid_payload(text: str) -> bool:
     return is_ok(parse_jsonp(text))
 
 
+def _is_valid_stock_get(text: str) -> bool:
+    """stock/get 的协议校验：rc==0，或上游明确回复“查无此券”（rc 100 / 102 且 data 为 null）。
+
+    后者是正常协议而非劫持页：若按 rc!=0 判失败，会把好 IP 拉黑并换 IP 重试到耗尽。
+    """
+    data = parse_jsonp(text)
+    return is_ok(data) or is_security_not_found(data)
+
+
 def _fetch_json(
-    client: HttpClient, request: Any, read_timeout: float | None = None
+    client: HttpClient,
+    request: Any,
+    read_timeout: float | None = None,
+    validator: Callable[[str], bool] = _is_valid_payload,
 ) -> dict[str, Any]:
     """取文本 → 解析为 JSON 字典（协议校验已在传输层完成，此处只做解析）。
 
@@ -59,10 +79,19 @@ def _fetch_json(
         request.url(),
         request.params(),
         config.HEADERS,
-        _is_valid_payload,
+        validator,
         read_timeout=read_timeout,
     )
     return parse_jsonp(text)  # type: ignore[return-value]
+
+
+def _fetch_stock_get(client: HttpClient, request: StockGetRequest) -> dict[str, Any]:
+    data = _fetch_json(client, request, validator=_is_valid_stock_get)
+    if is_security_not_found(data):
+        raise SecurityNotFoundError(
+            f"证券不存在：secid={request.secid}（上游 rc={data.get('rc')}）"
+        )
+    return data
 
 
 class EastMoneySource:
@@ -113,3 +142,9 @@ class EastMoneySource:
     def fetch_limit_pool(self, request: LimitPoolRequest) -> LimitPoolPage:
         data = _fetch_json(self._client, request)
         return to_limit_pool_page(data, request.pool_type, request.date)
+
+    def fetch_stock_info(self, request: StockGetRequest) -> StockInfo:
+        return to_stock_info(_fetch_stock_get(self._client, request), request.market)
+
+    def fetch_stock_bid_ask(self, request: StockGetRequest) -> StockBidAsk:
+        return to_stock_bid_ask(_fetch_stock_get(self._client, request), request.market)

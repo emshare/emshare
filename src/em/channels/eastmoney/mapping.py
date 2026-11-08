@@ -22,8 +22,11 @@ from em.domain.models import (
     KlineSeries,
     LimitPoolPage,
     LimitPoolStock,
+    OrderLevel,
     Quote,
     QuotePage,
+    StockBidAsk,
+    StockInfo,
     Trend,
     TrendSeries,
 )
@@ -301,9 +304,12 @@ def _to_index(item: dict[str, Any]) -> IndexQuote:
     )
 
 
-def _price_factor(item: dict[str, Any]) -> float:
-    """价格放大倍数：``fltt=1`` 时价格按 ``10 ** f1`` 放大（A 股 f1=2，港股 f1=3）。"""
-    decimals = _to_int(item.get("f1"))
+def _price_factor(item: dict[str, Any], decimals_key: str = "f1") -> float:
+    """价格放大倍数：``fltt=1`` 时价格按 ``10 ** 小数位`` 放大（A 股 2 位，港股 / 基金 3 位）。
+
+    小数位字段：clist 是 ``f1``，stock/get 是 ``f59``。
+    """
+    decimals = _to_int(item.get(decimals_key))
     return 10.0 ** (config.DEFAULT_PRICE_DECIMALS if decimals is None else decimals)
 
 
@@ -468,4 +474,77 @@ def _to_pool_stock(item: dict[str, Any]) -> LimitPoolStock:
         board_turnover=as_float(item.get("fba")),
         limit_down_streak=_to_int(item.get("days")),
         open_count=_to_int(item.get("oc")),
+    )
+
+
+def is_security_not_found(data: dict[str, Any] | None) -> bool:
+    """stock/get 查无此券：rc 为 100 / 102 且 data 为 null（实测）。"""
+    return (
+        isinstance(data, dict)
+        and data.get("rc") in config.STOCK_NOT_FOUND_RCS
+        and data.get("data") is None
+    )
+
+
+def to_stock_info(data: dict[str, Any], market: str | None = None) -> StockInfo:
+    """把 stock/get（显式字段集）映射为 ``StockInfo``。
+
+    最新价按 ``10 ** f59`` 还原；股本（股）与市值（元）为原值；上市日期 ``20010827`` → ``2001-08-27``。
+    """
+    item = data.get("data") or {}
+    factor = _price_factor(item, "f59")
+    return StockInfo(
+        code=str(item.get("f57", "")),
+        name=str(item.get("f58", "")),
+        market=market,
+        industry=str(item["f127"]) if item.get("f127") not in (None, "", "-") else None,
+        listing_date=_ymd(item.get("f189")),
+        price=scaled(item.get("f43"), factor),
+        total_shares=as_float(item.get("f84")),
+        float_shares=as_float(item.get("f85")),
+        total_market_cap=as_float(item.get("f116")),
+        float_market_cap=as_float(item.get("f117")),
+    )
+
+
+# 五档字段：(价格, 数量)。买一 f19/f20 … 买五 f11/f12；卖一 f39/f40 … 卖五 f31/f32
+_BID_FIELDS = (("f19", "f20"), ("f17", "f18"), ("f15", "f16"), ("f13", "f14"), ("f11", "f12"))
+_ASK_FIELDS = (("f39", "f40"), ("f37", "f38"), ("f35", "f36"), ("f33", "f34"), ("f31", "f32"))
+
+
+def _levels(
+    item: dict[str, Any], fields: tuple[tuple[str, str], ...], factor: float
+) -> tuple[OrderLevel, ...]:
+    return tuple(
+        OrderLevel(price=scaled(item.get(p), factor), volume=as_float(item.get(v)))
+        for p, v in fields
+    )
+
+
+def to_stock_bid_ask(data: dict[str, Any], market: str | None = None) -> StockBidAsk:
+    """把 stock/get（默认字段集）映射为 ``StockBidAsk``。
+
+    价格类字段（含五档价格）按 ``10 ** f59`` 还原；量比放大 100 倍；成交量、外盘、五档挂单量
+    单位为手（原值，akshare 乘 100 换成股），成交额为原值。无涨跌幅限制时涨跌停价为 ``"-"`` → None。
+    """
+    item = data.get("data") or {}
+    factor = _price_factor(item, "f59")
+    return StockBidAsk(
+        code=str(item.get("f57", "")),
+        name=str(item.get("f58", "")),
+        market=market,
+        price=scaled(item.get("f43"), factor),
+        avg_price=scaled(item.get("f71"), factor),
+        open=scaled(item.get("f46"), factor),
+        high=scaled(item.get("f44"), factor),
+        low=scaled(item.get("f45"), factor),
+        pre_close=scaled(item.get("f60"), factor),
+        limit_up=scaled(item.get("f51"), factor),
+        limit_down=scaled(item.get("f52"), factor),
+        volume=as_float(item.get("f47")),
+        turnover=as_float(item.get("f48")),
+        outer_volume=as_float(item.get("f49")),
+        volume_ratio=scaled(item.get("f50")),
+        bids=_levels(item, _BID_FIELDS, factor),
+        asks=_levels(item, _ASK_FIELDS, factor),
     )

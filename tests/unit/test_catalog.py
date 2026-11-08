@@ -154,6 +154,7 @@ def test_list_categories() -> None:
         {"类目": "kline", "接口数": 2},
         {"类目": "market", "接口数": 1},
         {"类目": "pool", "接口数": 1},
+        {"类目": "stock", "接口数": 2},
         {"类目": "trends", "接口数": 1},
     ]
 
@@ -230,6 +231,21 @@ def test_interface_info_limit_pool() -> None:
     assert "stock_limit_pool_em(" in info["example"]
 
 
+def test_search_stock_info_and_bid_ask() -> None:
+    assert search("五档")[0]["接口名"] == "stock_bid_ask_em"
+    assert search("上市时间")[0]["接口名"] == "stock_info_em"
+
+
+@pytest.mark.parametrize(("name", "n_outputs"), [("stock_info_em", 10), ("stock_bid_ask_em", 17)])
+def test_interface_info_stock_get(name: str, n_outputs: int) -> None:
+    info = interface_info(name)
+    assert info["category"] == "stock"
+    assert info["dataframe_variant"] == f"df_{name}"
+    assert [p["name"] for p in info["inputs"]] == ["code", "market"]
+    assert len(info["outputs"]) == n_outputs
+    assert f"{name}(" in info["example"]
+
+
 def test_search_board_kline_by_keyword() -> None:
     rows = search("板块 K线")
     assert rows and rows[0]["接口名"] == "board_kline_em"
@@ -269,7 +285,7 @@ def test_list_categories_df_returns_dataframe() -> None:
     df = list_categories_df()
     assert isinstance(df, pd.DataFrame)
     assert list(df.columns) == ["类目", "接口数"]
-    assert len(df) == 9
+    assert len(df) == 10
 
 
 def test_interface_info_df_returns_param_and_field_tables() -> None:

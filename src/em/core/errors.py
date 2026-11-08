@@ -13,6 +13,13 @@ class InterfaceNotFoundError(EmError):
     """接口检索未命中：接口名未知。"""
 
 
+class SecurityNotFoundError(EmError):
+    """上游明确回复证券不存在（如 stock/get 的 rc=100 / 102）：换 IP 也查不到，不重试。
+
+    不是渠道异常：响应本身是正常协议，只是查无此券；归为 ``ChannelError`` 会被当成劫持页反复换 IP。
+    """
+
+
 class PageDeadlineExceeded(EmError):
     """单页超过时间预算：标记为失败页，交给定向补漏，不阻塞整轮。
 

@@ -176,6 +176,39 @@ _LIMIT_POOL_FIELDS = (
     ("open_count", "int | None", "次", "开板次数（跌停）"),
 )
 
+_STOCK_INFO_FIELDS = (
+    ("code", "str", "—", "股票代码"),
+    ("name", "str", "—", "股票简称"),
+    ("market", "str | None", "—", "市场：sh / sz / bj"),
+    ("industry", "str | None", "—", "所属行业"),
+    ("listing_date", "str | None", "—", "上市日期 YYYY-MM-DD"),
+    ("price", "float | None", "元", "最新价"),
+    ("total_shares", "float | None", "股", "总股本"),
+    ("float_shares", "float | None", "股", "流通股"),
+    ("total_market_cap", "float | None", "元", "总市值"),
+    ("float_market_cap", "float | None", "元", "流通市值"),
+)
+
+_STOCK_BID_ASK_FIELDS = (
+    ("code", "str", "—", "股票代码"),
+    ("name", "str", "—", "股票简称"),
+    ("market", "str | None", "—", "市场：sh / sz / bj"),
+    ("price", "float | None", "元", "最新价"),
+    ("avg_price", "float | None", "元", "均价"),
+    ("open", "float | None", "元", "今开"),
+    ("high", "float | None", "元", "最高"),
+    ("low", "float | None", "元", "最低"),
+    ("pre_close", "float | None", "元", "昨收"),
+    ("limit_up", "float | None", "元", "涨停价（无涨跌幅限制时为 None）"),
+    ("limit_down", "float | None", "元", "跌停价"),
+    ("volume", "float | None", "手", "成交量（总手）"),
+    ("turnover", "float | None", "元", "成交额"),
+    ("outer_volume", "float | None", "手", "外盘"),
+    ("volume_ratio", "float | None", "—", "量比"),
+    ("bids", "tuple[OrderLevel, ...]", "元 / 手", "买一 ~ 买五（price / volume）"),
+    ("asks", "tuple[OrderLevel, ...]", "元 / 手", "卖一 ~ 卖五（price / volume）"),
+)
+
 _FUND_LIST_FIELDS = (
     ("code", "str", "—", "基金代码"),
     ("name", "str", "—", "基金简称"),
@@ -573,6 +606,50 @@ _INTERFACES: tuple[Interface, ...] = (
             "    print(s.code, s.name, s.limit_up_streak, s.first_seal_time, s.seal_fund)"
         ),
         dataframe_variant="df_stock_limit_pool_em",
+    ),
+    Interface(
+        name="stock_info_em",
+        category="stock",
+        desc="个股基本信息（行业/上市时间/总股本/流通股/总市值/流通市值/最新价）",
+        documented=True,
+        inputs=(
+            Param("code", "str", False, '"000001"', "股票代码，如 000001"),
+            Param(
+                "market", "str", False, '"sz"', "市场：sz 深市 / sh 沪市 / bj 北交所，未知回退 sz"
+            ),
+        ),
+        outputs=tuple(Field(*f) for f in _STOCK_INFO_FIELDS),
+        example=(
+            "from em import stock_info_em\n"
+            "from em.domain.queries import StockInfoQuery\n"
+            "\n"
+            'info = stock_info_em(StockInfoQuery(code="600519", market="sh"))\n'
+            "print(info.name, info.industry, info.listing_date, info.total_market_cap)"
+        ),
+        dataframe_variant="df_stock_info_em",
+    ),
+    Interface(
+        name="stock_bid_ask_em",
+        category="stock",
+        desc="个股五档盘口与行情快照（买卖五档、均价、涨跌停价、外盘、量比）",
+        documented=True,
+        inputs=(
+            Param("code", "str", False, '"000001"', "股票代码，如 000001"),
+            Param(
+                "market", "str", False, '"sz"', "市场：sz 深市 / sh 沪市 / bj 北交所，未知回退 sz"
+            ),
+        ),
+        outputs=tuple(Field(*f) for f in _STOCK_BID_ASK_FIELDS),
+        example=(
+            "from em import stock_bid_ask_em\n"
+            "from em.domain.queries import StockBidAskQuery\n"
+            "\n"
+            'book = stock_bid_ask_em(StockBidAskQuery(code="000001", market="sz"))\n'
+            "print(book.price, book.avg_price)\n"
+            "for i, (b, a) in enumerate(zip(book.bids, book.asks), start=1):\n"
+            '    print(f"买{i} {b.price} {b.volume}  卖{i} {a.price} {a.volume}")'
+        ),
+        dataframe_variant="df_stock_bid_ask_em",
     ),
 )
 

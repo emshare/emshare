@@ -316,3 +316,54 @@ class LimitPoolPage:
     date: str
     total: int
     items: tuple[LimitPoolStock, ...]
+
+
+@dataclass(frozen=True)
+class StockInfo:
+    """个股基本信息（对齐 akshare stock_individual_info_em）。"""
+
+    code: str
+    name: str
+    market: str | None = None  # sh 沪市 / sz 深市 / bj 北交所
+    industry: str | None = None  # 所属行业
+    listing_date: str | None = None  # 上市日期 YYYY-MM-DD
+    price: Yuan = None  # 最新价
+    total_shares: Shares = None  # 总股本
+    float_shares: Shares = None  # 流通股
+    total_market_cap: Yuan = None  # 总市值
+    float_market_cap: Yuan = None  # 流通市值
+
+
+@dataclass(frozen=True)
+class OrderLevel:
+    """盘口一档：价格与挂单量。无挂单时两者为 None。"""
+
+    price: Yuan = None
+    volume: Lot = None
+
+
+@dataclass(frozen=True)
+class StockBidAsk:
+    """个股五档盘口与当日行情快照。
+
+    ``bids`` / ``asks`` 各 5 档，下标 0 为买一 / 卖一。上游默认字段集不含涨跌额、涨跌幅、
+    换手率、内盘，本模型不提供（见 stock_bid_ask_em 文档）。
+    """
+
+    code: str
+    name: str
+    market: str | None = None
+    price: Yuan = None  # 最新价
+    avg_price: Yuan = None  # 均价
+    open: Yuan = None  # 今开
+    high: Yuan = None  # 最高
+    low: Yuan = None  # 最低
+    pre_close: Yuan = None  # 昨收
+    limit_up: Yuan = None  # 涨停价（无涨跌幅限制时为 None）
+    limit_down: Yuan = None  # 跌停价
+    volume: Lot = None  # 成交量（总手）
+    turnover: Yuan = None  # 成交额
+    outer_volume: Lot = None  # 外盘
+    volume_ratio: float | None = None  # 量比
+    bids: tuple[OrderLevel, ...] = ()  # 买一 ~ 买五
+    asks: tuple[OrderLevel, ...] = ()  # 卖一 ~ 卖五

@@ -149,3 +149,26 @@ class LimitPoolRequest:
             "sort": self.sort,
             "date": self.date,
         }
+
+
+@dataclass(frozen=True)
+class StockGetRequest:
+    """push2 ``stock/get`` 单只证券请求句柄：host/secid/fields。
+
+    ``fields`` 为 None 时不传该参数，上游返回默认字段集——五档盘口只在默认字段集里，
+    显式列出 f11–f40 反而一个都拿不到（实测）。``market`` 为规范化后的领域值，仅用于回填模型。
+    """
+
+    host: str
+    secid: str
+    fields: str | None = None
+    market: str | None = None
+
+    def url(self) -> str:
+        return f"{self.host}{config.STOCK_GET_PATH}"
+
+    def params(self) -> dict[str, Any]:
+        params: dict[str, Any] = {"fltt": "1", "invt": "2", "secid": self.secid}
+        if self.fields is not None:
+            params["fields"] = self.fields
+        return params

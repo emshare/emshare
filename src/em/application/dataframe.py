@@ -18,6 +18,8 @@ from em.domain.models import (
     KlineSeries,
     LimitPoolPage,
     QuotePage,
+    StockBidAsk,
+    StockInfo,
     TrendSeries,
 )
 
@@ -455,3 +457,64 @@ def to_limit_pool_dataframe(
     ordered_cols = [naming[f] for f in fields]
     rows = [{naming[f]: getattr(s, f) for f in fields} for s in page.items]
     return pd.DataFrame(rows, columns=ordered_cols)  # type: ignore[no-any-return]
+
+
+def _item_value_frame(rows: list[tuple[str, object]]) -> pd.DataFrame:
+    """两列 ``item`` / ``value`` 的纵表（对齐 akshare stock_individual_info_em / stock_bid_ask_em）。"""
+    try:
+        import pandas as pd
+    except ImportError as exc:  # pragma: no cover - 环境依赖
+        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+    return pd.DataFrame(rows, columns=["item", "value"])  # type: ignore[no-any-return]
+
+
+# 个股信息字段 -> item 名（对齐 akshare stock_individual_info_em，另加“市场”）
+STOCK_INFO_ITEMS_ZH: dict[str, str] = {
+    "code": "股票代码",
+    "name": "股票简称",
+    "market": "市场",
+    "price": "最新",
+    "total_shares": "总股本",
+    "float_shares": "流通股",
+    "total_market_cap": "总市值",
+    "float_market_cap": "流通市值",
+    "industry": "行业",
+    "listing_date": "上市时间",
+}
+
+
+def to_stock_info_dataframe(info: StockInfo) -> pd.DataFrame:
+    """把 ``StockInfo`` 转为 ``item`` / ``value`` 纵表。"""
+    return _item_value_frame([(zh, getattr(info, f)) for f, zh in STOCK_INFO_ITEMS_ZH.items()])
+
+
+# 五档之外的行情项 -> item 名（对齐 akshare stock_bid_ask_em；上游默认字段集没有涨幅 / 涨跌 / 换手 / 内盘）
+_BID_ASK_QUOTE_ITEMS_ZH: dict[str, str] = {
+    "price": "最新",
+    "avg_price": "均价",
+    "volume": "总手",
+    "turnover": "金额",
+    "volume_ratio": "量比",
+    "high": "最高",
+    "low": "最低",
+    "open": "今开",
+    "pre_close": "昨收",
+    "limit_up": "涨停",
+    "limit_down": "跌停",
+    "outer_volume": "外盘",
+}
+
+
+def to_stock_bid_ask_dataframe(book: StockBidAsk) -> pd.DataFrame:
+    """把 ``StockBidAsk`` 转为 ``item`` / ``value`` 纵表：卖五 → 卖一、买一 → 买五，再接行情项。
+
+    挂单量单位为手（akshare 乘 100 换成股，本表不换）。
+    """
+    rows: list[tuple[str, object]] = []
+    for i in range(len(book.asks), 0, -1):
+        level = book.asks[i - 1]
+        rows += [(f"卖{i}", level.price), (f"卖{i}量", level.volume)]
+    for i, level in enumerate(book.bids, start=1):
+        rows += [(f"买{i}", level.price), (f"买{i}量", level.volume)]
+    rows += [(zh, getattr(book, f)) for f, zh in _BID_ASK_QUOTE_ITEMS_ZH.items()]
+    return _item_value_frame(rows)

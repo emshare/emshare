@@ -92,6 +92,22 @@
 - 源码：`src/em/channels/eastmoney/ashare_stocks/stock_limit_pool/stock_limit_pool_em.py`
 
 
+### `个股基本信息`
+接口：`stock_info_em`, `df_stock_info_em`->（DataFrame版）
+描述：个股基本信息（push2 stock/get，行业 / 上市时间 / 股本 / 市值 / 最新价；查无此券抛 `SecurityNotFoundError`，不换 IP 重试）。
+
+- 详情：[stock_info_em.md](./ashare_stocks/stock_info_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_stocks/stock_info/stock_info_em.py`
+
+
+### `个股五档盘口`
+接口：`stock_bid_ask_em`, `df_stock_bid_ask_em`->（DataFrame版）
+描述：个股买卖五档与当日行情快照（push2 stock/get 默认字段集，挂单量单位手）。
+
+- 详情：[stock_bid_ask_em.md](./ashare_stocks/stock_bid_ask_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_stocks/stock_bid_ask/stock_bid_ask_em.py`
+
+
 ### `通用转换`
 接口：`to_dataframe`
 描述：任意 `QuotePage` → `DataFrame`，默认中文列名，可传 `columns` 覆盖。

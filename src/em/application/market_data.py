@@ -23,6 +23,8 @@ from em.application.dataframe import (
     to_index_list_dataframe,
     to_kline_dataframe,
     to_limit_pool_dataframe,
+    to_stock_bid_ask_dataframe,
+    to_stock_info_dataframe,
     to_trend_dataframe,
 )
 from em.application.ledger import record as record_ledger
@@ -43,6 +45,8 @@ from em.domain.models import (
     LimitPoolPage,
     Quote,
     QuotePage,
+    StockBidAsk,
+    StockInfo,
     TrendSeries,
 )
 from em.domain.queries import (
@@ -57,6 +61,8 @@ from em.domain.queries import (
     KlineQuery,
     LimitPoolQuery,
     MarketQuery,
+    StockBidAskQuery,
+    StockInfoQuery,
     TrendQuery,
 )
 
@@ -665,3 +671,37 @@ def df_stock_limit_pool_em(
 ) -> pd.DataFrame:
     """``stock_limit_pool_em`` 的 DataFrame 版（只含该股池适用的列，akshare 风格中文列名）。"""
     return to_limit_pool_dataframe(stock_limit_pool_em(query, settings), columns)
+
+
+def stock_info_em(
+    query: StockInfoQuery | None = None, settings: Settings | None = None
+) -> StockInfo:
+    """抓取个股基本信息（行业 / 上市时间 / 股本 / 市值），返回 ``StockInfo``；查无此券抛 ``SecurityNotFoundError``。"""
+    query = query or StockInfoQuery()
+    client = _build_client(settings or Settings.from_env())
+    source = registry.EastMoneySource(client)
+    return source.fetch_stock_info(registry.stock_info_request(query))
+
+
+def df_stock_info_em(
+    query: StockInfoQuery | None = None, settings: Settings | None = None
+) -> pd.DataFrame:
+    """``stock_info_em`` 的 DataFrame 版（akshare 风格 ``item`` / ``value`` 纵表）。"""
+    return to_stock_info_dataframe(stock_info_em(query, settings))
+
+
+def stock_bid_ask_em(
+    query: StockBidAskQuery | None = None, settings: Settings | None = None
+) -> StockBidAsk:
+    """抓取个股五档盘口与当日行情快照，返回 ``StockBidAsk``；查无此券抛 ``SecurityNotFoundError``。"""
+    query = query or StockBidAskQuery()
+    client = _build_client(settings or Settings.from_env())
+    source = registry.EastMoneySource(client)
+    return source.fetch_stock_bid_ask(registry.stock_bid_ask_request(query))
+
+
+def df_stock_bid_ask_em(
+    query: StockBidAskQuery | None = None, settings: Settings | None = None
+) -> pd.DataFrame:
+    """``stock_bid_ask_em`` 的 DataFrame 版（akshare 风格 ``item`` / ``value`` 纵表）。"""
+    return to_stock_bid_ask_dataframe(stock_bid_ask_em(query, settings))
