@@ -12,6 +12,7 @@ from em.domain.models import (
     BoardFundFlowSeries,
     BoardListPage,
     FundFlowSeries,
+    FundListPage,
     HkStockListPage,
     IndexListPage,
     KlineSeries,
@@ -310,4 +311,47 @@ def to_hk_stock_list_dataframe(
     naming = columns or HK_STOCK_LIST_COLUMNS_ZH
     ordered_cols = [naming[f] for f in _HK_STOCK_LIST_FIELD_ORDER]
     rows = [{naming[f]: getattr(q, f) for f in _HK_STOCK_LIST_FIELD_ORDER} for q in page.items]
+    return pd.DataFrame(rows, columns=ordered_cols)  # type: ignore[no-any-return]
+
+
+# 场内基金字段 -> 默认中文列名（对齐 akshare fund_etf_spot_em / fund_lof_spot_em，另加“市场”）
+FUND_LIST_COLUMNS_ZH: dict[str, str] = {
+    "code": "代码",
+    "name": "名称",
+    "market": "市场",
+    "price": "最新价",
+    "iopv": "IOPV实时估值",
+    "discount_rate": "基金折价率",
+    "change": "涨跌额",
+    "change_pct": "涨跌幅",
+    "volume": "成交量",
+    "turnover": "成交额",
+    "open": "开盘价",
+    "high": "最高价",
+    "low": "最低价",
+    "pre_close": "昨收",
+    "turnover_rate": "换手率",
+    "float_market_cap": "流通市值",
+    "total_market_cap": "总市值",
+}
+
+_FUND_LIST_FIELD_ORDER = tuple(FUND_LIST_COLUMNS_ZH.keys())
+
+
+def to_fund_list_dataframe(
+    page: FundListPage,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """把 ``FundListPage`` 转为 ``DataFrame``；默认 akshare 风格中文列名。
+
+    列顺序固定为 ``FUND_LIST_COLUMNS_ZH`` 的字段顺序，空页也保留列头。
+    """
+    try:
+        import pandas as pd
+    except ImportError as exc:  # pragma: no cover - 环境依赖
+        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+
+    naming = columns or FUND_LIST_COLUMNS_ZH
+    ordered_cols = [naming[f] for f in _FUND_LIST_FIELD_ORDER]
+    rows = [{naming[f]: getattr(q, f) for f in _FUND_LIST_FIELD_ORDER} for q in page.items]
     return pd.DataFrame(rows, columns=ordered_cols)  # type: ignore[no-any-return]

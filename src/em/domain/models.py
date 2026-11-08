@@ -229,3 +229,37 @@ class HkStockListPage:
 
     total: int
     items: tuple[HkQuote, ...]
+
+
+@dataclass(frozen=True)
+class FundQuote:
+    """单条场内基金行情（ETF / LOF）。价格单位为元，成交量单位为手。
+
+    ``code`` 连同 ``market`` 可直接传给 ``stock_kline_em`` 取基金 K 线。
+    """
+
+    code: str
+    name: str
+    market: str | None = None  # sh 沪市 / sz 深市
+    price: Yuan = None  # 最新价
+    iopv: Yuan = None  # IOPV 实时估值（仅 ETF 有，LOF 为 None）
+    discount_rate: Pct = None  # 基金折价率，负值表示溢价
+    change_pct: Pct = None  # 涨跌幅
+    change: Yuan = None  # 涨跌额
+    volume: Lot = None  # 成交量
+    turnover: Yuan = None  # 成交额
+    open: Yuan = None  # 开盘价
+    high: Yuan = None  # 最高价
+    low: Yuan = None  # 最低价
+    pre_close: Yuan = None  # 昨收
+    turnover_rate: Pct = None  # 换手率
+    float_market_cap: Yuan = None  # 流通市值
+    total_market_cap: Yuan = None  # 总市值
+
+
+@dataclass(frozen=True)
+class FundListPage:
+    """一页场内基金列表结果。"""
+
+    total: int
+    items: tuple[FundQuote, ...]

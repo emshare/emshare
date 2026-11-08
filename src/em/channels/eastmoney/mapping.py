@@ -12,6 +12,8 @@ from em.domain.models import (
     BoardListPage,
     FundFlow,
     FundFlowSeries,
+    FundListPage,
+    FundQuote,
     HkQuote,
     HkStockListPage,
     IndexListPage,
@@ -329,4 +331,40 @@ def _to_hk_quote(item: dict[str, Any]) -> HkQuote:
         pre_close=scaled(item.get("f18"), factor),
         volume=as_float(item.get("f5")),
         turnover=as_float(item.get("f6")),
+    )
+
+
+def to_fund_list_page(data: dict[str, Any]) -> FundListPage:
+    """把 clist 场内基金列表响应映射为 ``FundListPage``。
+
+    基金价格有 3 位小数（f1=3），价格类字段按 ``10 ** f1`` 还原；涨跌幅 / 换手率 / 折价率
+    放大 100 倍；IOPV（f441）在 ``fltt=1`` 下也是原值，不还原。成交量（手）、成交额与市值为原值。
+    停牌基金上游返回 ``"-"``，映射为 ``None``。
+    """
+    block = data.get("data") or {}
+    items = tuple(_to_fund_quote(it) for it in (block.get("diff") or []))
+    return FundListPage(total=int(block.get("total") or 0), items=items)
+
+
+def _to_fund_quote(item: dict[str, Any]) -> FundQuote:
+    factor = _price_factor(item)
+    key = _to_int(item.get("f13"))
+    return FundQuote(
+        code=str(item.get("f12", "")),
+        name=str(item.get("f14", "")),
+        market=config.FUND_MARKETS.get(key) if key is not None else None,
+        price=scaled(item.get("f2"), factor),
+        iopv=as_float(item.get("f441")),
+        discount_rate=scaled(item.get("f402")),
+        change_pct=scaled(item.get("f3")),
+        change=scaled(item.get("f4"), factor),
+        volume=as_float(item.get("f5")),
+        turnover=as_float(item.get("f6")),
+        open=scaled(item.get("f17"), factor),
+        high=scaled(item.get("f15"), factor),
+        low=scaled(item.get("f16"), factor),
+        pre_close=scaled(item.get("f18"), factor),
+        turnover_rate=scaled(item.get("f8")),
+        float_market_cap=as_float(item.get("f21")),
+        total_market_cap=as_float(item.get("f20")),
     )

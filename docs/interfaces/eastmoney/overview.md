@@ -76,6 +76,14 @@
 - 源码：`src/em/channels/eastmoney/hk_market/hk_stock_list/hk_stock_list_em.py`
 
 
+### `场内基金列表`
+接口：`fund_list_em`, `df_fund_list_em`->（DataFrame版）
+描述：场内基金列表（clist 游客接口，ETF / LOF，含 IOPV 实时估值与折价率，带 `market` 可直接接 `stock_kline_em` 取基金 K 线）。
+
+- 详情：[fund_list_em.md](./fund_market/fund_list_em.md)
+- 源码：`src/em/channels/eastmoney/fund_market/fund_list/fund_list_em.py`
+
+
 ### `通用转换`
 接口：`to_dataframe`
 描述：任意 `QuotePage` → `DataFrame`，默认中文列名，可传 `columns` 覆盖。

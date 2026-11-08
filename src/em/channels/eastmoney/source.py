@@ -9,6 +9,7 @@ from em.channels.eastmoney.mapping import (
     to_board_fund_flow_series,
     to_board_list_page,
     to_fund_flow_series,
+    to_fund_list_page,
     to_hk_stock_list_page,
     to_index_list_page,
     to_kline_series,
@@ -26,6 +27,7 @@ from em.domain.models import (
     BoardFundFlowSeries,
     BoardListPage,
     FundFlowSeries,
+    FundListPage,
     HkStockListPage,
     IndexListPage,
     KlineSeries,
@@ -100,3 +102,7 @@ class EastMoneySource:
     def fetch_hk_stock_list(self, request: ClistRequest) -> HkStockListPage:
         data = _fetch_json(self._client, request)
         return to_hk_stock_list_page(data)
+
+    def fetch_fund_list(self, request: ClistRequest) -> FundListPage:
+        data = _fetch_json(self._client, request)
+        return to_fund_list_page(data)

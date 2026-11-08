@@ -141,6 +141,26 @@ _HK_STOCK_LIST_FIELDS = (
     ("turnover", "float | None", "港元", "成交额"),
 )
 
+_FUND_LIST_FIELDS = (
+    ("code", "str", "—", "基金代码"),
+    ("name", "str", "—", "基金简称"),
+    ("market", "str | None", "—", "市场：sh / sz，可连同 code 传给 stock_kline_em"),
+    ("price", "float | None", "元", "最新价"),
+    ("iopv", "float | None", "元", "IOPV 实时估值（仅 ETF 有）"),
+    ("discount_rate", "float | None", "%", "基金折价率，负值表示溢价"),
+    ("change_pct", "float | None", "%", "涨跌幅"),
+    ("change", "float | None", "元", "涨跌额"),
+    ("volume", "float | None", "手", "成交量"),
+    ("turnover", "float | None", "元", "成交额"),
+    ("open", "float | None", "元", "开盘价"),
+    ("high", "float | None", "元", "最高价"),
+    ("low", "float | None", "元", "最低价"),
+    ("pre_close", "float | None", "元", "昨收"),
+    ("turnover_rate", "float | None", "%", "换手率"),
+    ("float_market_cap", "float | None", "元", "流通市值"),
+    ("total_market_cap", "float | None", "元", "总市值"),
+)
+
 
 @dataclass(frozen=True)
 class Param:
@@ -448,6 +468,35 @@ _INTERFACES: tuple[Interface, ...] = (
             "    print(q.code, q.name, q.price, q.change_pct)"
         ),
         dataframe_variant="df_hk_stock_list_em",
+    ),
+    Interface(
+        name="fund_list_em",
+        category="fund",
+        desc="场内基金列表（ETF/LOF，含 IOPV 实时估值、折价率与市值）",
+        documented=True,
+        inputs=(
+            Param(
+                "fund_type",
+                "str",
+                False,
+                '"etf"',
+                "基金类型：etf / lof / all（ETF + LOF），未知回退 etf",
+            ),
+            Param("sort", "str", False, '"f3"', "排序字段（上游 f* 字段名）"),
+            Param("page", "int", False, "1", "页码，从 1 起"),
+            Param("size", "int", False, "20", "每页条数，上游上限 100"),
+        ),
+        outputs=tuple(Field(*f) for f in _FUND_LIST_FIELDS),
+        example=(
+            "from em import fund_list_em\n"
+            "from em.domain.queries import FundListQuery\n"
+            "\n"
+            'page = fund_list_em(FundListQuery(fund_type="etf", sort="f6", size=5))\n'
+            "print(page.total)\n"
+            "for q in page.items:\n"
+            "    print(q.code, q.market, q.name, q.price, q.iopv, q.discount_rate)"
+        ),
+        dataframe_variant="df_fund_list_em",
     ),
 )
 

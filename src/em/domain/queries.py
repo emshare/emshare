@@ -107,3 +107,13 @@ class HkStockListQuery:
     sort: str = "f3"  # 排序字段（上游 f* 字段名）
     page: int = 1
     size: int = 20
+
+
+@dataclass(frozen=True)
+class FundListQuery:
+    """场内基金列表（clist 游客接口），按基金类型筛选。"""
+
+    fund_type: str = "etf"  # etf / lof / all（ETF + LOF）
+    sort: str = "f3"  # 排序字段（上游 f* 字段名）
+    page: int = 1
+    size: int = 20

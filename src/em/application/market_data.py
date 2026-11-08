@@ -18,6 +18,7 @@ from em.application.dataframe import (
     to_board_list_dataframe,
     to_dataframe,
     to_fund_flow_dataframe,
+    to_fund_list_dataframe,
     to_hk_stock_list_dataframe,
     to_index_list_dataframe,
     to_kline_dataframe,
@@ -34,6 +35,7 @@ from em.domain.models import (
     BoardFundFlowSeries,
     BoardListPage,
     FundFlowSeries,
+    FundListPage,
     HkStockListPage,
     IndexListPage,
     KlineSeries,
@@ -47,6 +49,7 @@ from em.domain.queries import (
     BoardListQuery,
     BoardQuery,
     FundFlowQuery,
+    FundListQuery,
     HkStockListQuery,
     IndexListQuery,
     KlineQuery,
@@ -621,3 +624,22 @@ def df_hk_stock_list_em(
 ) -> pd.DataFrame:
     """``hk_stock_list_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
     return to_hk_stock_list_dataframe(hk_stock_list_em(query, settings), columns)
+
+
+def fund_list_em(
+    query: FundListQuery | None = None, settings: Settings | None = None
+) -> FundListPage:
+    """抓取场内基金列表（ETF / LOF），返回领域模型 ``FundListPage``。"""
+    query = query or FundListQuery()
+    client = _build_client(settings or Settings.from_env())
+    source = registry.EastMoneySource(client)
+    return source.fetch_fund_list(registry.fund_list_request(query))
+
+
+def df_fund_list_em(
+    query: FundListQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``fund_list_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_fund_list_dataframe(fund_list_em(query, settings), columns)

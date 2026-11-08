@@ -82,3 +82,10 @@ BJ_INDEX_CODE_PREFIX = "899"
 HK_STOCK_LIST_FIELDS = "f1,f12,f14,f2,f3,f4,f5,f6,f15,f16,f17,f18"
 # fltt=1 时价格放大 10**f1 倍；A 股与指数 f1=2，港股 f1=3。缺 f1 时按 A 股口径
 DEFAULT_PRICE_DECIMALS = 2
+# 场内基金列表字段集（对齐 akshare fund_etf_spot_em / fund_lof_spot_em 的共有列 + IOPV / 折价率）
+# f1 价格小数位 / f12 代码 / f13 市场前缀 / f14 名称 / f2 最新价 / f3 涨跌幅 / f4 涨跌额
+# f5 成交量（手） / f6 成交额 / f8 换手率 / f15 最高 / f16 最低 / f17 开盘 / f18 昨收
+# f20 总市值 / f21 流通市值 / f402 折价率 / f441 IOPV（原值，fltt=1 时也不放大）
+FUND_LIST_FIELDS = "f1,f12,f13,f14,f2,f3,f4,f5,f6,f8,f15,f16,f17,f18,f20,f21,f402,f441"
+# 基金 f13（secid 市场前缀）-> 领域市场
+FUND_MARKETS = {0: "sz", 1: "sh"}

@@ -147,6 +147,7 @@ def test_list_categories() -> None:
     cats = list_categories()
     assert cats == [
         {"类目": "board", "接口数": 2},
+        {"类目": "fund", "接口数": 1},
         {"类目": "fund_flow", "接口数": 2},
         {"类目": "hk", "接口数": 1},
         {"类目": "index", "接口数": 1},
@@ -192,6 +193,25 @@ def test_interface_info_hk_stock_list() -> None:
     assert "hk_stock_list_em(" in info["example"]
 
 
+def test_search_fund_list_by_keyword() -> None:
+    rows = search("ETF")
+    assert rows and rows[0]["接口名"] == "fund_list_em"
+
+
+def test_interface_info_fund_list() -> None:
+    info = interface_info("fund_list_em")
+    assert info["category"] == "fund"
+    assert info["dataframe_variant"] == "df_fund_list_em"
+    assert [p["name"] for p in info["inputs"]] == ["fund_type", "sort", "page", "size"]
+    units = {f["name"]: f["unit"] for f in info["outputs"]}
+    assert len(units) == 17
+    assert units["price"] == "元"
+    assert units["iopv"] == "元"
+    assert units["discount_rate"] == "%"
+    assert units["volume"] == "手"
+    assert "fund_list_em(" in info["example"]
+
+
 def test_search_board_kline_by_keyword() -> None:
     rows = search("板块 K线")
     assert rows and rows[0]["接口名"] == "board_kline_em"
@@ -231,7 +251,7 @@ def test_list_categories_df_returns_dataframe() -> None:
     df = list_categories_df()
     assert isinstance(df, pd.DataFrame)
     assert list(df.columns) == ["类目", "接口数"]
-    assert len(df) == 7
+    assert len(df) == 8
 
 
 def test_interface_info_df_returns_param_and_field_tables() -> None:
