@@ -13,6 +13,7 @@ from em.channels.eastmoney.mapping import (
     to_hk_stock_list_page,
     to_index_list_page,
     to_kline_series,
+    to_limit_pool_page,
     to_quote_page,
     to_trend_series,
 )
@@ -20,6 +21,7 @@ from em.channels.eastmoney.request import (
     ClistRequest,
     FundFlowRequest,
     KlineRequest,
+    LimitPoolRequest,
     TrendsRequest,
 )
 from em.core.transport import HttpClient
@@ -31,6 +33,7 @@ from em.domain.models import (
     HkStockListPage,
     IndexListPage,
     KlineSeries,
+    LimitPoolPage,
     QuotePage,
     TrendSeries,
 )
@@ -106,3 +109,7 @@ class EastMoneySource:
     def fetch_fund_list(self, request: ClistRequest) -> FundListPage:
         data = _fetch_json(self._client, request)
         return to_fund_list_page(data)
+
+    def fetch_limit_pool(self, request: LimitPoolRequest) -> LimitPoolPage:
+        data = _fetch_json(self._client, request)
+        return to_limit_pool_page(data, request.pool_type, request.date)

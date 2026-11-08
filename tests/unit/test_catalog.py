@@ -153,6 +153,7 @@ def test_list_categories() -> None:
         {"类目": "index", "接口数": 1},
         {"类目": "kline", "接口数": 2},
         {"类目": "market", "接口数": 1},
+        {"类目": "pool", "接口数": 1},
         {"类目": "trends", "接口数": 1},
     ]
 
@@ -212,6 +213,23 @@ def test_interface_info_fund_list() -> None:
     assert "fund_list_em(" in info["example"]
 
 
+def test_search_limit_pool_by_keyword() -> None:
+    rows = search("涨停")
+    assert rows and rows[0]["接口名"] == "stock_limit_pool_em"
+
+
+def test_interface_info_limit_pool() -> None:
+    info = interface_info("stock_limit_pool_em")
+    assert info["category"] == "pool"
+    assert info["dataframe_variant"] == "df_stock_limit_pool_em"
+    assert [p["name"] for p in info["inputs"]] == ["pool_type", "date"]
+    names = [f["name"] for f in info["outputs"]]
+    assert len(names) == 32
+    assert "seal_fund" in names
+    assert "limit_up_streak" in names
+    assert "stock_limit_pool_em(" in info["example"]
+
+
 def test_search_board_kline_by_keyword() -> None:
     rows = search("板块 K线")
     assert rows and rows[0]["接口名"] == "board_kline_em"
@@ -251,7 +269,7 @@ def test_list_categories_df_returns_dataframe() -> None:
     df = list_categories_df()
     assert isinstance(df, pd.DataFrame)
     assert list(df.columns) == ["类目", "接口数"]
-    assert len(df) == 8
+    assert len(df) == 9
 
 
 def test_interface_info_df_returns_param_and_field_tables() -> None:

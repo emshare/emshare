@@ -1,6 +1,6 @@
 # eastmoney 渠道接口
 
-本页描述 `em` 包对外公共面的十一个取数接口：板块成分股资金流、板块列表、沪深京 A 股全市场列表、指数列表、港股列表、场内基金列表、历史 K 线、分时行情、个股历史资金流、板块（行业 / 概念 / 地域）历史资金流与板块历史 K 线。前六者走东方财富 `clist` 接口，后五者走 `kline` / `trends2` / `fflow` 接口（个股与板块 K 线共用 `kline/get`，个股与板块资金流共用 `fflow/daykline`），均经动态代理自动换 IP 重试，返回领域模型（`QuotePage` / `BoardListPage` / `IndexListPage` / `HkStockListPage` / `FundListPage` / `KlineSeries` / `TrendSeries` / `FundFlowSeries` / `BoardFundFlowSeries`）；另提供 `df_*_em` 便捷函数直接返回 pandas DataFrame（akshare 风格中文列名）。
+本页描述 `em` 包对外公共面的十二个取数接口：板块成分股资金流、板块列表、沪深京 A 股全市场列表、指数列表、港股列表、场内基金列表、历史 K 线、分时行情、个股历史资金流、板块（行业 / 概念 / 地域）历史资金流、板块历史 K 线与涨跌停股池。列表类六者走东方财富 `clist` 接口，历史类五者走 `kline` / `trends2` / `fflow` 接口（个股与板块 K 线共用 `kline/get`，个股与板块资金流共用 `fflow/daykline`），涨跌停股池走 `push2ex` 主机，均经动态代理自动换 IP 重试，返回领域模型（`QuotePage` / `BoardListPage` / `IndexListPage` / `HkStockListPage` / `FundListPage` / `LimitPoolPage` / `KlineSeries` / `TrendSeries` / `FundFlowSeries` / `BoardFundFlowSeries`）；另提供 `df_*_em` 便捷函数直接返回 pandas DataFrame（akshare 风格中文列名）。
 
 公共面统一从 `em` 顶层导出：
 
@@ -17,6 +17,7 @@ from em import (
     index_list_em,
     hk_stock_list_em,
     fund_list_em,
+    stock_limit_pool_em,
     df_board_constituent_em,
     df_stock_list_em,
     df_stock_kline_em,
@@ -28,6 +29,7 @@ from em import (
     df_index_list_em,
     df_hk_stock_list_em,
     df_fund_list_em,
+    df_stock_limit_pool_em,
     to_dataframe,
     to_kline_dataframe,
     to_trend_dataframe,
@@ -37,6 +39,7 @@ from em import (
     to_index_list_dataframe,
     to_hk_stock_list_dataframe,
     to_fund_list_dataframe,
+    to_limit_pool_dataframe,
     search,
     search_df,
     interface_info,
@@ -46,7 +49,7 @@ from em import (
 )
 ```
 
-`board_constituent_em` / `stock_list_em` 返回 `QuotePage`，`stock_kline_em` / `board_kline_em` 返回 `KlineSeries`，`stock_trends_em` 返回 `TrendSeries`，`stock_fund_flow_em` 返回 `FundFlowSeries`，`board_fund_flow_em` 返回 `BoardFundFlowSeries`，`board_industry_list_em` 返回 `BoardListPage`，`index_list_em` 返回 `IndexListPage`，`hk_stock_list_em` 返回 `HkStockListPage`，`fund_list_em` 返回 `FundListPage`，`df_*_em` 返回 `pd.DataFrame`（需 `pip install pandas`）。`to_dataframe` / `to_kline_dataframe` / `to_trend_dataframe` / `to_fund_flow_dataframe` / `to_board_fund_flow_dataframe` / `to_board_list_dataframe` / `to_index_list_dataframe` / `to_hk_stock_list_dataframe` / `to_fund_list_dataframe` 把对应领域模型转为 DataFrame，均默认中文列名，传 `columns` 可覆盖。
+`board_constituent_em` / `stock_list_em` 返回 `QuotePage`，`stock_kline_em` / `board_kline_em` 返回 `KlineSeries`，`stock_trends_em` 返回 `TrendSeries`，`stock_fund_flow_em` 返回 `FundFlowSeries`，`board_fund_flow_em` 返回 `BoardFundFlowSeries`，`board_industry_list_em` 返回 `BoardListPage`，`index_list_em` 返回 `IndexListPage`，`hk_stock_list_em` 返回 `HkStockListPage`，`fund_list_em` 返回 `FundListPage`，`stock_limit_pool_em` 返回 `LimitPoolPage`，`df_*_em` 返回 `pd.DataFrame`（需 `pip install pandas`）。`to_dataframe` / `to_kline_dataframe` / `to_trend_dataframe` / `to_fund_flow_dataframe` / `to_board_fund_flow_dataframe` / `to_board_list_dataframe` / `to_index_list_dataframe` / `to_hk_stock_list_dataframe` / `to_fund_list_dataframe` / `to_limit_pool_dataframe` 把对应领域模型转为 DataFrame，均默认中文列名，传 `columns` 可覆盖。
 
 ## 功能
 
@@ -63,6 +66,7 @@ from em import (
 | 指数列表（沪深重要 / 上证 / 深证 / 中证） | [index_list_em.md](./ashare_indices/index_list_em.md) | `channels/eastmoney/ashare_indices/index_list/index_list_em.py` | `index_list_em` / `df_index_list_em` |
 | 港股列表（主板 / 创业板） | [hk_stock_list_em.md](./hk_market/hk_stock_list_em.md) | `channels/eastmoney/hk_market/hk_stock_list/hk_stock_list_em.py` | `hk_stock_list_em` / `df_hk_stock_list_em` |
 | 场内基金列表（ETF / LOF） | [fund_list_em.md](./fund_market/fund_list_em.md) | `channels/eastmoney/fund_market/fund_list/fund_list_em.py` | `fund_list_em` / `df_fund_list_em` |
+| 涨跌停股池（涨停 / 昨日涨停 / 强势 / 次新 / 炸板 / 跌停） | [stock_limit_pool_em.md](./ashare_stocks/stock_limit_pool_em.md) | `channels/eastmoney/ashare_stocks/stock_limit_pool/stock_limit_pool_em.py` | `stock_limit_pool_em` / `df_stock_limit_pool_em` |
 
 ## 接口检索
 
@@ -82,7 +86,7 @@ print(em.interface_info("board_constituent_em"))
 
 # 列出全部类目及其接口数量
 print(em.list_categories())
-# [{'类目': 'board', '接口数': 2}, {'类目': 'fund', '接口数': 1}, {'类目': 'fund_flow', '接口数': 2}, {'类目': 'hk', '接口数': 1}, {'类目': 'index', '接口数': 1}, {'类目': 'kline', '接口数': 2}, {'类目': 'market', '接口数': 1}, {'类目': 'trends', '接口数': 1}]
+# [{'类目': 'board', '接口数': 2}, {'类目': 'fund', '接口数': 1}, {'类目': 'fund_flow', '接口数': 2}, {'类目': 'hk', '接口数': 1}, {'类目': 'index', '接口数': 1}, {'类目': 'kline', '接口数': 2}, {'类目': 'market', '接口数': 1}, {'类目': 'pool', '接口数': 1}, {'类目': 'trends', '接口数': 1}]
 ```
 
 DataFrame 版（需 pandas，对齐 akshare `print(ak.search(...))` 体验）：
@@ -102,7 +106,8 @@ print(em.list_categories_df())
 # 4    index      1
 # 5    kline      2
 # 6   market      1
-# 7   trends      1
+# 7     pool      1
+# 8   trends      1
 ```
 
 `interface_info_df(name)` 返回 ``{"inputs": 参数表, "outputs": 字段表}``，中文列名对齐文档参数表：

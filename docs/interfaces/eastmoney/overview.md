@@ -84,6 +84,14 @@
 - 源码：`src/em/channels/eastmoney/fund_market/fund_list/fund_list_em.py`
 
 
+### `涨跌停股池`
+接口：`stock_limit_pool_em`, `df_stock_limit_pool_em`->（DataFrame版）
+描述：涨跌停股池（push2ex，涨停 / 昨日涨停 / 强势 / 次新 / 炸板 / 跌停，按交易日取整池；上游只保留约 15 个交易日）。
+
+- 详情：[stock_limit_pool_em.md](./ashare_stocks/stock_limit_pool_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_stocks/stock_limit_pool/stock_limit_pool_em.py`
+
+
 ### `通用转换`
 接口：`to_dataframe`
 描述：任意 `QuotePage` → `DataFrame`，默认中文列名，可传 `columns` 覆盖。

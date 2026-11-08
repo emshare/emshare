@@ -9,6 +9,7 @@ FFLOW_PATH = "/api/qt/stock/fflow/daykline/get"
 QUOTE_HOST = "https://push2.eastmoney.com"
 GUEST_HOST = "https://pushguest.eastmoney.com"
 KLINE_HOST = "https://push2his.eastmoney.com"
+PUSH2EX_HOST = "https://push2ex.eastmoney.com"  # 涨跌停股池 / 盘口异动
 
 HEADERS = {
     "User-Agent": (
@@ -92,3 +93,16 @@ DEFAULT_PRICE_DECIMALS = 2
 FUND_LIST_FIELDS = "f1,f12,f13,f14,f2,f3,f4,f5,f6,f8,f15,f16,f17,f18,f20,f21,f402,f441"
 # 基金 f13（secid 市场前缀）-> 领域市场
 FUND_MARKETS = {0: "sz", 1: "sh"}
+# push2ex 公开 ut 常量（涨跌停股池）
+PUSH2EX_UT = "7eea3edcaed734bea9cbfc24409ed989"
+# 股池一次取整池：实测单日最多一两百只，上游 pagesize 取 10000 即不分页（对齐 akshare）
+LIMIT_POOL_PAGE_SIZE = 10000
+# push2ex 价格（p / ztp）固定放大 1000 倍，与 clist 的 f1 无关
+PUSH2EX_PRICE_FACTOR = 1000.0
+# 北交所新股首日不设涨停价，上游 ztp 用此哨兵值，映射为 None
+NO_LIMIT_PRICE_SENTINEL = 1000000000
+# 股池 m（secid 市场前缀）-> 领域市场；北交所也挂在 0 前缀下，按代码段区分
+POOL_MARKETS = {0: "sz", 1: "sh"}
+BJ_STOCK_CODE_PREFIXES = ("4", "8", "92")
+# 强势股池入选理由（上游 cc，对齐 akshare explained_map）
+STRONG_POOL_REASONS = {1: "60日新高", 2: "近期多次涨停", 3: "60日新高且近期多次涨停"}

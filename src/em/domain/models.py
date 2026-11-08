@@ -263,3 +263,56 @@ class FundListPage:
 
     total: int
     items: tuple[FundQuote, ...]
+
+
+@dataclass(frozen=True)
+class LimitPoolStock:
+    """涨跌停股池中的一只股票。价格单位为元。
+
+    6 个股池共用本模型：前 10 个字段各股池都有，其余为股池专属字段，
+    不适用的股池为 None（如跌停池没有涨停价）。时间为 ``HH:MM:SS``，日期为 ``YYYY-MM-DD``。
+    """
+
+    code: str
+    name: str
+    market: str | None = None  # sh 沪市 / sz 深市 / bj 北交所
+    price: Yuan = None  # 最新价
+    change_pct: Pct = None  # 涨跌幅
+    turnover: Yuan = None  # 成交额
+    float_market_cap: Yuan = None  # 流通市值
+    total_market_cap: Yuan = None  # 总市值
+    turnover_rate: Pct = None  # 换手率
+    industry: str | None = None  # 所属行业
+    # 涨停统计：近 stat_days 天内涨停 stat_limit_ups 次（上游 zttj，如“10 天 6 板”）
+    stat_days: int | None = None
+    stat_limit_ups: int | None = None
+    limit_up_price: Yuan = None  # 涨停价（昨日涨停 / 强势 / 次新 / 炸板）
+    seal_fund: Yuan = None  # 封板资金（涨停池）/ 封单资金（跌停池）
+    first_seal_time: str | None = None  # 首次封板时间（涨停 / 炸板）
+    last_seal_time: str | None = None  # 最后封板时间（涨停 / 跌停）
+    broken_count: int | None = None  # 炸板次数（涨停 / 炸板）
+    limit_up_streak: int | None = None  # 连板数（涨停）
+    prev_seal_time: str | None = None  # 昨日封板时间（昨日涨停）
+    prev_limit_up_streak: int | None = None  # 昨日连板数（昨日涨停）
+    amplitude: Pct = None  # 振幅（昨日涨停 / 炸板）
+    speed: Pct = None  # 涨速（昨日涨停 / 强势 / 炸板）
+    volume_ratio: float | None = None  # 量比（强势）
+    new_high: bool | None = None  # 是否 60 日新高（强势 / 次新）
+    reason: str | None = None  # 入选理由（强势）
+    open_days: int | None = None  # 开板几日（次新）
+    open_date: str | None = None  # 开板日期（次新）
+    listing_date: str | None = None  # 上市日期（次新）
+    pe: float | None = None  # 动态市盈率（跌停）
+    board_turnover: Yuan = None  # 板上成交额（跌停）
+    limit_down_streak: int | None = None  # 连续跌停天数（跌停）
+    open_count: int | None = None  # 开板次数（跌停）
+
+
+@dataclass(frozen=True)
+class LimitPoolPage:
+    """一个交易日的涨跌停股池。``date`` 是数据实际所属的交易日（``YYYY-MM-DD``）。"""
+
+    pool_type: str
+    date: str
+    total: int
+    items: tuple[LimitPoolStock, ...]

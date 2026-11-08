@@ -121,3 +121,31 @@ class FundFlowRequest:
             "ut": config.FFLOW_UT,
             "secid": self.secid,
         }
+
+
+@dataclass(frozen=True)
+class LimitPoolRequest:
+    """push2ex 涨跌停股池请求句柄：host/path/sort/date，一次取整池。
+
+    ``pool_type`` 与 ``date`` 为规范化后的领域值，用于回填 ``LimitPoolPage``。
+    """
+
+    host: str
+    path: str
+    sort: str
+    date: str  # YYYYMMDD
+    pool_type: str = "limit_up"
+    page_size: int = config.LIMIT_POOL_PAGE_SIZE
+
+    def url(self) -> str:
+        return f"{self.host}{self.path}"
+
+    def params(self) -> dict[str, Any]:
+        return {
+            "ut": config.PUSH2EX_UT,
+            "dpt": "wz.ztzt",
+            "Pageindex": "0",
+            "pagesize": str(self.page_size),
+            "sort": self.sort,
+            "date": self.date,
+        }

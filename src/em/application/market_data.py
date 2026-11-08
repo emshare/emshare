@@ -22,6 +22,7 @@ from em.application.dataframe import (
     to_hk_stock_list_dataframe,
     to_index_list_dataframe,
     to_kline_dataframe,
+    to_limit_pool_dataframe,
     to_trend_dataframe,
 )
 from em.application.ledger import record as record_ledger
@@ -39,6 +40,7 @@ from em.domain.models import (
     HkStockListPage,
     IndexListPage,
     KlineSeries,
+    LimitPoolPage,
     Quote,
     QuotePage,
     TrendSeries,
@@ -53,6 +55,7 @@ from em.domain.queries import (
     HkStockListQuery,
     IndexListQuery,
     KlineQuery,
+    LimitPoolQuery,
     MarketQuery,
     TrendQuery,
 )
@@ -643,3 +646,22 @@ def df_fund_list_em(
 ) -> pd.DataFrame:
     """``fund_list_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
     return to_fund_list_dataframe(fund_list_em(query, settings), columns)
+
+
+def stock_limit_pool_em(
+    query: LimitPoolQuery | None = None, settings: Settings | None = None
+) -> LimitPoolPage:
+    """抓取某个交易日的涨跌停股池（涨停 / 昨日涨停 / 强势 / 次新 / 炸板 / 跌停），返回 ``LimitPoolPage``。"""
+    query = query or LimitPoolQuery()
+    client = _build_client(settings or Settings.from_env())
+    source = registry.EastMoneySource(client)
+    return source.fetch_limit_pool(registry.stock_limit_pool_request(query))
+
+
+def df_stock_limit_pool_em(
+    query: LimitPoolQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``stock_limit_pool_em`` 的 DataFrame 版（只含该股池适用的列，akshare 风格中文列名）。"""
+    return to_limit_pool_dataframe(stock_limit_pool_em(query, settings), columns)

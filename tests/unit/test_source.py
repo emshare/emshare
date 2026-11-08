@@ -1,4 +1,4 @@
-"""EastMoneySource 9 个 fetch 的协议校验路径覆盖。
+"""EastMoneySource 10 个 fetch 的协议校验路径覆盖。
 
 非 JSONP 错误页与 rc != 0 现在由传输层在返回文本前用 validator 拦截并换 IP
 （InvalidContentError）；本文件用执行真实 validator 的 HttpClient 桩锁住该契约。
@@ -18,6 +18,7 @@ from em.domain.queries import (
     HkStockListQuery,
     IndexListQuery,
     KlineQuery,
+    LimitPoolQuery,
     MarketQuery,
     TrendQuery,
 )
@@ -54,6 +55,7 @@ _FETCH_NAMES = [
     "fetch_index_list",
     "fetch_hk_stock_list",
     "fetch_fund_list",
+    "fetch_limit_pool",
 ]
 _REQUESTS = [
     registry.stock_list_request(MarketQuery()),
@@ -65,6 +67,7 @@ _REQUESTS = [
     registry.index_list_request(IndexListQuery()),
     registry.hk_stock_list_request(HkStockListQuery()),
     registry.fund_list_request(FundListQuery()),
+    registry.stock_limit_pool_request(LimitPoolQuery(date="20261106")),
 ]
 
 

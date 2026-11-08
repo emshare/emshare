@@ -6,8 +6,8 @@
 em/                                          # 东方财富行情抓取
 ├── src/em/                                  # 源码包
 │   ├── domain/                              # 领域模型（最内层，零渠道依赖）
-│   │   ├── models.py                        # Quote/Kline/Trend/FundFlow/IndexQuote/HkQuote/FundQuote 及各自 Series/Page
-│   │   ├── queries.py                       # BoardQuery/MarketQuery/KlineQuery/TrendQuery/FundFlowQuery/BoardKlineQuery/IndexListQuery/HkStockListQuery/FundListQuery 等
+│   │   ├── models.py                        # Quote/Kline/Trend/FundFlow/IndexQuote/HkQuote/FundQuote/LimitPoolStock 及各自 Series/Page
+│   │   ├── queries.py                       # BoardQuery/MarketQuery/KlineQuery/TrendQuery/FundFlowQuery/BoardKlineQuery/IndexListQuery/HkStockListQuery/FundListQuery/LimitPoolQuery 等
 │   │   ├── units.py                         # 单位别名与换算（元 / % / 手 / 点 / 港元 / 股）
 │   │   └── __init__.py
 │   ├── core/                                # 基座：配置 / 弹性 / 代理 / 传输
@@ -29,7 +29,8 @@ em/                                          # 东方财富行情抓取
 │   │   │   ├── stock_list/                  # 全市场列表（stock_list_em.py）
 │   │   │   ├── stock_kline/                 # 历史 K 线（stock_kline_em.py）
 │   │   │   ├── stock_trends/                # 分时行情（stock_trends_em.py）
-│   │   │   └── stock_fund_flow/             # 个股历史资金流（stock_fund_flow_em.py）
+│   │   │   ├── stock_fund_flow/             # 个股历史资金流（stock_fund_flow_em.py）
+│   │   │   └── stock_limit_pool/            # 涨跌停股池（stock_limit_pool_em.py，push2ex）
 │   │   ├── ashare_indices/                  # 沪深京指数
 │   │   │   └── index_list/                  # 指数列表（index_list_em.py）
 │   │   ├── hk_market/                       # 港股市场
@@ -52,7 +53,7 @@ em/                                          # 东方财富行情抓取
 │   │   └── __init__.py
 │   ├── application/                         # 组合根
 │   │   ├── registry.py                      # 唯一的渠道入口登记
-│   │   ├── market_data.py                   # board_constituent_em/industry_list/board_kline/market/index_list/hk_stock_list/fund_list/kline/trends/fund_flow + _df 版
+│   │   ├── market_data.py                   # board_constituent_em/industry_list/board_kline/market/index_list/hk_stock_list/fund_list/limit_pool/kline/trends/fund_flow + _df 版
 │   │   ├── dataframe.py                     # 领域模型 -> DataFrame（中文列名）
 │   │   ├── catalog.py                       # 接口检索：search/interface_info/list_categories
 │   │   └── __init__.py
@@ -71,6 +72,7 @@ em/                                          # 东方财富行情抓取
 │   │   ├── test_index_list.py / test_index_list_dataframe.py
 │   │   ├── test_hk_stock_list.py / test_hk_stock_list_dataframe.py
 │   │   ├── test_fund_list.py / test_fund_list_dataframe.py
+│   │   ├── test_stock_limit_pool.py / test_stock_limit_pool_dataframe.py
 │   │   ├── test_board_industry_list.py / test_board_industry_list_dataframe.py
 │   │   ├── test_dataframe.py                # QuotePage DataFrame
 │   │   ├── test_mapping.py                  # 报文映射
@@ -85,7 +87,7 @@ em/                                          # 东方财富行情抓取
 │   │   ├── test_docs_sync.py                # 文档与源码同步守卫
 │   │   ├── test_env_example.py              # .env.example 完整性守卫
 │   │   └── __init__.py
-│   ├── fixtures/eastmoney/                  # 固定报文（kline/trends/fund_flow/board_fund_flow/board_kline/clist_board/clist_board_industry/clist_index/clist_hk_stock/clist_fund）
+│   ├── fixtures/eastmoney/                  # 固定报文（kline/trends/fund_flow/board_fund_flow/board_kline/clist_board/clist_board_industry/clist_index/clist_hk_stock/clist_fund/push2ex_limit_pool）
 │   ├── conftest.py
 │   └── __init__.py
 ├── docs/interfaces/eastmoney/               # 接口文档（按渠道分组，详见该目录 directory_tree.md）

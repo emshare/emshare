@@ -20,6 +20,8 @@ from em.domain.models import (
     IndexQuote,
     Kline,
     KlineSeries,
+    LimitPoolPage,
+    LimitPoolStock,
     Quote,
     QuotePage,
     Trend,
@@ -367,4 +369,103 @@ def _to_fund_quote(item: dict[str, Any]) -> FundQuote:
         turnover_rate=scaled(item.get("f8")),
         float_market_cap=as_float(item.get("f21")),
         total_market_cap=as_float(item.get("f20")),
+    )
+
+
+def _pool_price(value: Any) -> float | None:
+    """股池价格固定放大 1000 倍；北交所新股首日无涨停价时上游给哨兵值，映射为 None。"""
+    if _to_int(value) == config.NO_LIMIT_PRICE_SENTINEL:
+        return None
+    return scaled(value, config.PUSH2EX_PRICE_FACTOR)
+
+
+def _hms(value: Any) -> str | None:
+    """把 ``92500`` / ``143051`` 这类整数时间转成 ``09:25:00`` / ``14:30:51``。"""
+    n = _to_int(value)
+    if n is None or n < 0:
+        return None
+    s = f"{n:06d}"
+    return f"{s[:2]}:{s[2:4]}:{s[4:]}"
+
+
+def _ymd(value: Any) -> str | None:
+    """把 ``20261106`` 这类整数日期转成 ``2026-11-06``。"""
+    n = _to_int(value)
+    if n is None or n <= 0:
+        return None
+    s = f"{n:08d}"
+    return f"{s[:4]}-{s[4:6]}-{s[6:]}"
+
+
+def _pool_market(prefix: Any, code: str) -> str | None:
+    key = _to_int(prefix)
+    market = config.POOL_MARKETS.get(key) if key is not None else None
+    if market == "sz" and code.startswith(config.BJ_STOCK_CODE_PREFIXES):
+        return "bj"
+    return market
+
+
+def _flag(value: Any) -> bool | None:
+    n = _to_int(value)
+    return None if n is None else n == 1
+
+
+def to_limit_pool_page(data: dict[str, Any], pool_type: str, date: str) -> LimitPoolPage:
+    """把 push2ex 股池响应映射为 ``LimitPoolPage``。
+
+    ``date`` 是请求的 ``YYYYMMDD``。上游 ``qdate`` 恒为最近交易日，与请求日期无关：
+    请求今天或未来时数据属于 ``qdate``，请求过去的日期时数据属于该日期（非交易日为空池）。
+    所以数据实际日期取两者中较早的那个。
+    """
+    block = data.get("data") or {}
+    items = tuple(_to_pool_stock(it) for it in (block.get("pool") or []))
+    requested = _to_int(date)
+    latest = _to_int(block.get("qdate"))
+    actual = min(requested, latest) if requested is not None and latest is not None else requested
+    return LimitPoolPage(
+        pool_type=pool_type,
+        date=_ymd(actual) or "",
+        total=int(block.get("tc") or 0),
+        items=items,
+    )
+
+
+def _to_pool_stock(item: dict[str, Any]) -> LimitPoolStock:
+    code = str(item.get("c", ""))
+    raw_stat = item.get("zttj")
+    stat: dict[str, Any] = raw_stat if isinstance(raw_stat, dict) else {}
+    reason = _to_int(item.get("cc"))
+    return LimitPoolStock(
+        code=code,
+        name=str(item.get("n", "")),
+        market=_pool_market(item.get("m"), code),
+        price=_pool_price(item.get("p")),
+        change_pct=as_float(item.get("zdp")),
+        turnover=as_float(item.get("amount")),
+        float_market_cap=as_float(item.get("ltsz")),
+        total_market_cap=as_float(item.get("tshare")),
+        turnover_rate=as_float(item.get("hs")),
+        industry=str(item["hybk"]) if item.get("hybk") else None,
+        stat_days=_to_int(stat.get("days")),
+        stat_limit_ups=_to_int(stat.get("ct")),
+        limit_up_price=_pool_price(item.get("ztp")),
+        seal_fund=as_float(item.get("fund")),
+        first_seal_time=_hms(item.get("fbt")),
+        last_seal_time=_hms(item.get("lbt")),
+        broken_count=_to_int(item.get("zbc")),
+        limit_up_streak=_to_int(item.get("lbc")),
+        prev_seal_time=_hms(item.get("yfbt")),
+        prev_limit_up_streak=_to_int(item.get("ylbc")),
+        amplitude=as_float(item.get("zf")),
+        speed=as_float(item.get("zs")),
+        volume_ratio=as_float(item.get("lb")),
+        new_high=_flag(item.get("nh")),
+        reason=config.STRONG_POOL_REASONS.get(reason) if reason is not None else None,
+        open_days=_to_int(item.get("ods")),
+        open_date=_ymd(item.get("od")),
+        listing_date=_ymd(item.get("ipod")),
+        pe=as_float(item.get("pe")),
+        board_turnover=as_float(item.get("fba")),
+        limit_down_streak=_to_int(item.get("days")),
+        open_count=_to_int(item.get("oc")),
     )

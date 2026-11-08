@@ -16,6 +16,7 @@ from em.domain.models import (
     HkStockListPage,
     IndexListPage,
     KlineSeries,
+    LimitPoolPage,
     QuotePage,
     TrendSeries,
 )
@@ -354,4 +355,103 @@ def to_fund_list_dataframe(
     naming = columns or FUND_LIST_COLUMNS_ZH
     ordered_cols = [naming[f] for f in _FUND_LIST_FIELD_ORDER]
     rows = [{naming[f]: getattr(q, f) for f in _FUND_LIST_FIELD_ORDER} for q in page.items]
+    return pd.DataFrame(rows, columns=ordered_cols)  # type: ignore[no-any-return]
+
+
+# 涨跌停股池字段 -> 默认中文列名（对齐 akshare stock_zt_pool_*_em）
+LIMIT_POOL_COLUMNS_ZH: dict[str, str] = {
+    "code": "代码",
+    "name": "名称",
+    "market": "市场",
+    "change_pct": "涨跌幅",
+    "price": "最新价",
+    "limit_up_price": "涨停价",
+    "turnover": "成交额",
+    "float_market_cap": "流通市值",
+    "total_market_cap": "总市值",
+    "pe": "动态市盈率",
+    "turnover_rate": "换手率",
+    "seal_fund": "封板资金",
+    "first_seal_time": "首次封板时间",
+    "last_seal_time": "最后封板时间",
+    "board_turnover": "板上成交额",
+    "broken_count": "炸板次数",
+    "limit_up_streak": "连板数",
+    "prev_seal_time": "昨日封板时间",
+    "prev_limit_up_streak": "昨日连板数",
+    "limit_down_streak": "连续跌停",
+    "open_count": "开板次数",
+    "speed": "涨速",
+    "amplitude": "振幅",
+    "volume_ratio": "量比",
+    "new_high": "是否新高",
+    "open_days": "开板几日",
+    "open_date": "开板日期",
+    "listing_date": "上市日期",
+    "stat_days": "涨停统计-天数",
+    "stat_limit_ups": "涨停统计-板数",
+    "reason": "入选理由",
+    "industry": "所属行业",
+}
+
+# 各股池输出哪些列、什么顺序（对齐 akshare 各接口，另在名称后加“市场”）
+LIMIT_POOL_FIELDS_BY_TYPE: dict[str, tuple[str, ...]] = {
+    "limit_up": (
+        "code", "name", "market", "change_pct", "price", "turnover", "float_market_cap",
+        "total_market_cap", "turnover_rate", "seal_fund", "first_seal_time", "last_seal_time",
+        "broken_count", "stat_days", "stat_limit_ups", "limit_up_streak", "industry",
+    ),
+    "prev_limit_up": (
+        "code", "name", "market", "change_pct", "price", "limit_up_price", "turnover",
+        "float_market_cap", "total_market_cap", "turnover_rate", "speed", "amplitude",
+        "prev_seal_time", "prev_limit_up_streak", "stat_days", "stat_limit_ups", "industry",
+    ),
+    "strong": (
+        "code", "name", "market", "change_pct", "price", "limit_up_price", "turnover",
+        "float_market_cap", "total_market_cap", "turnover_rate", "speed", "new_high",
+        "volume_ratio", "stat_days", "stat_limit_ups", "reason", "industry",
+    ),
+    "sub_new": (
+        "code", "name", "market", "change_pct", "price", "limit_up_price", "turnover",
+        "float_market_cap", "total_market_cap", "turnover_rate", "open_days", "open_date",
+        "listing_date", "new_high", "stat_days", "stat_limit_ups", "industry",
+    ),
+    "broken": (
+        "code", "name", "market", "change_pct", "price", "limit_up_price", "turnover",
+        "float_market_cap", "total_market_cap", "turnover_rate", "speed", "first_seal_time",
+        "broken_count", "stat_days", "stat_limit_ups", "amplitude", "industry",
+    ),
+    "limit_down": (
+        "code", "name", "market", "change_pct", "price", "turnover", "float_market_cap",
+        "total_market_cap", "pe", "turnover_rate", "seal_fund", "last_seal_time",
+        "board_turnover", "limit_down_streak", "open_count", "industry",
+    ),
+}  # fmt: skip
+
+# 同一字段在个别股池里叫法不同（对齐 akshare）
+_LIMIT_POOL_LABEL_OVERRIDES: dict[str, dict[str, str]] = {
+    "limit_down": {"seal_fund": "封单资金"},
+}
+
+
+def to_limit_pool_dataframe(
+    page: LimitPoolPage,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """把 ``LimitPoolPage`` 转为 ``DataFrame``；只输出该股池适用的列，默认 akshare 风格中文列名。
+
+    列顺序固定为 ``LIMIT_POOL_FIELDS_BY_TYPE[page.pool_type]``，空池也保留列头。
+    """
+    try:
+        import pandas as pd
+    except ImportError as exc:  # pragma: no cover - 环境依赖
+        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+
+    fields = LIMIT_POOL_FIELDS_BY_TYPE.get(page.pool_type, LIMIT_POOL_FIELDS_BY_TYPE["limit_up"])
+    naming = columns or {
+        **LIMIT_POOL_COLUMNS_ZH,
+        **_LIMIT_POOL_LABEL_OVERRIDES.get(page.pool_type, {}),
+    }
+    ordered_cols = [naming[f] for f in fields]
+    rows = [{naming[f]: getattr(s, f) for f in fields} for s in page.items]
     return pd.DataFrame(rows, columns=ordered_cols)  # type: ignore[no-any-return]

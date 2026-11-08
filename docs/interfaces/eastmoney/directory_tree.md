@@ -15,7 +15,8 @@ src/em/channels/eastmoney/                 docs/interfaces/eastmoney/
 │   │                           #  应用层)      │
 │   ├── stock_fund_flow/        # 个股资金流    │   ├── stock_fund_flow_em.md
 │   ├── stock_kline/            # K线(个股+指数)│   ├── stock_kline_em.md
-│   └── stock_trends/           # 分时(个股+指数)│   └── stock_trends_em.md
+│   ├── stock_trends/           # 分时(个股+指数)│   ├── stock_trends_em.md
+│   └── stock_limit_pool/       # 涨跌停股池    │   └── stock_limit_pool_em.md
 ├── ashare_indices/              # 沪深京指数    ├── ashare_indices/
 │   └── index_list/             # 指数列表      │   └── index_list_em.md
 ├── hk_market/                  # 港股市场      ├── hk_market/

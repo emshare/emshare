@@ -16,11 +16,16 @@ from em.application.market_data import (
     index_list_em,
     stock_fund_flow_em,
     stock_kline_em,
+    stock_limit_pool_em,
     stock_list_all_em,
     stock_list_em,
     stock_trends_em,
 )
 from em.channels.eastmoney.ashare_indices.index_list import INDEX_SERIES_FS
+from em.channels.eastmoney.ashare_stocks.stock_limit_pool import (
+    LIMIT_POOL_ENDPOINTS,
+    resolve_date,
+)
 from em.channels.eastmoney.ashare_stocks.stock_list import MARKET_SCOPE_FS
 from em.channels.eastmoney.config import (
     FQT_ADJUSTS,
@@ -43,6 +48,8 @@ from em.domain.models import (
     IndexListPage,
     Kline,
     KlineSeries,
+    LimitPoolPage,
+    LimitPoolStock,
     Quote,
     QuotePage,
     TrendSeries,
@@ -57,6 +64,7 @@ from em.domain.queries import (
     HkStockListQuery,
     IndexListQuery,
     KlineQuery,
+    LimitPoolQuery,
     MarketQuery,
     TrendQuery,
 )
@@ -290,6 +298,50 @@ def _render_fund_list(page: FundListPage) -> None:
     print("-" * 100)
 
 
+_POOL_LABELS = {
+    "limit_up": "涨停股池",
+    "prev_limit_up": "昨日涨停股池",
+    "strong": "强势股池",
+    "sub_new": "次新股池",
+    "broken": "炸板股池",
+    "limit_down": "跌停股池",
+}
+
+
+def _pool_extra(s: LimitPoolStock, pool_type: str) -> str:
+    """各股池最有用的一两个专属字段。"""
+    if pool_type == "limit_up":
+        return (
+            f"  连板:{_fmt(s.limit_up_streak, '>2')}  首封:{s.first_seal_time or '-'}"
+            f"  封板资金:{_fmt_amount(s.seal_fund):>10}"
+        )
+    if pool_type == "prev_limit_up":
+        return (
+            f"  昨日连板:{_fmt(s.prev_limit_up_streak, '>2')}  昨日封板:{s.prev_seal_time or '-'}"
+        )
+    if pool_type == "strong":
+        return f"  量比:{_fmt(s.volume_ratio, '>5.2f')}  理由:{s.reason or '-'}"
+    if pool_type == "sub_new":
+        return f"  上市:{s.listing_date or '-'}  开板几日:{_fmt(s.open_days, '>3')}"
+    if pool_type == "broken":
+        return f"  炸板:{_fmt(s.broken_count, '>2')}次  首封:{s.first_seal_time or '-'}"
+    return f"  连续跌停:{_fmt(s.limit_down_streak, '>2')}  封单资金:{_fmt_amount(s.seal_fund):>10}"
+
+
+def _render_limit_pool(page: LimitPoolPage, head: int | None = None) -> None:
+    label = _POOL_LABELS.get(page.pool_type, page.pool_type)
+    shown = page.items if (head is None or head <= 0) else page.items[:head]
+    print(f"\n✅ {page.date} {label} 共 {page.total} 只，展示 {len(shown)} 只")
+    print("-" * 100)
+    for s in shown:
+        print(
+            f"  {s.code:<7} {s.market or '-':<3} {s.name:<8}"
+            f"  最新价:{_fmt(s.price, '>8.2f')}"
+            f"  涨跌幅:{_fmt(s.change_pct, '>6.2f')}%" + _pool_extra(s, page.pool_type)
+        )
+    print("-" * 100)
+
+
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="东方财富行情抓取（动态代理 + 自动重试）")
     ap.add_argument(
@@ -307,9 +359,19 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
             "indexlist",
             "hklist",
             "fundlist",
+            "limitpool",
         ],
         default="board",
         help="接口预设",
+    )
+    ap.add_argument(
+        "--pool-type",
+        choices=list(LIMIT_POOL_ENDPOINTS),
+        default="limit_up",
+        help="股池（limitpool 预设）：limit_up / prev_limit_up / strong / sub_new / broken / limit_down",
+    )
+    ap.add_argument(
+        "--date", default=None, help="交易日 YYYYMMDD（limitpool 预设，留空取最近交易日）"
     )
     ap.add_argument(
         "--fund-type",
@@ -384,6 +446,11 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     # 分时 / 资金流的 secid 映射只认沪深京：放行 csi / hk 会被静默当成深市代码去查
     if args.preset in ("trends", "fundflow") and args.market not in MARKET_IDS:
         ap.error(f"--market {args.market} 仅 kline 预设支持，{args.preset} 只支持 sz / sh / bj")
+    if args.date:
+        try:
+            resolve_date(args.date)
+        except ValueError as exc:
+            ap.error(str(exc))
     return args
 
 
@@ -483,6 +550,11 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
             _render_fund_list(fund_page)
+        elif args.preset == "limitpool":
+            pool_page = stock_limit_pool_em(
+                LimitPoolQuery(pool_type=args.pool_type, date=args.date)
+            )
+            _render_limit_pool(pool_page, head=args.head)
         else:
             page = board_constituent_em(
                 BoardQuery(board=args.board, period=args.rank, page=args.pn, size=args.pz or 8)

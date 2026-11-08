@@ -120,3 +120,15 @@ class FundListQuery:
     sort: str = "f3"  # 排序字段（上游 f* 字段名）
     page: int = 1
     size: int = 20
+
+
+@dataclass(frozen=True)
+class LimitPoolQuery:
+    """涨跌停股池（push2ex），一次返回某个交易日的整池。
+
+    ``date`` 为 ``YYYYMMDD``；留空取北京时间今天，上游会返回最近交易日的数据。
+    上游只保留最近约 15 个交易日，更早或过去的非交易日返回空池。
+    """
+
+    pool_type: str = "limit_up"  # limit_up / prev_limit_up / strong / sub_new / broken / limit_down
+    date: str | None = None

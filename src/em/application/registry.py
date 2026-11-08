@@ -17,6 +17,9 @@ from em.channels.eastmoney.ashare_boards.board_kline.board_kline_em import board
 from em.channels.eastmoney.ashare_indices.index_list.index_list_em import index_list_request
 from em.channels.eastmoney.ashare_stocks.stock_fund_flow.stock_fund_flow_em import fund_flow_request
 from em.channels.eastmoney.ashare_stocks.stock_kline.stock_kline_em import kline_request
+from em.channels.eastmoney.ashare_stocks.stock_limit_pool.stock_limit_pool_em import (
+    stock_limit_pool_request,
+)
 from em.channels.eastmoney.ashare_stocks.stock_list.stock_list_em import stock_list_request
 from em.channels.eastmoney.ashare_stocks.stock_trends.stock_trends_em import trends_request
 from em.channels.eastmoney.fund_market.fund_list.fund_list_em import fund_list_request
@@ -35,6 +38,7 @@ __all__ = [
     "hk_stock_list_request",
     "index_list_request",
     "kline_request",
+    "stock_limit_pool_request",
     "stock_list_request",
     "trends_request",
 ]

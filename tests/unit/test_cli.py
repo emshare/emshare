@@ -223,6 +223,32 @@ def test_main_rejects_kline_only_markets(preset: str, market: str, capsys) -> No
     assert "仅 kline 预设支持" in capsys.readouterr().err
 
 
+def test_main_limitpool_rejects_malformed_date(capsys) -> None:
+    # 上游对 2026-11-06 这类写法只返回空数据，CLI 要给友好提示而不是异常栈
+    with pytest.raises(SystemExit) as exc:
+        main(["--preset", "limitpool", "--date", "2026-11-06"])
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    assert "YYYYMMDD" in err
+    assert "Traceback" not in err
+
+
+def test_main_limitpool_passes_query(monkeypatch, capsys) -> None:
+    from em.domain.models import LimitPoolPage
+    from em.domain.queries import LimitPoolQuery
+
+    seen: list[LimitPoolQuery] = []
+
+    def fake_pool(query: LimitPoolQuery) -> LimitPoolPage:
+        seen.append(query)
+        return LimitPoolPage(pool_type=query.pool_type, date="2026-11-06", total=0, items=())
+
+    monkeypatch.setattr("em.cli.stock_limit_pool_em", fake_pool)
+    assert main(["--preset", "limitpool", "--pool-type", "broken", "--date", "20261106"]) == 0
+    assert [(q.pool_type, q.date) for q in seen] == [("broken", "20261106")]
+    assert "2026-11-06 炸板股池 共 0 只" in capsys.readouterr().out
+
+
 class _FakeSettings:
     def __init__(
         self,

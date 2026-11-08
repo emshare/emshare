@@ -141,6 +141,41 @@ _HK_STOCK_LIST_FIELDS = (
     ("turnover", "float | None", "港元", "成交额"),
 )
 
+_LIMIT_POOL_FIELDS = (
+    ("code", "str", "—", "股票代码"),
+    ("name", "str", "—", "股票简称"),
+    ("market", "str | None", "—", "市场：sh / sz / bj，可连同 code 传给 stock_kline_em"),
+    ("price", "float | None", "元", "最新价"),
+    ("change_pct", "float | None", "%", "涨跌幅"),
+    ("turnover", "float | None", "元", "成交额"),
+    ("float_market_cap", "float | None", "元", "流通市值"),
+    ("total_market_cap", "float | None", "元", "总市值"),
+    ("turnover_rate", "float | None", "%", "换手率"),
+    ("industry", "str | None", "—", "所属行业"),
+    ("stat_days", "int | None", "天", "涨停统计：统计天数"),
+    ("stat_limit_ups", "int | None", "次", "涨停统计：涨停次数"),
+    ("limit_up_price", "float | None", "元", "涨停价（昨日涨停/强势/次新/炸板）"),
+    ("seal_fund", "float | None", "元", "封板资金（涨停）/ 封单资金（跌停）"),
+    ("first_seal_time", "str | None", "—", "首次封板时间 HH:MM:SS（涨停/炸板）"),
+    ("last_seal_time", "str | None", "—", "最后封板时间 HH:MM:SS（涨停/跌停）"),
+    ("broken_count", "int | None", "次", "炸板次数（涨停/炸板）"),
+    ("limit_up_streak", "int | None", "板", "连板数（涨停）"),
+    ("prev_seal_time", "str | None", "—", "昨日封板时间（昨日涨停）"),
+    ("prev_limit_up_streak", "int | None", "板", "昨日连板数（昨日涨停）"),
+    ("amplitude", "float | None", "%", "振幅（昨日涨停/炸板）"),
+    ("speed", "float | None", "%", "涨速（昨日涨停/强势/炸板）"),
+    ("volume_ratio", "float | None", "—", "量比（强势）"),
+    ("new_high", "bool | None", "—", "是否 60 日新高（强势/次新）"),
+    ("reason", "str | None", "—", "入选理由（强势）"),
+    ("open_days", "int | None", "天", "开板几日（次新）"),
+    ("open_date", "str | None", "—", "开板日期 YYYY-MM-DD（次新）"),
+    ("listing_date", "str | None", "—", "上市日期 YYYY-MM-DD（次新）"),
+    ("pe", "float | None", "—", "动态市盈率（跌停）"),
+    ("board_turnover", "float | None", "元", "板上成交额（跌停）"),
+    ("limit_down_streak", "int | None", "天", "连续跌停（跌停）"),
+    ("open_count", "int | None", "次", "开板次数（跌停）"),
+)
+
 _FUND_LIST_FIELDS = (
     ("code", "str", "—", "基金代码"),
     ("name", "str", "—", "基金简称"),
@@ -504,6 +539,40 @@ _INTERFACES: tuple[Interface, ...] = (
             "    print(q.code, q.market, q.name, q.price, q.iopv, q.discount_rate)"
         ),
         dataframe_variant="df_fund_list_em",
+    ),
+    Interface(
+        name="stock_limit_pool_em",
+        category="pool",
+        desc="涨跌停股池（涨停/昨日涨停/强势/次新/炸板/跌停，按交易日取整池，含封板资金与连板数）",
+        documented=True,
+        inputs=(
+            Param(
+                "pool_type",
+                "str",
+                False,
+                '"limit_up"',
+                "股池：limit_up 涨停 / prev_limit_up 昨日涨停 / strong 强势 / sub_new 次新 / "
+                "broken 炸板 / limit_down 跌停，未知回退 limit_up",
+            ),
+            Param(
+                "date",
+                "str | None",
+                False,
+                "None",
+                "交易日 YYYYMMDD，留空取最近交易日；上游只保留约 15 个交易日",
+            ),
+        ),
+        outputs=tuple(Field(*f) for f in _LIMIT_POOL_FIELDS),
+        example=(
+            "from em import stock_limit_pool_em\n"
+            "from em.domain.queries import LimitPoolQuery\n"
+            "\n"
+            'page = stock_limit_pool_em(LimitPoolQuery(pool_type="limit_up"))\n'
+            "print(page.date, page.total)\n"
+            "for s in page.items[:5]:\n"
+            "    print(s.code, s.name, s.limit_up_streak, s.first_seal_time, s.seal_fund)"
+        ),
+        dataframe_variant="df_stock_limit_pool_em",
     ),
 )
 
