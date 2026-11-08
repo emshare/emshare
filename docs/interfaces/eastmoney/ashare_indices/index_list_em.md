@@ -37,7 +37,7 @@
 
 ## 与 K 线接口衔接
 
-`market` 为 `sh` / `sz` / `bj` 的指数可直接传给 `stock_kline_em` 取 K 线：
+每条指数的 `code` 连同 `market`（`sh` / `sz` / `bj` / `csi`）可直接传给 `stock_kline_em` 取 K 线：
 
 ```python
 from em import index_list_em, stock_kline_em
@@ -48,7 +48,7 @@ series = stock_kline_em(KlineQuery(code=idx.code, market=idx.market, period="day
 print(series.name)  # 上证指数
 ```
 
-`market="csi"` 的中证指数暂时不行：`stock_kline_em` 只认 `sz` / `sh` / `bj`，传 `csi` 会回退到深市。上游本身支持（实测 `secid=2.932000` 能取到中证2000 的 K 线），需要另行扩展。
+中证指数用 secid 前缀 `2`：实测 932000 中证2000 当日 K 线收盘价 2718.86 与本接口列表价一致。指数复权无意义，`adjust` 传什么结果都一样。
 
 ## 输入参数 `IndexListQuery`
 

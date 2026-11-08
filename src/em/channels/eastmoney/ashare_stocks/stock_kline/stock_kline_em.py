@@ -1,4 +1,4 @@
-"""个股 / 指数历史 K 线（push2his，日 / 周 / 月，前 / 后 / 不复权）。"""
+"""个股 / 指数 / 基金 / 港股历史 K 线（push2his，日 / 周 / 月 / 分钟，前 / 后 / 不复权）。"""
 
 from em.channels.eastmoney import config
 from em.channels.eastmoney.request import KlineRequest
@@ -6,8 +6,12 @@ from em.domain.queries import KlineQuery
 
 
 def secid_of(query: KlineQuery) -> str:
-    """把「市场 + 代码」拼成东财 secid；未知市场回退深市。"""
-    return f"{config.MARKET_IDS.get(query.market, '0')}.{query.code}"
+    """把「市场 + 代码」拼成东财 secid；未知市场回退深市。
+
+    除沪深京外还支持 ``csi`` 中证指数（如 932000）与 ``hk`` 港股（如 00700），
+    便于直接衔接 ``index_list_em`` / ``hk_stock_list_em`` 的结果。
+    """
+    return f"{config.KLINE_MARKET_IDS.get(query.market, '0')}.{query.code}"
 
 
 def normalize_period(period: str) -> str:

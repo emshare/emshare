@@ -1,5 +1,7 @@
 """CLI 行为锁：渲染字段、展示切片、退出码与提示（不触网）。"""
 
+import pytest
+
 from em.cli import (
     _fmt_amount,
     _hint_ip_blocked,
@@ -193,6 +195,32 @@ def test_main_keyboard_interrupt_returns_130(monkeypatch) -> None:
 
     monkeypatch.setattr("em.cli.stock_kline_em", boom)
     assert main(["--preset", "kline", "--code", "000001"]) == 130
+
+
+def test_main_kline_accepts_csi_and_hk(monkeypatch) -> None:
+    from em.domain.models import KlineSeries
+    from em.domain.queries import KlineQuery
+
+    seen: list[KlineQuery] = []
+
+    def fake_kline(query: KlineQuery) -> KlineSeries:
+        seen.append(query)
+        return KlineSeries(code=query.code, name="x", period="day", adjust="qfq", items=())
+
+    monkeypatch.setattr("em.cli.stock_kline_em", fake_kline)
+    assert main(["--preset", "kline", "--code", "932000", "--market", "csi"]) == 0
+    assert main(["--preset", "kline", "--code", "00700", "--market", "hk"]) == 0
+    assert [(q.code, q.market) for q in seen] == [("932000", "csi"), ("00700", "hk")]
+
+
+@pytest.mark.parametrize("preset", ["trends", "fundflow"])
+@pytest.mark.parametrize("market", ["csi", "hk"])
+def test_main_rejects_kline_only_markets(preset: str, market: str, capsys) -> None:
+    # 分时 / 资金流的 secid 只认沪深京：放行会被静默当成深市代码去查
+    with pytest.raises(SystemExit) as exc:
+        main(["--preset", preset, "--code", "00700", "--market", market])
+    assert exc.value.code == 2
+    assert "仅 kline 预设支持" in capsys.readouterr().err
 
 
 class _FakeSettings:

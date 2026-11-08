@@ -34,7 +34,19 @@
 
 ## 与 K 线接口衔接
 
-暂不支持。`stock_kline_em` 的 `market` 只认 `sz` / `sh` / `bj`。上游本身支持：实测 `secid=116.00700` 能取到腾讯控股的日 K，收盘价 419.800 与本接口一致。需要时另行扩展。
+`code` 连同 `market="hk"` 可直接传给 `stock_kline_em` 取港股 K 线（secid 前缀 `116`）：
+
+```python
+from em import hk_stock_list_em, stock_kline_em
+from em.domain.queries import HkStockListQuery, KlineQuery
+
+q = hk_stock_list_em(HkStockListQuery(scope="main", sort="f6", size=1)).items[0]
+series = stock_kline_em(KlineQuery(code=q.code, market="hk", period="day", adjust="qfq"))
+```
+
+- 实测腾讯控股 2026-11-06 不复权日 K 收盘价 419.800、成交量 29605485，与本接口一致。
+- 港股 K 线的价格单位是港元、成交量单位是股（不是手），与 A 股 K 线不同；`KlineSeries` 本身不带币种，调用方需按 `market` 区分。
+- 复权有效：前复权与不复权结果不同（如腾讯 2020-01-02 收盘不复权 382.400、前复权 333.105）。
 
 ## 输入参数 `HkStockListQuery`
 

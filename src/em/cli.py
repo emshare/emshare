@@ -22,7 +22,13 @@ from em.application.market_data import (
 )
 from em.channels.eastmoney.ashare_indices.index_list import INDEX_SERIES_FS
 from em.channels.eastmoney.ashare_stocks.stock_list import MARKET_SCOPE_FS
-from em.channels.eastmoney.config import FQT_ADJUSTS, FUND_FLOW_FIELDS, KLT_PERIODS
+from em.channels.eastmoney.config import (
+    FQT_ADJUSTS,
+    FUND_FLOW_FIELDS,
+    KLINE_MARKET_IDS,
+    KLT_PERIODS,
+    MARKET_IDS,
+)
 from em.channels.eastmoney.fund_market.fund_list import FUND_TYPE_FS
 from em.channels.eastmoney.hk_market.hk_stock_list import HK_SCOPE_FS
 from em.core.env import load_dotenv
@@ -346,9 +352,9 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     ap.add_argument("--code", default="000001", help="证券代码（kline/trends/fundflow 预设）")
     ap.add_argument(
         "--market",
-        choices=["sz", "sh", "bj"],
+        choices=list(KLINE_MARKET_IDS),
         default="sz",
-        help="市场（kline/trends/fundflow 预设）",
+        help="市场（kline/trends/fundflow 预设；csi 中证指数 / hk 港股仅 kline 支持）",
     )
     ap.add_argument(
         "--period",
@@ -374,7 +380,11 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     )
     ap.add_argument("--pn", type=int, default=1, help="页码")
     ap.add_argument("--pz", type=int, default=None, help="每页条数")
-    return ap.parse_args(argv)
+    args = ap.parse_args(argv)
+    # 分时 / 资金流的 secid 映射只认沪深京：放行 csi / hk 会被静默当成深市代码去查
+    if args.preset in ("trends", "fundflow") and args.market not in MARKET_IDS:
+        ap.error(f"--market {args.market} 仅 kline 预设支持，{args.preset} 只支持 sz / sh / bj")
+    return args
 
 
 def _is_network_failure(exc: EmError) -> bool:

@@ -248,11 +248,18 @@ _INTERFACES: tuple[Interface, ...] = (
     Interface(
         name="stock_kline_em",
         category="kline",
-        desc="个股/指数历史 K 线（日/周/月，前/后/不复权）",
+        desc="个股/指数/基金/港股历史 K 线（日/周/月，前/后/不复权）",
         documented=True,
         inputs=(
             Param("code", "str", False, '"000001"', "证券代码，如 000001"),
-            Param("market", "str", False, '"sz"', "市场：sz 深市 / sh 沪市 / bj 北交所"),
+            Param(
+                "market",
+                "str",
+                False,
+                '"sz"',
+                "市场：sz 深市 / sh 沪市 / bj 北交所 / csi 中证指数 / hk 港股"
+                "（hk 时价格单位港元、成交量单位股），未知回退 sz",
+            ),
             Param(
                 "period",
                 "str",

@@ -67,6 +67,23 @@ def test_secid_of_by_market() -> None:
     assert secid_of(KlineQuery(code="000001", market="nope")) == "0.000001"
 
 
+def test_secid_of_csi_and_hk() -> None:
+    # 实测 2.932000 取到中证2000、116.00700 取到腾讯控股的 K 线
+    assert secid_of(KlineQuery(code="932000", market="csi")) == "2.932000"
+    assert secid_of(KlineQuery(code="00700", market="hk")) == "116.00700"
+
+
+def test_kline_markets_cover_list_interfaces() -> None:
+    # index_list_em / fund_list_em 产出的 market 都要能直接传进来
+    for market in ("sz", "sh", "bj", "csi", "hk"):
+        assert market in config.KLINE_MARKET_IDS
+
+
+def test_trends_and_fund_flow_markets_unchanged() -> None:
+    # csi / hk 只加给 K 线：分时与资金流仍只认沪深京
+    assert set(config.MARKET_IDS) == {"sz", "sh", "bj"}
+
+
 def test_normalize_period_and_adjust() -> None:
     assert normalize_period("week") == "week"
     assert normalize_period("5m") == "5m"

@@ -25,10 +25,13 @@ class MarketQuery:
 
 @dataclass(frozen=True)
 class KlineQuery:
-    """历史 K 线（日 / 周 / 月，前 / 后 / 不复权）。"""
+    """历史 K 线（日 / 周 / 月，前 / 后 / 不复权）。
+
+    ``market="hk"`` 时价格单位为港元、成交量单位为股（不是手）。
+    """
 
     code: str = "000001"
-    market: str = "sz"  # sz 深市 / sh 沪市 / bj 北交所
+    market: str = "sz"  # sz 深市 / sh 沪市 / bj 北交所 / csi 中证指数 / hk 港股
     period: str = "day"  # day / week / month / 5m / 15m / 30m / 60m
     adjust: str = "qfq"  # qfq 前复权 / hfq 后复权 / none 不复权
     beg: str = "0"  # 起始日期 YYYYMMDD，0 表示不限

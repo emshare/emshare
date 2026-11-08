@@ -57,6 +57,9 @@ FFLOW_UT = "b2884a393a59ad64002292a3e90d46a5"  # 资金流接口专用 ut
 BOARD_MARKET_ID = "90"
 # 沪深京市场代码 -> 东财 secid 前缀（0 深市 / 1 沪市；北交所亦为 0）
 MARKET_IDS = {"sz": "0", "sh": "1", "bj": "0"}
+# K 线额外支持的市场：csi 中证指数（2）/ hk 港股（116）。只用于 K 线，
+# 分时与资金流仍用 MARKET_IDS（上游虽也接受，但未纳入本次范围）
+KLINE_MARKET_IDS = {**MARKET_IDS, "csi": "2", "hk": "116"}
 # 板块列表字段集（行业 / 概念 / 地域通用，对齐 akshare stock_board_industry_name_em）
 # f12 代码 / f14 名称 / f2 指数点位 / f3 涨跌幅 / f4 涨跌额 / f8 换手率 / f20 成交额
 # f104 上涨家数 / f105 下跌家数 / f128 领涨股名称 / f140 领涨股代码 / f136 领涨股涨跌幅
