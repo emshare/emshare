@@ -1,4 +1,4 @@
-"""EastMoneySource 12 个 fetch 的协议校验路径覆盖。
+"""EastMoneySource 14 个 fetch 的协议校验路径覆盖。
 
 非 JSONP 错误页与 rc != 0 现在由传输层在返回文本前用 validator 拦截并换 IP
 （InvalidContentError）；本文件用执行真实 validator 的 HttpClient 桩锁住该契约。
@@ -12,6 +12,7 @@ from em.channels.eastmoney import config
 from em.channels.eastmoney.source import EastMoneySource, _is_valid_payload
 from em.core.errors import InvalidContentError
 from em.domain.queries import (
+    BoardChangesQuery,
     BoardFundFlowQuery,
     BoardListQuery,
     FundFlowQuery,
@@ -22,6 +23,7 @@ from em.domain.queries import (
     LimitPoolQuery,
     MarketQuery,
     StockBidAskQuery,
+    StockChangesQuery,
     StockInfoQuery,
     TrendQuery,
 )
@@ -61,6 +63,8 @@ _FETCH_NAMES = [
     "fetch_limit_pool",
     "fetch_stock_info",
     "fetch_stock_bid_ask",
+    "fetch_stock_changes",
+    "fetch_board_changes",
 ]
 _REQUESTS = [
     registry.stock_list_request(MarketQuery()),
@@ -75,6 +79,8 @@ _REQUESTS = [
     registry.stock_limit_pool_request(LimitPoolQuery(date="20261106")),
     registry.stock_info_request(StockInfoQuery()),
     registry.stock_bid_ask_request(StockBidAskQuery()),
+    registry.stock_changes_request(StockChangesQuery()),
+    registry.board_changes_request(BoardChangesQuery()),
 ]
 
 
@@ -117,3 +123,13 @@ def test_kline_declares_larger_read_budget() -> None:
         registry.stock_list_request(MarketQuery())
     )
     assert timeouts[-1] is None
+
+
+def test_changes_declare_larger_read_budget() -> None:
+    # 盘口 / 板块异动一次取全量，响应体与 K 线同量级（板块异动实测 435KB）
+    timeouts: list[float | None] = []
+    source = EastMoneySource(FakeClient('{"rc":0,"data":null}', timeouts))
+    source.fetch_stock_changes(registry.stock_changes_request(StockChangesQuery()))
+    source.fetch_board_changes(registry.board_changes_request(BoardChangesQuery()))
+    assert timeouts == [config.CHANGES_READ_TIMEOUT_SEC] * 2
+    assert config.CHANGES_READ_TIMEOUT_SEC >= config.KLINE_READ_TIMEOUT_SEC

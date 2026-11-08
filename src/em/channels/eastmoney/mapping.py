@@ -7,9 +7,12 @@ from typing import Any
 from em.channels.eastmoney import config
 from em.domain.models import (
     Board,
+    BoardChange,
+    BoardChangesPage,
     BoardFundFlow,
     BoardFundFlowSeries,
     BoardListPage,
+    ChangeTypeCount,
     FundFlow,
     FundFlowSeries,
     FundListPage,
@@ -26,11 +29,13 @@ from em.domain.models import (
     Quote,
     QuotePage,
     StockBidAsk,
+    StockChange,
+    StockChangesPage,
     StockInfo,
     Trend,
     TrendSeries,
 )
-from em.domain.units import as_float, scaled
+from em.domain.units import YUAN_PER_WAN, as_float, scaled
 
 _JSONP_RE = re.compile(r"\((\{.*\})\)\s*;?\s*$", re.S)
 
@@ -403,9 +408,10 @@ def _ymd(value: Any) -> str | None:
     return f"{s[:4]}-{s[4:6]}-{s[6:]}"
 
 
-def _pool_market(prefix: Any, code: str) -> str | None:
+def _push2ex_market(prefix: Any, code: str) -> str | None:
+    """push2ex 个股 ``m`` -> 领域市场；北交所也挂在 0 前缀下，按代码段识别为 bj。"""
     key = _to_int(prefix)
-    market = config.POOL_MARKETS.get(key) if key is not None else None
+    market = config.PUSH2EX_MARKETS.get(key) if key is not None else None
     if market == "sz" and code.startswith(config.BJ_STOCK_CODE_PREFIXES):
         return "bj"
     return market
@@ -444,7 +450,7 @@ def _to_pool_stock(item: dict[str, Any]) -> LimitPoolStock:
     return LimitPoolStock(
         code=code,
         name=str(item.get("n", "")),
-        market=_pool_market(item.get("m"), code),
+        market=_push2ex_market(item.get("m"), code),
         price=_pool_price(item.get("p")),
         change_pct=as_float(item.get("zdp")),
         turnover=as_float(item.get("amount")),
@@ -548,3 +554,115 @@ def to_stock_bid_ask(data: dict[str, Any], market: str | None = None) -> StockBi
         bids=_levels(item, _BID_FIELDS, factor),
         asks=_levels(item, _ASK_FIELDS, factor),
     )
+
+
+# 上游 type -> 英文异动类型；8217–8222 等未公开类型不在表内，映射为 None
+_CHANGE_TYPE_BY_CODE = {code: name for name, code in config.CHANGE_TYPE_CODES.items()}
+# 相关信息 i 逗号分隔后，价格与涨跌幅（比例）的位置（实测，见 stock_changes_em 文档）：
+# 封涨停 / 封跌停板为“封板价,?,价格,涨跌幅”，打开涨停 / 跌停板为“价格,涨跌幅”，其余为“x,价格,涨跌幅”
+_CHANGE_PRICE_PCT_INDEX = {
+    "limit_up_sealed": (2, 3),
+    "limit_down_sealed": (2, 3),
+    "limit_up_opened": (0, 1),
+    "limit_down_opened": (0, 1),
+}
+_DEFAULT_PRICE_PCT_INDEX = (1, 2)
+# 大笔买入 / 卖出、有大买盘 / 卖盘的相关信息为“股数,价格,涨跌幅,金额”
+_TRADE_CHANGE_TYPES = frozenset({"big_buy", "big_sell", "big_bid", "big_ask"})
+
+
+def _ratio_pct(value: Any) -> float | None:
+    """上游涨跌幅是比例（``0.100198``），转成 %；保留 4 位即原值精度，避免乘法尾差。"""
+    f = as_float(value)
+    return None if f is None else round(f * 100, 4)
+
+
+def _change_type(value: Any) -> str | None:
+    """上游 type 代码 -> 英文异动类型；未公开类型或缺失为 None。"""
+    code = _to_int(value)
+    return _CHANGE_TYPE_BY_CODE.get(code) if code is not None else None
+
+
+def _info_part(parts: list[str], index: int) -> str | None:
+    return parts[index] if index < len(parts) else None
+
+
+def to_stock_changes_page(data: dict[str, Any], change_type: str) -> StockChangesPage:
+    """把 push2ex getAllStockChanges 响应映射为 ``StockChangesPage``（当天无记录时 data 为 null）。"""
+    block = data.get("data") or {}
+    items = tuple(_to_stock_change(it) for it in (block.get("allstock") or []))
+    return StockChangesPage(change_type=change_type, total=int(block.get("tc") or 0), items=items)
+
+
+def _to_stock_change(item: dict[str, Any]) -> StockChange:
+    code = str(item.get("c", ""))
+    change_type = _change_type(item.get("t"))
+    info = str(item["i"]) if item.get("i") is not None else None
+    parts = info.split(",") if info else []
+    price_at, pct_at = (
+        _CHANGE_PRICE_PCT_INDEX.get(change_type, _DEFAULT_PRICE_PCT_INDEX)
+        if change_type
+        else _DEFAULT_PRICE_PCT_INDEX
+    )
+    trade = change_type in _TRADE_CHANGE_TYPES
+    return StockChange(
+        time=_hms(item.get("tm")) or "",
+        code=code,
+        name=str(item.get("n", "")),
+        market=_push2ex_market(item.get("m"), code),
+        change_type=change_type,
+        price=as_float(_info_part(parts, price_at)),
+        change_pct=_ratio_pct(_info_part(parts, pct_at)),
+        volume=as_float(_info_part(parts, 0)) if trade else None,
+        amount=as_float(_info_part(parts, 3)) if trade else None,
+        info=info,
+    )
+
+
+def to_board_changes_page(data: dict[str, Any]) -> BoardChangesPage:
+    """把 push2ex getAllBKChanges 响应映射为 ``BoardChangesPage``。
+
+    ``dt``（``20261106150000``）拆成数据日期与时间；主力净流入 ``zjl`` 单位万元，换算成元。
+    """
+    block = data.get("data") or {}
+    stamp = _to_int(block.get("dt"))
+    digits = f"{stamp:014d}" if stamp is not None and stamp > 0 else ""
+    items = tuple(_to_board_change(it) for it in (block.get("allbk") or []))
+    return BoardChangesPage(
+        date=_ymd(digits[:8]) or "",
+        time=_hms(digits[8:]) or "",
+        total=int(block.get("tc") or 0),
+        items=items,
+    )
+
+
+def _to_board_change(item: dict[str, Any]) -> BoardChange:
+    raw_top = item.get("ms")
+    top: dict[str, Any] = raw_top if isinstance(raw_top, dict) else {}
+    top_code = str(top["c"]) if top.get("c") else None
+    inflow_wan = as_float(item.get("zjl"))
+    return BoardChange(
+        code=str(item.get("c", "")),
+        name=str(item.get("n", "")),
+        change_pct=as_float(item.get("u")),
+        main_net_inflow=None if inflow_wan is None else round(inflow_wan * YUAN_PER_WAN, 2),
+        change_count=_to_int(item.get("ct")),
+        top_stock_code=top_code,
+        top_stock_name=str(top["n"]) if top.get("n") else None,
+        top_stock_market=_push2ex_market(top.get("m"), top_code) if top_code else None,
+        top_stock_change_type=_change_type(top.get("t")),
+        type_counts=_type_counts(item.get("ydl")),
+    )
+
+
+def _type_counts(raw: Any) -> tuple[ChangeTypeCount, ...]:
+    """板块各类异动次数：只保留 22 种已知类型（东财页面同样不展示未公开类型），顺序同上游。"""
+    counts: list[ChangeTypeCount] = []
+    for entry in raw if isinstance(raw, list) else []:
+        if not isinstance(entry, dict):
+            continue
+        change_type = _change_type(entry.get("t"))
+        count = _to_int(entry.get("ct"))
+        if change_type is not None and count is not None:
+            counts.append(ChangeTypeCount(change_type=change_type, count=count))
+    return tuple(counts)

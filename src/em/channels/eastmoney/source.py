@@ -8,6 +8,7 @@ from em.channels.eastmoney.mapping import (
     is_ok,
     is_security_not_found,
     parse_jsonp,
+    to_board_changes_page,
     to_board_fund_flow_series,
     to_board_list_page,
     to_fund_flow_series,
@@ -18,20 +19,24 @@ from em.channels.eastmoney.mapping import (
     to_limit_pool_page,
     to_quote_page,
     to_stock_bid_ask,
+    to_stock_changes_page,
     to_stock_info,
     to_trend_series,
 )
 from em.channels.eastmoney.request import (
+    BoardChangesRequest,
     ClistRequest,
     FundFlowRequest,
     KlineRequest,
     LimitPoolRequest,
+    StockChangesRequest,
     StockGetRequest,
     TrendsRequest,
 )
 from em.core.errors import SecurityNotFoundError
 from em.core.transport import HttpClient
 from em.domain.models import (
+    BoardChangesPage,
     BoardFundFlowSeries,
     BoardListPage,
     FundFlowSeries,
@@ -42,6 +47,7 @@ from em.domain.models import (
     LimitPoolPage,
     QuotePage,
     StockBidAsk,
+    StockChangesPage,
     StockInfo,
     TrendSeries,
 )
@@ -148,3 +154,12 @@ class EastMoneySource:
 
     def fetch_stock_bid_ask(self, request: StockGetRequest) -> StockBidAsk:
         return to_stock_bid_ask(_fetch_stock_get(self._client, request), request.market)
+
+    def fetch_stock_changes(self, request: StockChangesRequest) -> StockChangesPage:
+        # 一次取全量，响应体与 K 线同量级：声明更大的读预算
+        data = _fetch_json(self._client, request, config.CHANGES_READ_TIMEOUT_SEC)
+        return to_stock_changes_page(data, request.change_type)
+
+    def fetch_board_changes(self, request: BoardChangesRequest) -> BoardChangesPage:
+        data = _fetch_json(self._client, request, config.CHANGES_READ_TIMEOUT_SEC)
+        return to_board_changes_page(data)

@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from em.domain.models import (
+    BoardChangesPage,
     BoardFundFlowSeries,
     BoardListPage,
     FundFlowSeries,
@@ -19,6 +20,7 @@ from em.domain.models import (
     LimitPoolPage,
     QuotePage,
     StockBidAsk,
+    StockChangesPage,
     StockInfo,
     TrendSeries,
 )
@@ -518,3 +520,129 @@ def to_stock_bid_ask_dataframe(book: StockBidAsk) -> pd.DataFrame:
         rows += [(f"买{i}", level.price), (f"买{i}量", level.volume)]
     rows += [(zh, getattr(book, f)) for f, zh in _BID_ASK_QUOTE_ITEMS_ZH.items()]
     return _item_value_frame(rows)
+
+
+# 异动类型 -> 中文名（东财页面 / akshare 的叫法）
+CHANGE_TYPE_LABELS_ZH: dict[str, str] = {
+    "rocket_launch": "火箭发射",
+    "quick_rebound": "快速反弹",
+    "big_buy": "大笔买入",
+    "limit_up_sealed": "封涨停板",
+    "limit_down_opened": "打开跌停板",
+    "big_bid": "有大买盘",
+    "auction_up": "竞价上涨",
+    "open_above_ma5": "高开5日线",
+    "gap_up": "向上缺口",
+    "new_high_60d": "60日新高",
+    "big_rise_60d": "60日大幅上涨",
+    "accelerated_drop": "加速下跌",
+    "high_dive": "高台跳水",
+    "big_sell": "大笔卖出",
+    "limit_down_sealed": "封跌停板",
+    "limit_up_opened": "打开涨停板",
+    "big_ask": "有大卖盘",
+    "auction_down": "竞价下跌",
+    "open_below_ma5": "低开5日线",
+    "gap_down": "向下缺口",
+    "new_low_60d": "60日新低",
+    "big_drop_60d": "60日大幅下跌",
+}
+
+
+def _change_label(change_type: str | None) -> str | None:
+    return CHANGE_TYPE_LABELS_ZH.get(change_type) if change_type else None
+
+
+# 盘口异动字段 -> 默认中文列名（akshare 只有 时间/代码/名称/板块/相关信息，其“板块”列实为异动类型）
+STOCK_CHANGES_COLUMNS_ZH: dict[str, str] = {
+    "time": "时间",
+    "code": "代码",
+    "name": "名称",
+    "market": "市场",
+    "change_type": "异动类型",
+    "price": "价格",
+    "change_pct": "涨跌幅",
+    "volume": "数量",
+    "amount": "金额",
+    "info": "相关信息",
+}
+# 数量 / 金额只有这四类有（成交量 / 成交额或挂单量 / 挂单金额），其余类型不输出这两列
+STOCK_CHANGES_TRADE_TYPES = frozenset({"big_buy", "big_sell", "big_bid", "big_ask"})
+
+
+def stock_changes_fields(change_type: str) -> tuple[str, ...]:
+    """某类盘口异动在 DataFrame 中输出的字段与顺序。"""
+    trade = ("volume", "amount") if change_type in STOCK_CHANGES_TRADE_TYPES else ()
+    return (
+        "time",
+        "code",
+        "name",
+        "market",
+        "change_type",
+        "price",
+        "change_pct",
+        *trade,
+        "info",
+    )
+
+
+def to_stock_changes_dataframe(
+    page: StockChangesPage,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """把 ``StockChangesPage`` 转为 ``DataFrame``；异动类型显示中文名，空页也保留列头。"""
+    try:
+        import pandas as pd
+    except ImportError as exc:  # pragma: no cover - 环境依赖
+        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+
+    fields = stock_changes_fields(page.change_type)
+    naming = columns or STOCK_CHANGES_COLUMNS_ZH
+    rows = [
+        {
+            naming[f]: _change_label(c.change_type) if f == "change_type" else getattr(c, f)
+            for f in fields
+        }
+        for c in page.items
+    ]
+    return pd.DataFrame(rows, columns=[naming[f] for f in fields])  # type: ignore[no-any-return]
+
+
+# 板块异动字段 -> 默认中文列名（对齐 akshare stock_board_change_em；另加板块代码与最频繁个股的市场，
+# akshare 的“买卖方向”实为把市场前缀 m 误当方向，这里换成该股的异动类型）
+BOARD_CHANGES_COLUMNS_ZH: dict[str, str] = {
+    "code": "板块代码",
+    "name": "板块名称",
+    "change_pct": "涨跌幅",
+    "main_net_inflow": "主力净流入",
+    "change_count": "板块异动总次数",
+    "top_stock_code": "板块异动最频繁个股及所属类型-股票代码",
+    "top_stock_name": "板块异动最频繁个股及所属类型-股票名称",
+    "top_stock_market": "板块异动最频繁个股及所属类型-市场",
+    "top_stock_change_type": "板块异动最频繁个股及所属类型-异动类型",
+    "type_counts": "板块具体异动类型列表及出现次数",
+}
+
+
+def to_board_changes_dataframe(
+    page: BoardChangesPage,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """把 ``BoardChangesPage`` 转为 ``DataFrame``；各类异动次数放成 ``{中文类型: 次数}`` 字典。"""
+    try:
+        import pandas as pd
+    except ImportError as exc:  # pragma: no cover - 环境依赖
+        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+
+    naming = columns or BOARD_CHANGES_COLUMNS_ZH
+    rows: list[dict[str, object]] = []
+    for b in page.items:
+        row = {naming[f]: getattr(b, f) for f in BOARD_CHANGES_COLUMNS_ZH}
+        row[naming["top_stock_change_type"]] = _change_label(b.top_stock_change_type)
+        row[naming["type_counts"]] = {
+            CHANGE_TYPE_LABELS_ZH.get(t.change_type, t.change_type): t.count for t in b.type_counts
+        }
+        rows.append(row)
+    return pd.DataFrame(  # type: ignore[no-any-return]
+        rows, columns=[naming[f] for f in BOARD_CHANGES_COLUMNS_ZH]
+    )

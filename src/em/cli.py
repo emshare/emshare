@@ -6,7 +6,9 @@ import sys
 from pathlib import Path
 from typing import TypeVar
 
+from em.application.dataframe import CHANGE_TYPE_LABELS_ZH
 from em.application.market_data import (
+    board_changes_em,
     board_constituent_em,
     board_fund_flow_em,
     board_industry_list_em,
@@ -15,6 +17,7 @@ from em.application.market_data import (
     hk_stock_list_em,
     index_list_em,
     stock_bid_ask_em,
+    stock_changes_em,
     stock_fund_flow_em,
     stock_info_em,
     stock_kline_em,
@@ -24,6 +27,7 @@ from em.application.market_data import (
     stock_trends_em,
 )
 from em.channels.eastmoney.ashare_indices.index_list import INDEX_SERIES_FS
+from em.channels.eastmoney.ashare_stocks.stock_changes import STOCK_CHANGE_TYPES
 from em.channels.eastmoney.ashare_stocks.stock_limit_pool import (
     LIMIT_POOL_ENDPOINTS,
     resolve_date,
@@ -42,6 +46,7 @@ from em.core.env import load_dotenv
 from em.core.errors import EmError, EmptyResponseError, HttpStatusError, NetworkError
 from em.core.settings import Settings
 from em.domain.models import (
+    BoardChangesPage,
     BoardFundFlowSeries,
     BoardListPage,
     FundFlowSeries,
@@ -55,10 +60,12 @@ from em.domain.models import (
     Quote,
     QuotePage,
     StockBidAsk,
+    StockChangesPage,
     StockInfo,
     TrendSeries,
 )
 from em.domain.queries import (
+    BoardChangesQuery,
     BoardFundFlowQuery,
     BoardKlineQuery,
     BoardListQuery,
@@ -71,6 +78,7 @@ from em.domain.queries import (
     LimitPoolQuery,
     MarketQuery,
     StockBidAskQuery,
+    StockChangesQuery,
     StockInfoQuery,
     TrendQuery,
 )
@@ -384,6 +392,53 @@ def _render_bid_ask(book: StockBidAsk) -> None:
     )
 
 
+# 异动列表动辄上千条：不指定 --head 时只展示前 20 条（0=全部）
+_CHANGES_DEFAULT_HEAD = 20
+
+
+def _head_slice(items: tuple[_T, ...], head: int | None) -> tuple[_T, ...]:
+    if head is not None and head <= 0:
+        return items
+    return items[: head or _CHANGES_DEFAULT_HEAD]
+
+
+def _change_label(change_type: str | None) -> str:
+    return CHANGE_TYPE_LABELS_ZH.get(change_type, change_type) if change_type else "-"
+
+
+def _render_stock_changes(page: StockChangesPage, head: int | None = None) -> None:
+    shown = _head_slice(page.items, head)
+    print(
+        f"\n✅ {_change_label(page.change_type)} 共 {page.total} 条，展示 {len(shown)} 条"
+        "（最近一个交易日，按时间倒序）"
+    )
+    print("-" * 100)
+    for c in shown:
+        extra = ""
+        if c.volume is not None or c.amount is not None:
+            extra = f"  数量:{_fmt(c.volume, '>10.0f')}股  金额:{_fmt_amount(c.amount):>10}"
+        print(
+            f"  {c.time}  {c.code:<7} {c.market or '-':<3} {c.name:<8}"
+            f"  价格:{_fmt(c.price, '>8.2f')}  涨跌幅:{_fmt(c.change_pct, '>7.2f')}%" + extra
+        )
+    print("-" * 100)
+
+
+def _render_board_changes(page: BoardChangesPage, head: int | None = None) -> None:
+    shown = _head_slice(page.items, head)
+    print(f"\n✅ {page.date} {page.time} 板块异动 共 {page.total} 个板块，展示 {len(shown)} 个")
+    print("-" * 110)
+    for b in shown:
+        top = f"{b.top_stock_name or '-'}({_change_label(b.top_stock_change_type)})"
+        kinds = " / ".join(f"{_change_label(t.change_type)}{t.count}" for t in b.type_counts[:3])
+        print(
+            f"  {b.code:<7} {b.name:<8}  涨跌幅:{_fmt(b.change_pct, '>6.2f')}%"
+            f"  主力净流入:{_fmt_amount(b.main_net_inflow):>10}"
+            f"  异动:{_fmt(b.change_count, '>5')}次  最频繁:{top}  前三类:{kinds or '-'}"
+        )
+    print("-" * 110)
+
+
 # 这些预设的 secid 只认沪深京（csi / hk 仅 K 线支持）
 _SZ_SH_BJ_PRESETS = ("trends", "fundflow", "stockinfo", "bidask")
 
@@ -408,6 +463,8 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
             "limitpool",
             "stockinfo",
             "bidask",
+            "changes",
+            "boardchanges",
         ],
         default="board",
         help="接口预设",
@@ -417,6 +474,12 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         choices=list(LIMIT_POOL_ENDPOINTS),
         default="limit_up",
         help="股池（limitpool 预设）：limit_up / prev_limit_up / strong / sub_new / broken / limit_down",
+    )
+    ap.add_argument(
+        "--change-type",
+        choices=list(STOCK_CHANGE_TYPES),
+        default="big_buy",
+        help="盘口异动类型（changes 预设），如 big_buy 大笔买入 / rocket_launch 火箭发射，共 22 种",
     )
     ap.add_argument(
         "--date", default=None, help="交易日 YYYYMMDD（limitpool 预设，留空取最近交易日）"
@@ -482,7 +545,10 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--head",
         type=int,
         default=None,
-        help="展示前 N 条（kline/boardkline/fundflow/market-all 预设，0=全部，可与 --tail 同时使用）",
+        help=(
+            "展示前 N 条（kline/boardkline/fundflow/market-all/limitpool/changes/boardchanges 预设，"
+            "0=全部；changes/boardchanges 不指定时展示前 20 条；可与 --tail 同时使用）"
+        ),
     )
     ap.add_argument(
         "--tail",
@@ -609,6 +675,11 @@ def main(argv: list[str] | None = None) -> int:
             _render_stock_info(stock_info_em(StockInfoQuery(code=args.code, market=args.market)))
         elif args.preset == "bidask":
             _render_bid_ask(stock_bid_ask_em(StockBidAskQuery(code=args.code, market=args.market)))
+        elif args.preset == "changes":
+            changes_page = stock_changes_em(StockChangesQuery(change_type=args.change_type))
+            _render_stock_changes(changes_page, head=args.head)
+        elif args.preset == "boardchanges":
+            _render_board_changes(board_changes_em(BoardChangesQuery()), head=args.head)
         else:
             page = board_constituent_em(
                 BoardQuery(board=args.board, period=args.rank, page=args.pn, size=args.pz or 8)

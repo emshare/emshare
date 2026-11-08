@@ -8,7 +8,8 @@ src/em/channels/eastmoney/                 docs/interfaces/eastmoney/
 │   ├── board_constituent/      # 板块成分股    │   ├── board_constituent_em.md
 │   ├── board_fund_flow/        # 板块资金流    │   ├── board_fund_flow_em.md
 │   ├── board_kline/            # 板块K线       │   ├── board_kline_em.md
-│   └── board_industry_list/    # 板块列表      │   └── board_industry_list_em.md
+│   ├── board_industry_list/    # 板块列表      │   ├── board_industry_list_em.md
+│   └── board_changes/          # 板块异动      │   └── board_changes_em.md
 ├── ashare_stocks/              # 沪深京个股    ├── ashare_stocks/
 │   ├── stock_list/             # 个股列表      │   ├── stock_list_em.md
 │   │                           # (全量翻页在   │   └── stock_list_all_em.md
@@ -18,7 +19,8 @@ src/em/channels/eastmoney/                 docs/interfaces/eastmoney/
 │   ├── stock_trends/           # 分时(个股+指数)│   ├── stock_trends_em.md
 │   ├── stock_limit_pool/       # 涨跌停股池    │   ├── stock_limit_pool_em.md
 │   ├── stock_info/             # 个股信息      │   ├── stock_info_em.md
-│   └── stock_bid_ask/          # 五档盘口      │   └── stock_bid_ask_em.md
+│   ├── stock_bid_ask/          # 五档盘口      │   ├── stock_bid_ask_em.md
+│   └── stock_changes/          # 盘口异动      │   └── stock_changes_em.md
 ├── ashare_indices/              # 沪深京指数    ├── ashare_indices/
 │   └── index_list/             # 指数列表      │   └── index_list_em.md
 ├── hk_market/                  # 港股市场      ├── hk_market/

@@ -9,7 +9,7 @@ FFLOW_PATH = "/api/qt/stock/fflow/daykline/get"
 QUOTE_HOST = "https://push2.eastmoney.com"
 GUEST_HOST = "https://pushguest.eastmoney.com"
 KLINE_HOST = "https://push2his.eastmoney.com"
-PUSH2EX_HOST = "https://push2ex.eastmoney.com"  # 涨跌停股池 / 盘口异动
+PUSH2EX_HOST = "https://push2ex.eastmoney.com"  # 涨跌停股池 / 盘口异动 / 板块异动
 
 HEADERS = {
     "User-Agent": (
@@ -93,7 +93,7 @@ DEFAULT_PRICE_DECIMALS = 2
 FUND_LIST_FIELDS = "f1,f12,f13,f14,f2,f3,f4,f5,f6,f8,f15,f16,f17,f18,f20,f21,f402,f441"
 # 基金 f13（secid 市场前缀）-> 领域市场
 FUND_MARKETS = {0: "sz", 1: "sh"}
-# push2ex 公开 ut 常量（涨跌停股池）
+# push2ex 公开 ut 常量（涨跌停股池 / 盘口异动 / 板块异动共用）
 PUSH2EX_UT = "7eea3edcaed734bea9cbfc24409ed989"
 # 股池一次取整池：实测单日最多一两百只，上游 pagesize 取 10000 即不分页（对齐 akshare）
 LIMIT_POOL_PAGE_SIZE = 10000
@@ -101,8 +101,9 @@ LIMIT_POOL_PAGE_SIZE = 10000
 PUSH2EX_PRICE_FACTOR = 1000.0
 # 北交所新股首日不设涨停价，上游 ztp 用此哨兵值，映射为 None
 NO_LIMIT_PRICE_SENTINEL = 1000000000
-# 股池 m（secid 市场前缀）-> 领域市场；北交所也挂在 0 前缀下，按代码段区分
-POOL_MARKETS = {0: "sz", 1: "sh"}
+# push2ex 个股 m（secid 市场前缀）-> 领域市场（股池 / 盘口异动 / 板块异动最频繁个股）；
+# 北交所也挂在 0 前缀下，按代码段区分
+PUSH2EX_MARKETS = {0: "sz", 1: "sh"}
 BJ_STOCK_CODE_PREFIXES = ("4", "8", "92")
 # 强势股池入选理由（上游 cc，对齐 akshare explained_map）
 STRONG_POOL_REASONS = {1: "60日新高", 2: "近期多次涨停", 3: "60日新高且近期多次涨停"}
@@ -114,3 +115,37 @@ STOCK_GET_PATH = "/api/qt/stock/get"
 STOCK_INFO_FIELDS = "f57,f58,f59,f43,f84,f85,f116,f117,f127,f189"
 # stock/get 查无此券时的 rc（实测：不存在的代码 100，含非数字的代码 102），data 为 null
 STOCK_NOT_FOUND_RCS = (100, 102)
+# 盘口异动 / 板块异动（push2ex），上游只有最近一个交易日的数据，不接受日期参数
+STOCK_CHANGES_PATH = "/getAllStockChanges"
+BOARD_CHANGES_PATH = "/getAllBKChanges"
+# 一次取全量：实测 11-06 单类型最多 2576 条（快速反弹）、板块 1052 个；上游不限 pagesize
+# （50000 也一次返回全部），取 50000 留足余量。akshare 用 5000，超过时只拿到前 5000 条
+CHANGES_PAGE_SIZE = 50000
+# 响应体与全量 K 线同量级（板块异动 435KB、快速反弹 243KB，K 线 650KB），读预算同 K 线
+CHANGES_READ_TIMEOUT_SEC = KLINE_READ_TIMEOUT_SEC
+# 盘口异动类型：英文 change_type -> 上游 type，顺序同东财页面与 akshare（前 11 个偏多，后 11 个偏空）。
+# 上游另有 8217–8222 六种类型，东财页面与 akshare 都没有名字，本工程不纳入
+CHANGE_TYPE_CODES = {
+    "rocket_launch": 8201,  # 火箭发射
+    "quick_rebound": 8202,  # 快速反弹
+    "big_buy": 8193,  # 大笔买入
+    "limit_up_sealed": 4,  # 封涨停板
+    "limit_down_opened": 32,  # 打开跌停板
+    "big_bid": 64,  # 有大买盘
+    "auction_up": 8207,  # 竞价上涨
+    "open_above_ma5": 8209,  # 高开5日线
+    "gap_up": 8211,  # 向上缺口
+    "new_high_60d": 8213,  # 60日新高
+    "big_rise_60d": 8215,  # 60日大幅上涨
+    "accelerated_drop": 8204,  # 加速下跌
+    "high_dive": 8203,  # 高台跳水
+    "big_sell": 8194,  # 大笔卖出
+    "limit_down_sealed": 8,  # 封跌停板
+    "limit_up_opened": 16,  # 打开涨停板
+    "big_ask": 128,  # 有大卖盘
+    "auction_down": 8208,  # 竞价下跌
+    "open_below_ma5": 8210,  # 低开5日线
+    "gap_down": 8212,  # 向下缺口
+    "new_low_60d": 8214,  # 60日新低
+    "big_drop_60d": 8216,  # 60日大幅下跌
+}

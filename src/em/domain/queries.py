@@ -148,3 +148,18 @@ class StockBidAskQuery:
 
     code: str = "000001"
     market: str = "sz"  # sz 深市 / sh 沪市 / bj 北交所
+
+
+@dataclass(frozen=True)
+class StockChangesQuery:
+    """盘口异动（push2ex），一次返回最近一个交易日某一类异动的全部记录。
+
+    上游只有最近一个交易日的数据，不接受日期参数。``change_type`` 共 22 种，见 stock_changes_em 文档。
+    """
+
+    change_type: str = "big_buy"  # 大笔买入；未知回退 big_buy
+
+
+@dataclass(frozen=True)
+class BoardChangesQuery:
+    """板块异动（push2ex），一次返回最近一个交易日全部有异动的板块。上游无可选参数。"""

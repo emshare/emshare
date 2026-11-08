@@ -3,6 +3,9 @@
 新增渠道时只改这里与 ``channels/``，``market_data`` / ``cli`` 无需改动。
 """
 
+from em.channels.eastmoney.ashare_boards.board_changes.board_changes_em import (
+    board_changes_request,
+)
 from em.channels.eastmoney.ashare_boards.board_constituent.board_constituent_em import (
     board_constituent_request,
     flow_field,
@@ -18,6 +21,9 @@ from em.channels.eastmoney.ashare_indices.index_list.index_list_em import index_
 from em.channels.eastmoney.ashare_stocks.stock_bid_ask.stock_bid_ask_em import (
     stock_bid_ask_request,
 )
+from em.channels.eastmoney.ashare_stocks.stock_changes.stock_changes_em import (
+    stock_changes_request,
+)
 from em.channels.eastmoney.ashare_stocks.stock_fund_flow.stock_fund_flow_em import fund_flow_request
 from em.channels.eastmoney.ashare_stocks.stock_info.stock_info_em import stock_info_request
 from em.channels.eastmoney.ashare_stocks.stock_kline.stock_kline_em import kline_request
@@ -32,6 +38,7 @@ from em.channels.eastmoney.source import EastMoneySource
 
 __all__ = [
     "EastMoneySource",
+    "board_changes_request",
     "board_constituent_request",
     "board_fund_flow_request",
     "board_industry_list_request",
@@ -43,6 +50,7 @@ __all__ = [
     "index_list_request",
     "kline_request",
     "stock_bid_ask_request",
+    "stock_changes_request",
     "stock_info_request",
     "stock_limit_pool_request",
     "stock_list_request",

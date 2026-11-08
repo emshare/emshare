@@ -14,6 +14,7 @@ import requests
 
 from em.application import registry
 from em.application.dataframe import (
+    to_board_changes_dataframe,
     to_board_fund_flow_dataframe,
     to_board_list_dataframe,
     to_dataframe,
@@ -24,6 +25,7 @@ from em.application.dataframe import (
     to_kline_dataframe,
     to_limit_pool_dataframe,
     to_stock_bid_ask_dataframe,
+    to_stock_changes_dataframe,
     to_stock_info_dataframe,
     to_trend_dataframe,
 )
@@ -35,6 +37,7 @@ from em.core.resilience import RetryPolicy
 from em.core.settings import Settings
 from em.core.transport import HttpClient
 from em.domain.models import (
+    BoardChangesPage,
     BoardFundFlowSeries,
     BoardListPage,
     FundFlowSeries,
@@ -46,10 +49,12 @@ from em.domain.models import (
     Quote,
     QuotePage,
     StockBidAsk,
+    StockChangesPage,
     StockInfo,
     TrendSeries,
 )
 from em.domain.queries import (
+    BoardChangesQuery,
     BoardFundFlowQuery,
     BoardKlineQuery,
     BoardListQuery,
@@ -62,6 +67,7 @@ from em.domain.queries import (
     LimitPoolQuery,
     MarketQuery,
     StockBidAskQuery,
+    StockChangesQuery,
     StockInfoQuery,
     TrendQuery,
 )
@@ -705,3 +711,41 @@ def df_stock_bid_ask_em(
 ) -> pd.DataFrame:
     """``stock_bid_ask_em`` 的 DataFrame 版（akshare 风格 ``item`` / ``value`` 纵表）。"""
     return to_stock_bid_ask_dataframe(stock_bid_ask_em(query, settings))
+
+
+def stock_changes_em(
+    query: StockChangesQuery | None = None, settings: Settings | None = None
+) -> StockChangesPage:
+    """抓取最近一个交易日某一类盘口异动（大笔买入 / 火箭发射 / 封涨停板等 22 种）的全部记录。"""
+    query = query or StockChangesQuery()
+    client = _build_client(settings or Settings.from_env())
+    source = registry.EastMoneySource(client)
+    return source.fetch_stock_changes(registry.stock_changes_request(query))
+
+
+def df_stock_changes_em(
+    query: StockChangesQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``stock_changes_em`` 的 DataFrame 版（akshare 风格中文列名，数量 / 金额只在大笔买卖等四类有）。"""
+    return to_stock_changes_dataframe(stock_changes_em(query, settings), columns)
+
+
+def board_changes_em(
+    query: BoardChangesQuery | None = None, settings: Settings | None = None
+) -> BoardChangesPage:
+    """抓取最近一个交易日全部有异动的板块（异动次数 / 最频繁个股 / 各类异动次数），返回 ``BoardChangesPage``。"""
+    query = query or BoardChangesQuery()
+    client = _build_client(settings or Settings.from_env())
+    source = registry.EastMoneySource(client)
+    return source.fetch_board_changes(registry.board_changes_request(query))
+
+
+def df_board_changes_em(
+    query: BoardChangesQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``board_changes_em`` 的 DataFrame 版（akshare 风格中文列名，主力净流入单位元）。"""
+    return to_board_changes_dataframe(board_changes_em(query, settings), columns)

@@ -249,6 +249,64 @@ def test_main_limitpool_passes_query(monkeypatch, capsys) -> None:
     assert "2026-11-06 炸板股池 共 0 只" in capsys.readouterr().out
 
 
+def _change_items(n: int):
+    from em.domain.models import StockChange
+
+    return tuple(
+        StockChange(time="14:55:04", code=f"{i:06d}", name="x", market="sz", change_type="big_buy")
+        for i in range(n)
+    )
+
+
+def test_main_changes_passes_type_and_shows_first_20(monkeypatch, capsys) -> None:
+    from em.domain.models import StockChangesPage
+    from em.domain.queries import StockChangesQuery
+
+    seen: list[StockChangesQuery] = []
+
+    def fake_changes(query: StockChangesQuery) -> StockChangesPage:
+        seen.append(query)
+        return StockChangesPage(change_type=query.change_type, total=30, items=_change_items(30))
+
+    monkeypatch.setattr("em.cli.stock_changes_em", fake_changes)
+    assert main(["--preset", "changes", "--change-type", "high_dive"]) == 0
+    assert [q.change_type for q in seen] == ["high_dive"]
+    out = capsys.readouterr().out
+    assert "高台跳水 共 30 条，展示 20 条" in out
+    assert main(["--preset", "changes", "--head", "0"]) == 0
+    assert "大笔买入 共 30 条，展示 30 条" in capsys.readouterr().out
+
+
+def test_main_changes_rejects_unknown_type(capsys) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["--preset", "changes", "--change-type", "大笔买入"])
+    assert exc.value.code == 2
+    assert "invalid choice" in capsys.readouterr().err
+
+
+def test_main_boardchanges_renders_time_and_top_types(monkeypatch, capsys) -> None:
+    from em.domain.models import BoardChange, BoardChangesPage, ChangeTypeCount
+
+    board = BoardChange(
+        code="BK0596",
+        name="融资融券",
+        change_pct=-1.99,
+        main_net_inflow=-50364710912.0,
+        change_count=10998,
+        top_stock_name="N森峰",
+        top_stock_change_type=None,  # 未公开类型
+        type_counts=(ChangeTypeCount("quick_rebound", 1903), ChangeTypeCount("big_buy", 984)),
+    )
+    page = BoardChangesPage(date="2026-11-06", time="15:00:00", total=1052, items=(board,))
+    monkeypatch.setattr("em.cli.board_changes_em", lambda query: page)
+    assert main(["--preset", "boardchanges"]) == 0
+    out = capsys.readouterr().out
+    assert "2026-11-06 15:00:00 板块异动 共 1052 个板块，展示 1 个" in out
+    assert "-503.65亿" in out
+    assert "最频繁:N森峰(-)" in out
+    assert "前三类:快速反弹1903 / 大笔买入984" in out
+
+
 class _FakeSettings:
     def __init__(
         self,

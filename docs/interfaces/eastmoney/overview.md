@@ -108,6 +108,22 @@
 - 源码：`src/em/channels/eastmoney/ashare_stocks/stock_bid_ask/stock_bid_ask_em.py`
 
 
+### `盘口异动`
+接口：`stock_changes_em`, `df_stock_changes_em`->（DataFrame版）
+描述：盘口异动（push2ex，大笔买入 / 大笔卖出、火箭发射、封涨停板等 22 种，按 `change_type` 一次取最近交易日该类全部记录；上游不认日期，只有最近一个交易日）。
+
+- 详情：[stock_changes_em.md](./ashare_stocks/stock_changes_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_stocks/stock_changes/stock_changes_em.py`
+
+
+### `板块异动`
+接口：`board_changes_em`, `df_board_changes_em`->（DataFrame版）
+描述：板块异动（push2ex，最近交易日全部有异动的板块：异动总次数、异动最频繁个股、各类异动次数、主力净流入，主力净流入已从万元换算成元）。
+
+- 详情：[board_changes_em.md](./ashare_boards/board_changes_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_boards/board_changes/board_changes_em.py`
+
+
 ### `通用转换`
 接口：`to_dataframe`
 描述：任意 `QuotePage` → `DataFrame`，默认中文列名，可传 `columns` 覆盖。

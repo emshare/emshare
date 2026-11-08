@@ -367,3 +367,70 @@ class StockBidAsk:
     volume_ratio: float | None = None  # 量比
     bids: tuple[OrderLevel, ...] = ()  # 买一 ~ 买五
     asks: tuple[OrderLevel, ...] = ()  # 卖一 ~ 卖五
+
+
+@dataclass(frozen=True)
+class StockChange:
+    """一条盘口异动。``time`` 为 ``HH:MM:SS``，上游不给日期（属于最近一个交易日）。
+
+    ``volume`` / ``amount`` 只有大笔买入 / 大笔卖出（成交量 / 成交额）与有大买盘 / 有大卖盘
+    （挂单量 / 挂单金额）四类有，其余类型为 None。``info`` 是上游原始“相关信息”，各类型格式不同。
+    """
+
+    time: str
+    code: str
+    name: str
+    market: str | None = None  # sh 沪市 / sz 深市 / bj 北交所
+    change_type: str | None = None  # 异动类型（英文，如 big_buy）
+    price: Yuan = None  # 异动时的价格（大笔买卖为成交价）
+    change_pct: Pct = None  # 异动时的涨跌幅
+    volume: Shares = None  # 成交量 / 挂单量
+    amount: Yuan = None  # 成交额 / 挂单金额
+    info: str | None = None  # 上游原始相关信息（逗号分隔）
+
+
+@dataclass(frozen=True)
+class StockChangesPage:
+    """最近一个交易日某一类盘口异动的全部记录，按时间倒序。"""
+
+    change_type: str
+    total: int
+    items: tuple[StockChange, ...]
+
+
+@dataclass(frozen=True)
+class ChangeTypeCount:
+    """板块内某一类异动的出现次数。"""
+
+    change_type: str
+    count: int
+
+
+@dataclass(frozen=True)
+class BoardChange:
+    """一个板块当日的异动汇总。
+
+    ``change_count`` 是上游原值，含东财未公开的 6 种类型；``type_counts`` 只列 22 种已知类型，
+    所以两者之和可能对不上。最频繁个股的类型是未公开类型时 ``top_stock_change_type`` 为 None。
+    """
+
+    code: str
+    name: str
+    change_pct: Pct = None  # 板块涨跌幅
+    main_net_inflow: Yuan = None  # 主力净流入
+    change_count: int | None = None  # 板块异动总次数
+    top_stock_code: str | None = None  # 异动最频繁个股：代码
+    top_stock_name: str | None = None  # 异动最频繁个股：名称
+    top_stock_market: str | None = None  # 异动最频繁个股：sh / sz / bj
+    top_stock_change_type: str | None = None  # 异动最频繁个股：所属异动类型
+    type_counts: tuple[ChangeTypeCount, ...] = ()  # 各类异动次数，按次数倒序
+
+
+@dataclass(frozen=True)
+class BoardChangesPage:
+    """最近一个交易日全部有异动的板块，按异动总次数倒序。``date`` / ``time`` 是上游数据时间。"""
+
+    date: str  # YYYY-MM-DD
+    time: str  # HH:MM:SS
+    total: int
+    items: tuple[BoardChange, ...]

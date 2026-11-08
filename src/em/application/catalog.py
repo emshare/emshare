@@ -209,6 +209,42 @@ _STOCK_BID_ASK_FIELDS = (
     ("asks", "tuple[OrderLevel, ...]", "元 / 手", "卖一 ~ 卖五（price / volume）"),
 )
 
+_STOCK_CHANGES_FIELDS = (
+    ("time", "str", "—", "异动时间 HH:MM:SS（上游不给日期，属于最近一个交易日）"),
+    ("code", "str", "—", "股票代码"),
+    ("name", "str", "—", "股票简称"),
+    ("market", "str | None", "—", "市场：sh / sz / bj，可连同 code 传给 stock_kline_em"),
+    ("change_type", "str | None", "—", "异动类型（英文，如 big_buy）"),
+    ("price", "float | None", "元", "异动时的价格（大笔买卖为成交价）"),
+    ("change_pct", "float | None", "%", "异动时的涨跌幅"),
+    ("volume", "float | None", "股", "成交量 / 挂单量（仅大笔买入卖出、有大买盘卖盘）"),
+    ("amount", "float | None", "元", "成交额 / 挂单金额（仅大笔买入卖出、有大买盘卖盘）"),
+    ("info", "str | None", "—", "上游原始相关信息（逗号分隔，各类型格式不同）"),
+)
+
+_BOARD_CHANGES_FIELDS = (
+    ("code", "str", "—", "板块代码，可传给 board_kline_em 等板块接口"),
+    ("name", "str", "—", "板块名称"),
+    ("change_pct", "float | None", "%", "板块涨跌幅"),
+    ("main_net_inflow", "float | None", "元", "主力净流入（上游单位万元，已换算）"),
+    ("change_count", "int | None", "次", "板块异动总次数（含未公开类型）"),
+    ("top_stock_code", "str | None", "—", "异动最频繁个股：代码"),
+    ("top_stock_name", "str | None", "—", "异动最频繁个股：名称"),
+    ("top_stock_market", "str | None", "—", "异动最频繁个股：sh / sz / bj"),
+    (
+        "top_stock_change_type",
+        "str | None",
+        "—",
+        "异动最频繁个股：所属异动类型（未公开类型为 None）",
+    ),
+    (
+        "type_counts",
+        "tuple[ChangeTypeCount, ...]",
+        "次",
+        "各类异动次数（change_type / count），只含 22 种已知类型",
+    ),
+)
+
 _FUND_LIST_FIELDS = (
     ("code", "str", "—", "基金代码"),
     ("name", "str", "—", "基金简称"),
@@ -650,6 +686,57 @@ _INTERFACES: tuple[Interface, ...] = (
             '    print(f"买{i} {b.price} {b.volume}  卖{i} {a.price} {a.volume}")'
         ),
         dataframe_variant="df_stock_bid_ask_em",
+    ),
+    Interface(
+        name="stock_changes_em",
+        category="changes",
+        # 描述里不写“封涨停板”等含“涨停”的类型：否则检索“涨停”会与涨跌停股池同分并按名字排到前面
+        desc="盘口异动（大笔买入/大笔卖出、火箭发射、高台跳水等 22 种，最近交易日按类型取全量）",
+        documented=True,
+        inputs=(
+            Param(
+                "change_type",
+                "str",
+                False,
+                '"big_buy"',
+                "异动类型，22 种：rocket_launch 火箭发射 / quick_rebound 快速反弹 / big_buy 大笔买入 / "
+                "limit_up_sealed 封涨停板 / limit_down_opened 打开跌停板 / big_bid 有大买盘 / "
+                "auction_up 竞价上涨 / open_above_ma5 高开5日线 / gap_up 向上缺口 / "
+                "new_high_60d 60日新高 / big_rise_60d 60日大幅上涨 / accelerated_drop 加速下跌 / "
+                "high_dive 高台跳水 / big_sell 大笔卖出 / limit_down_sealed 封跌停板 / "
+                "limit_up_opened 打开涨停板 / big_ask 有大卖盘 / auction_down 竞价下跌 / "
+                "open_below_ma5 低开5日线 / gap_down 向下缺口 / new_low_60d 60日新低 / "
+                "big_drop_60d 60日大幅下跌，未知回退 big_buy",
+            ),
+        ),
+        outputs=tuple(Field(*f) for f in _STOCK_CHANGES_FIELDS),
+        example=(
+            "from em import stock_changes_em\n"
+            "from em.domain.queries import StockChangesQuery\n"
+            "\n"
+            'page = stock_changes_em(StockChangesQuery(change_type="big_buy"))\n'
+            "print(page.total)\n"
+            "for c in page.items[:5]:\n"
+            "    print(c.time, c.code, c.name, c.price, c.volume, c.amount)"
+        ),
+        dataframe_variant="df_stock_changes_em",
+    ),
+    Interface(
+        name="board_changes_em",
+        category="changes",
+        desc="板块异动（当日有异动的板块：异动总次数、异动最频繁个股、各类异动次数、主力净流入）",
+        documented=True,
+        inputs=(),
+        outputs=tuple(Field(*f) for f in _BOARD_CHANGES_FIELDS),
+        example=(
+            "from em import board_changes_em\n"
+            "\n"
+            "page = board_changes_em()\n"
+            "print(page.date, page.time, page.total)\n"
+            "for b in page.items[:5]:\n"
+            "    print(b.code, b.name, b.change_count, b.top_stock_name, b.type_counts[:3])"
+        ),
+        dataframe_variant="df_board_changes_em",
     ),
 )
 

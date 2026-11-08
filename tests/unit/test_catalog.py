@@ -13,8 +13,10 @@ def test_search_exact_name_top() -> None:
 
 
 def test_search_by_keyword() -> None:
-    rows = search("板块")
-    assert rows and rows[0]["接口名"] == "board_constituent_em"
+    # 各板块接口对“板块”同分，同分按接口名排序（board_changes_em 排在最前）；加“成分股”即可区分
+    names = [r["接口名"] for r in search("板块")[:2]]
+    assert names == ["board_changes_em", "board_constituent_em"]
+    assert search("板块 成分股")[0]["接口名"] == "board_constituent_em"
 
 
 def test_search_market_by_keyword() -> None:
@@ -147,6 +149,7 @@ def test_list_categories() -> None:
     cats = list_categories()
     assert cats == [
         {"类目": "board", "接口数": 2},
+        {"类目": "changes", "接口数": 2},
         {"类目": "fund", "接口数": 1},
         {"类目": "fund_flow", "接口数": 2},
         {"类目": "hk", "接口数": 1},
@@ -246,6 +249,42 @@ def test_interface_info_stock_get(name: str, n_outputs: int) -> None:
     assert f"{name}(" in info["example"]
 
 
+def test_search_changes_by_keyword() -> None:
+    assert search("盘口异动")[0]["接口名"] == "stock_changes_em"
+    assert search("板块异动")[0]["接口名"] == "board_changes_em"
+    assert search("大笔买入")[0]["接口名"] == "stock_changes_em"
+    # 盘口异动的描述不含“涨停”，检索“涨停”仍是股池排第一（见 test_search_limit_pool_by_keyword）
+    assert "涨停" not in interface_info("stock_changes_em")["desc"]
+
+
+def test_interface_info_stock_changes() -> None:
+    from em.channels.eastmoney.ashare_stocks.stock_changes import STOCK_CHANGE_TYPES
+
+    info = interface_info("stock_changes_em")
+    assert info["category"] == "changes"
+    assert info["dataframe_variant"] == "df_stock_changes_em"
+    assert [p["name"] for p in info["inputs"]] == ["change_type"]
+    # 参数说明列全 22 种异动类型
+    assert all(t in info["inputs"][0]["desc"] for t in STOCK_CHANGE_TYPES)
+    units = {f["name"]: f["unit"] for f in info["outputs"]}
+    assert len(units) == 10
+    assert units["volume"] == "股"
+    assert units["change_pct"] == "%"
+    assert "stock_changes_em(" in info["example"]
+
+
+def test_interface_info_board_changes() -> None:
+    info = interface_info("board_changes_em")
+    assert info["category"] == "changes"
+    assert info["dataframe_variant"] == "df_board_changes_em"
+    assert info["inputs"] == ()
+    units = {f["name"]: f["unit"] for f in info["outputs"]}
+    assert len(units) == 10
+    assert units["main_net_inflow"] == "元"  # 上游万元，已换算
+    assert "type_counts" in units
+    assert "board_changes_em(" in info["example"]
+
+
 def test_search_board_kline_by_keyword() -> None:
     rows = search("板块 K线")
     assert rows and rows[0]["接口名"] == "board_kline_em"
@@ -285,7 +324,7 @@ def test_list_categories_df_returns_dataframe() -> None:
     df = list_categories_df()
     assert isinstance(df, pd.DataFrame)
     assert list(df.columns) == ["类目", "接口数"]
-    assert len(df) == 10
+    assert len(df) == 11
 
 
 def test_interface_info_df_returns_param_and_field_tables() -> None:

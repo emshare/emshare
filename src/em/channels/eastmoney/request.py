@@ -172,3 +172,46 @@ class StockGetRequest:
         if self.fields is not None:
             params["fields"] = self.fields
         return params
+
+
+def _changes_params(page_size: int) -> dict[str, Any]:
+    """盘口异动 / 板块异动的公共参数：从第 0 页取，``page_size`` 足够大即一次取全量。"""
+    return {
+        "ut": config.PUSH2EX_UT,
+        "dpt": "wzchanges",
+        "pageindex": "0",
+        "pagesize": str(page_size),
+    }
+
+
+@dataclass(frozen=True)
+class StockChangesRequest:
+    """push2ex 盘口异动请求句柄：host/上游 type，一次取最近交易日该类异动的全部记录。
+
+    ``change_type`` 为规范化后的领域值，用于回填 ``StockChangesPage``；``type_code`` 是它的上游代码。
+    """
+
+    host: str
+    type_code: int
+    change_type: str
+    page_size: int = config.CHANGES_PAGE_SIZE
+
+    def url(self) -> str:
+        return f"{self.host}{config.STOCK_CHANGES_PATH}"
+
+    def params(self) -> dict[str, Any]:
+        return {"type": str(self.type_code), **_changes_params(self.page_size)}
+
+
+@dataclass(frozen=True)
+class BoardChangesRequest:
+    """push2ex 板块异动请求句柄：一次取最近交易日全部有异动的板块。"""
+
+    host: str
+    page_size: int = config.CHANGES_PAGE_SIZE
+
+    def url(self) -> str:
+        return f"{self.host}{config.BOARD_CHANGES_PATH}"
+
+    def params(self) -> dict[str, Any]:
+        return _changes_params(self.page_size)
