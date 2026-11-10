@@ -1,8 +1,11 @@
 """领域模型：与渠道无关的行情对象。缺字段一律 None，绝不臆造。"""
 
 from dataclasses import dataclass
+from typing import Generic, TypeVar
 
 from em.domain.units import Hkd, Lot, Pct, Point, Shares, Yuan
+
+T = TypeVar("T")
 
 
 @dataclass(frozen=True)
@@ -434,3 +437,46 @@ class BoardChangesPage:
     time: str  # HH:MM:SS
     total: int
     items: tuple[BoardChange, ...]
+
+
+@dataclass(frozen=True)
+class ReportPage(Generic[T]):
+    """报表查询结果（龙虎榜 / 大宗交易 / 业绩财报等数据中心报表），已翻完全部页，``items`` 保持上游排序。
+
+    ``total`` 是上游报告的条数，通常等于 ``len(items)``。两种情况会不等：上游会重复返回同一行的
+    报表去重后变少（如商誉减值预期）；翻页期间上游持续增删、重抓后仍对不上（会记 warning）。
+    """
+
+    total: int
+    items: tuple[T, ...]
+
+
+@dataclass(frozen=True)
+class BillboardEntry:
+    """龙虎榜的一条上榜记录。金额单位元，比率单位 %。
+
+    同一只股票同一天因多个原因上榜时有多条记录，各条按自己的上榜原因统计金额，
+    不能直接相加（单日原因与“连续三个交易日”类原因的统计区间不同）。
+    """
+
+    code: str
+    name: str
+    market: str | None = None  # sh 沪市 / sz 深市 / bj 北交所
+    trade_date: str | None = None  # 上榜日 YYYY-MM-DD
+    reason: str | None = None  # 上榜原因
+    interpretation: str | None = None  # 解读，如“2家机构卖出，成功率18.37%”
+    close: Yuan = None  # 收盘价
+    change_pct: Pct = None  # 涨跌幅
+    net_buy: Yuan = None  # 龙虎榜净买额
+    buy: Yuan = None  # 龙虎榜买入额
+    sell: Yuan = None  # 龙虎榜卖出额
+    billboard_turnover: Yuan = None  # 龙虎榜成交额
+    turnover: Yuan = None  # 市场总成交额（该股当日成交额）
+    net_buy_ratio: Pct = None  # 净买额占总成交比
+    billboard_turnover_ratio: Pct = None  # 龙虎榜成交额占总成交比
+    turnover_rate: Pct = None  # 换手率
+    float_market_cap: Yuan = None  # 流通市值
+    change_after_1d: Pct = None  # 上榜后 1 日涨跌幅（尚未到期为 None）
+    change_after_2d: Pct = None  # 上榜后 2 日涨跌幅
+    change_after_5d: Pct = None  # 上榜后 5 日涨跌幅
+    change_after_10d: Pct = None  # 上榜后 10 日涨跌幅

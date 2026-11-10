@@ -14,6 +14,7 @@ import requests
 
 from em.application import registry
 from em.application.dataframe import (
+    to_billboard_detail_dataframe,
     to_board_changes_dataframe,
     to_board_fund_flow_dataframe,
     to_board_list_dataframe,
@@ -30,6 +31,7 @@ from em.application.dataframe import (
     to_trend_dataframe,
 )
 from em.application.ledger import record as record_ledger
+from em.application.reports import fetch_report
 from em.channels.eastmoney import config as em_config
 from em.core.errors import PageDeadlineExceeded
 from em.core.proxy import ProxyPool, ProxyRouter, ProxySettings, proxy_url
@@ -37,6 +39,7 @@ from em.core.resilience import RetryPolicy
 from em.core.settings import Settings
 from em.core.transport import HttpClient
 from em.domain.models import (
+    BillboardEntry,
     BoardChangesPage,
     BoardFundFlowSeries,
     BoardListPage,
@@ -48,12 +51,14 @@ from em.domain.models import (
     LimitPoolPage,
     Quote,
     QuotePage,
+    ReportPage,
     StockBidAsk,
     StockChangesPage,
     StockInfo,
     TrendSeries,
 )
 from em.domain.queries import (
+    BillboardDetailQuery,
     BoardChangesQuery,
     BoardFundFlowQuery,
     BoardKlineQuery,
@@ -749,3 +754,21 @@ def df_board_changes_em(
 ) -> pd.DataFrame:
     """``board_changes_em`` 的 DataFrame 版（akshare 风格中文列名，主力净流入单位元）。"""
     return to_board_changes_dataframe(board_changes_em(query, settings), columns)
+
+
+def billboard_detail_em(
+    query: BillboardDetailQuery | None = None, settings: Settings | None = None
+) -> ReportPage[BillboardEntry]:
+    """抓取龙虎榜详情（按上榜日期区间，日期留空取最近一个有龙虎榜的交易日），自动翻完全部页。"""
+    query = query or BillboardDetailQuery()
+    client = _build_client(settings or Settings.from_env())
+    return fetch_report(client, registry.billboard_detail_request(query))
+
+
+def df_billboard_detail_em(
+    query: BillboardDetailQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``billboard_detail_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_billboard_detail_dataframe(billboard_detail_em(query, settings), columns)

@@ -460,3 +460,39 @@ def test_main_market_all_error_returns_1(monkeypatch, capsys) -> None:
     rc = main(["--preset", "market-all"])
     assert rc == 1
     assert "抓取失败" in capsys.readouterr().err
+
+
+def test_main_billboard_passes_dates_and_renders(monkeypatch, capsys) -> None:
+    from em.domain.models import BillboardEntry, ReportPage
+    from em.domain.queries import BillboardDetailQuery
+
+    seen: list[BillboardDetailQuery] = []
+    entry = BillboardEntry(
+        code="000525",
+        name="红太阳",
+        trade_date="2026-11-06",
+        change_pct=10.0877,
+        net_buy=98694262.06,
+        billboard_turnover=199194268.48,
+        reason="日涨幅偏离值达到7%的前5只证券",
+    )
+
+    def fake(query: BillboardDetailQuery) -> ReportPage[BillboardEntry]:
+        seen.append(query)
+        return ReportPage(total=79, items=(entry,))
+
+    monkeypatch.setattr("em.cli.billboard_detail_em", fake)
+    assert (
+        main(["--preset", "billboard", "--start-date", "20261106", "--end-date", "20261106"]) == 0
+    )
+    assert [(q.start_date, q.end_date) for q in seen] == [("20261106", "20261106")]
+    out = capsys.readouterr().out
+    assert "龙虎榜详情 共 79 条，展示 1 条" in out
+    assert "净买额:9869.43万" in out and "上榜原因:日涨幅偏离值达到7%的前5只证券" in out
+
+
+def test_main_billboard_rejects_bad_dates(capsys) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["--preset", "billboard", "--start-date", "20261106", "--end-date", "20261101"])
+    assert exc.value.code == 2
+    assert "晚于" in capsys.readouterr().err

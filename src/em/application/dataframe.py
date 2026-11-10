@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from em.domain.models import (
+    BillboardEntry,
     BoardChangesPage,
     BoardFundFlowSeries,
     BoardListPage,
@@ -19,6 +20,7 @@ from em.domain.models import (
     KlineSeries,
     LimitPoolPage,
     QuotePage,
+    ReportPage,
     StockBidAsk,
     StockChangesPage,
     StockInfo,
@@ -646,3 +648,49 @@ def to_board_changes_dataframe(
     return pd.DataFrame(  # type: ignore[no-any-return]
         rows, columns=[naming[f] for f in BOARD_CHANGES_COLUMNS_ZH]
     )
+
+
+def _records_frame(
+    items: tuple[object, ...], naming: dict[str, str], fields: tuple[str, ...]
+) -> pd.DataFrame:
+    """把一组领域对象按 ``fields`` 顺序转成 DataFrame；空结果也保留列头。"""
+    try:
+        import pandas as pd
+    except ImportError as exc:  # pragma: no cover - 环境依赖
+        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+    rows = [{naming[f]: getattr(item, f) for f in fields} for item in items]
+    return pd.DataFrame(rows, columns=[naming[f] for f in fields])  # type: ignore[no-any-return]
+
+
+# 龙虎榜详情字段 -> 默认中文列名（对齐 akshare stock_lhb_detail_em，另在名称后加“市场”）
+BILLBOARD_DETAIL_COLUMNS_ZH: dict[str, str] = {
+    "code": "代码",
+    "name": "名称",
+    "market": "市场",
+    "trade_date": "上榜日",
+    "interpretation": "解读",
+    "close": "收盘价",
+    "change_pct": "涨跌幅",
+    "net_buy": "龙虎榜净买额",
+    "buy": "龙虎榜买入额",
+    "sell": "龙虎榜卖出额",
+    "billboard_turnover": "龙虎榜成交额",
+    "turnover": "市场总成交额",
+    "net_buy_ratio": "净买额占总成交比",
+    "billboard_turnover_ratio": "成交额占总成交比",
+    "turnover_rate": "换手率",
+    "float_market_cap": "流通市值",
+    "reason": "上榜原因",
+    "change_after_1d": "上榜后1日",
+    "change_after_2d": "上榜后2日",
+    "change_after_5d": "上榜后5日",
+    "change_after_10d": "上榜后10日",
+}
+
+
+def to_billboard_detail_dataframe(
+    page: ReportPage[BillboardEntry], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把龙虎榜详情转为 ``DataFrame``，列顺序同 akshare（另加“市场”）。"""
+    naming = columns or BILLBOARD_DETAIL_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(BILLBOARD_DETAIL_COLUMNS_ZH))

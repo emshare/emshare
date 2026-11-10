@@ -1,6 +1,6 @@
 # eastmoney 渠道接口
 
-本页描述 `em` 包对外公共面的十六个取数接口：板块成分股资金流、板块列表、沪深京 A 股全市场列表、指数列表、港股列表、场内基金列表、历史 K 线、分时行情、个股历史资金流、板块（行业 / 概念 / 地域）历史资金流、板块历史 K 线、涨跌停股池、个股基本信息、五档盘口、盘口异动与板块异动。列表类六者走东方财富 `clist` 接口，历史类五者走 `kline` / `trends2` / `fflow` 接口（个股与板块 K 线共用 `kline/get`，个股与板块资金流共用 `fflow/daykline`），涨跌停股池、盘口异动与板块异动走 `push2ex` 主机，个股信息与五档盘口走 `stock/get`，均经动态代理自动换 IP 重试，返回领域模型（`QuotePage` / `BoardListPage` / `IndexListPage` / `HkStockListPage` / `FundListPage` / `LimitPoolPage` / `StockInfo` / `StockBidAsk` / `StockChangesPage` / `BoardChangesPage` / `KlineSeries` / `TrendSeries` / `FundFlowSeries` / `BoardFundFlowSeries`）；另提供 `df_*_em` 便捷函数直接返回 pandas DataFrame（akshare 风格中文列名）。
+本页描述 `em` 包对外公共面的十七个取数接口：板块成分股资金流、板块列表、沪深京 A 股全市场列表、指数列表、港股列表、场内基金列表、历史 K 线、分时行情、个股历史资金流、板块（行业 / 概念 / 地域）历史资金流、板块历史 K 线、涨跌停股池、个股基本信息、五档盘口、盘口异动、板块异动与龙虎榜详情。列表类六者走东方财富 `clist` 接口，历史类五者走 `kline` / `trends2` / `fflow` 接口（个股与板块 K 线共用 `kline/get`，个股与板块资金流共用 `fflow/daykline`），涨跌停股池、盘口异动与板块异动走 `push2ex` 主机，个股信息与五档盘口走 `stock/get`，龙虎榜等报表走数据中心 `datacenter-web`（自动翻页），均经动态代理自动换 IP 重试，返回领域模型（`QuotePage` / `BoardListPage` / `IndexListPage` / `HkStockListPage` / `FundListPage` / `LimitPoolPage` / `StockInfo` / `StockBidAsk` / `StockChangesPage` / `BoardChangesPage` / `ReportPage` / `KlineSeries` / `TrendSeries` / `FundFlowSeries` / `BoardFundFlowSeries`）；另提供 `df_*_em` 便捷函数直接返回 pandas DataFrame（akshare 风格中文列名）。
 
 公共面统一从 `em` 顶层导出：
 
@@ -22,6 +22,7 @@ from em import (
     stock_bid_ask_em,
     stock_changes_em,
     board_changes_em,
+    billboard_detail_em,
     df_board_constituent_em,
     df_stock_list_em,
     df_stock_kline_em,
@@ -38,6 +39,7 @@ from em import (
     df_stock_bid_ask_em,
     df_stock_changes_em,
     df_board_changes_em,
+    df_billboard_detail_em,
     to_dataframe,
     to_kline_dataframe,
     to_trend_dataframe,
@@ -52,6 +54,7 @@ from em import (
     to_stock_bid_ask_dataframe,
     to_stock_changes_dataframe,
     to_board_changes_dataframe,
+    to_billboard_detail_dataframe,
     search,
     search_df,
     interface_info,
@@ -61,7 +64,7 @@ from em import (
 )
 ```
 
-`board_constituent_em` / `stock_list_em` 返回 `QuotePage`，`stock_kline_em` / `board_kline_em` 返回 `KlineSeries`，`stock_trends_em` 返回 `TrendSeries`，`stock_fund_flow_em` 返回 `FundFlowSeries`，`board_fund_flow_em` 返回 `BoardFundFlowSeries`，`board_industry_list_em` 返回 `BoardListPage`，`index_list_em` 返回 `IndexListPage`，`hk_stock_list_em` 返回 `HkStockListPage`，`fund_list_em` 返回 `FundListPage`，`stock_limit_pool_em` 返回 `LimitPoolPage`，`stock_info_em` 返回 `StockInfo`，`stock_bid_ask_em` 返回 `StockBidAsk`，`stock_changes_em` 返回 `StockChangesPage`，`board_changes_em` 返回 `BoardChangesPage`，`df_*_em` 返回 `pd.DataFrame`（需 `pip install pandas`）。`to_dataframe` / `to_kline_dataframe` / `to_trend_dataframe` / `to_fund_flow_dataframe` / `to_board_fund_flow_dataframe` / `to_board_list_dataframe` / `to_index_list_dataframe` / `to_hk_stock_list_dataframe` / `to_fund_list_dataframe` / `to_limit_pool_dataframe` / `to_stock_info_dataframe` / `to_stock_bid_ask_dataframe` / `to_stock_changes_dataframe` / `to_board_changes_dataframe` 把对应领域模型转为 DataFrame，均默认中文列名，传 `columns` 可覆盖。
+`board_constituent_em` / `stock_list_em` 返回 `QuotePage`，`stock_kline_em` / `board_kline_em` 返回 `KlineSeries`，`stock_trends_em` 返回 `TrendSeries`，`stock_fund_flow_em` 返回 `FundFlowSeries`，`board_fund_flow_em` 返回 `BoardFundFlowSeries`，`board_industry_list_em` 返回 `BoardListPage`，`index_list_em` 返回 `IndexListPage`，`hk_stock_list_em` 返回 `HkStockListPage`，`fund_list_em` 返回 `FundListPage`，`stock_limit_pool_em` 返回 `LimitPoolPage`，`stock_info_em` 返回 `StockInfo`，`stock_bid_ask_em` 返回 `StockBidAsk`，`stock_changes_em` 返回 `StockChangesPage`，`board_changes_em` 返回 `BoardChangesPage`，`billboard_detail_em` 返回 `ReportPage[BillboardEntry]`，`df_*_em` 返回 `pd.DataFrame`（需 `pip install pandas`）。`to_dataframe` / `to_kline_dataframe` / `to_trend_dataframe` / `to_fund_flow_dataframe` / `to_board_fund_flow_dataframe` / `to_board_list_dataframe` / `to_index_list_dataframe` / `to_hk_stock_list_dataframe` / `to_fund_list_dataframe` / `to_limit_pool_dataframe` / `to_stock_info_dataframe` / `to_stock_bid_ask_dataframe` / `to_stock_changes_dataframe` / `to_board_changes_dataframe` / `to_billboard_detail_dataframe` 把对应领域模型转为 DataFrame，均默认中文列名，传 `columns` 可覆盖。
 
 ## 功能
 
@@ -83,6 +86,7 @@ from em import (
 | 个股五档盘口 | [stock_bid_ask_em.md](./ashare_stocks/stock_bid_ask_em.md) | `channels/eastmoney/ashare_stocks/stock_bid_ask/stock_bid_ask_em.py` | `stock_bid_ask_em` / `df_stock_bid_ask_em` |
 | 盘口异动（22 种） | [stock_changes_em.md](./ashare_stocks/stock_changes_em.md) | `channels/eastmoney/ashare_stocks/stock_changes/stock_changes_em.py` | `stock_changes_em` / `df_stock_changes_em` |
 | 板块异动 | [board_changes_em.md](./ashare_boards/board_changes_em.md) | `channels/eastmoney/ashare_boards/board_changes/board_changes_em.py` | `board_changes_em` / `df_board_changes_em` |
+| 龙虎榜详情 | [billboard_detail_em.md](./ashare_billboard/billboard_detail_em.md) | `channels/eastmoney/ashare_billboard/billboard_detail/billboard_detail_em.py` | `billboard_detail_em` / `df_billboard_detail_em` |
 
 ## 接口检索
 
@@ -102,7 +106,7 @@ print(em.interface_info("board_constituent_em"))
 
 # 列出全部类目及其接口数量
 print(em.list_categories())
-# [{'类目': 'board', '接口数': 2}, {'类目': 'changes', '接口数': 2}, {'类目': 'fund', '接口数': 1}, {'类目': 'fund_flow', '接口数': 2}, {'类目': 'hk', '接口数': 1}, {'类目': 'index', '接口数': 1}, {'类目': 'kline', '接口数': 2}, {'类目': 'market', '接口数': 1}, {'类目': 'pool', '接口数': 1}, {'类目': 'stock', '接口数': 2}, {'类目': 'trends', '接口数': 1}]
+# [{'类目': 'billboard', '接口数': 1}, {'类目': 'board', '接口数': 2}, {'类目': 'changes', '接口数': 2}, {'类目': 'fund', '接口数': 1}, {'类目': 'fund_flow', '接口数': 2}, {'类目': 'hk', '接口数': 1}, {'类目': 'index', '接口数': 1}, {'类目': 'kline', '接口数': 2}, {'类目': 'market', '接口数': 1}, {'类目': 'pool', '接口数': 1}, {'类目': 'stock', '接口数': 2}, {'类目': 'trends', '接口数': 1}]
 ```
 
 DataFrame 版（需 pandas，对齐 akshare `print(ak.search(...))` 体验）：
@@ -114,18 +118,19 @@ print(em.search_df("板块 资金流"))
 # 1  stock_list_em  market  沪深京 A 股全市场列表...        True  10.0
 
 print(em.list_categories_df())
-#         类目  接口数
-# 0     board      2
-# 1   changes      2
-# 2      fund      1
-# 3  fund_flow      2
-# 4        hk      1
-# 5     index      1
-# 6     kline      2
-# 7    market      1
-# 8      pool      1
-# 9     stock      2
-# 10   trends      1
+#            类目  接口数
+# 0   billboard    1
+# 1       board    2
+# 2     changes    2
+# 3        fund    1
+# 4   fund_flow    2
+# 5          hk    1
+# 6       index    1
+# 7       kline    2
+# 8      market    1
+# 9        pool    1
+# 10      stock    2
+# 11     trends    1
 ```
 
 `interface_info_df(name)` 返回 ``{"inputs": 参数表, "outputs": 字段表}``，中文列名对齐文档参数表：
@@ -178,5 +183,6 @@ print(tables["outputs"])
 | `ConfigError` | 否 | 配置非法，立即上抛 |
 | `NetworkError` | 是 | 连接失败 / 超时，换 IP 重试 |
 | `EmptyResponseError` | 是 | 空响应（出口被封断开），换 IP 重试 |
+| `QueryRejectedError` | 否 | 数据中心拒绝了查询（报表 / 列名写错、参数类型不对），换 IP 也一样，直接上抛 |
 | `HttpStatusError` | 5xx / 403 / 429 | 非预期状态码，按状态码判定 |
 | `PageDeadlineExceeded` | 否 | 单页超过时间预算，标记失败交给定向补漏，不阻塞整轮 |

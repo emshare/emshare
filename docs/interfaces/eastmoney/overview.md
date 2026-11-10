@@ -124,6 +124,14 @@
 - 源码：`src/em/channels/eastmoney/ashare_boards/board_changes/board_changes_em.py`
 
 
+### `龙虎榜详情`
+接口：`billboard_detail_em`, `df_billboard_detail_em`->（DataFrame版）
+描述：龙虎榜详情（数据中心，按上榜日期区间取全部上榜记录，自动翻页；日期留空取最近一个有龙虎榜的交易日）。同股同日多个上榜原因为多条记录，金额不能直接相加。
+
+- 详情：[billboard_detail_em.md](./ashare_billboard/billboard_detail_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_billboard/billboard_detail/billboard_detail_em.py`
+
+
 ### `通用转换`
 接口：`to_dataframe`
 描述：任意 `QuotePage` → `DataFrame`，默认中文列名，可传 `columns` 覆盖。

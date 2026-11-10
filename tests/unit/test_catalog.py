@@ -148,6 +148,7 @@ def test_interface_info_board_industry_list() -> None:
 def test_list_categories() -> None:
     cats = list_categories()
     assert cats == [
+        {"类目": "billboard", "接口数": 1},
         {"类目": "board", "接口数": 2},
         {"类目": "changes", "接口数": 2},
         {"类目": "fund", "接口数": 1},
@@ -285,6 +286,26 @@ def test_interface_info_board_changes() -> None:
     assert "board_changes_em(" in info["example"]
 
 
+def test_search_billboard_by_keyword() -> None:
+    assert search("龙虎榜")[0]["接口名"] == "billboard_detail_em"
+    assert search("上榜原因")[0]["接口名"] == "billboard_detail_em"
+
+
+def test_interface_info_billboard_detail_covers_model_fields() -> None:
+    from dataclasses import fields
+
+    from em.domain.models import BillboardEntry
+
+    info = interface_info("billboard_detail_em")
+    assert info["category"] == "billboard"
+    assert info["dataframe_variant"] == "df_billboard_detail_em"
+    assert [p["name"] for p in info["inputs"]] == ["start_date", "end_date"]
+    assert [f["name"] for f in info["outputs"]] == [f.name for f in fields(BillboardEntry)]
+    units = {f["name"]: f["unit"] for f in info["outputs"]}
+    assert units["net_buy"] == "元" and units["net_buy_ratio"] == "%"
+    assert "billboard_detail_em(" in info["example"]
+
+
 def test_search_board_kline_by_keyword() -> None:
     rows = search("板块 K线")
     assert rows and rows[0]["接口名"] == "board_kline_em"
@@ -324,7 +345,7 @@ def test_list_categories_df_returns_dataframe() -> None:
     df = list_categories_df()
     assert isinstance(df, pd.DataFrame)
     assert list(df.columns) == ["类目", "接口数"]
-    assert len(df) == 11
+    assert len(df) == 12
 
 
 def test_interface_info_df_returns_param_and_field_tables() -> None:

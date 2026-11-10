@@ -21,6 +21,8 @@ src/em/channels/eastmoney/                 docs/interfaces/eastmoney/
 │   ├── stock_info/             # 个股信息      │   ├── stock_info_em.md
 │   ├── stock_bid_ask/          # 五档盘口      │   ├── stock_bid_ask_em.md
 │   └── stock_changes/          # 盘口异动      │   └── stock_changes_em.md
+├── ashare_billboard/           # 龙虎榜        ├── ashare_billboard/
+│   └── billboard_detail/       # 龙虎榜详情    │   └── billboard_detail_em.md
 ├── ashare_indices/              # 沪深京指数    ├── ashare_indices/
 │   └── index_list/             # 指数列表      │   └── index_list_em.md
 ├── hk_market/                  # 港股市场      ├── hk_market/
@@ -38,9 +40,10 @@ src/em/channels/eastmoney/                 docs/interfaces/eastmoney/
 ├── stock_connect/.gitkeep      # 沪深港通      ├── stock_connect/.gitkeep
 ├── config.py                   # 渠道配置      ├── overview.md          # 接口预览
 ├── request.py                  # 请求句柄      ├── directory_tree.md   # 目录结构(本页)
+├── datacenter.py               # 数据中心报表公共部分（列映射 / 换算 / 过滤条件）
 ├── mapping.py                  # 报文映射      └── eastmoney.md         # 渠道总览
 ├── source.py                   # 取数来源
 └── __init__.py
 ```
 
-> 除 `ashare_boards/`、`ashare_stocks/`、`ashare_indices/`、`hk_market/`、`fund_market/` 外，其余市场目录暂为空占位，待对应功能实现后填充。
+> 除 `ashare_boards/`、`ashare_stocks/`、`ashare_billboard/`、`ashare_indices/`、`hk_market/`、`fund_market/` 外，其余市场目录暂为空占位，待对应功能实现后填充。

@@ -1,8 +1,9 @@
-"""EastMoneySource 14 个 fetch 的协议校验路径覆盖。
+"""EastMoneySource 15 个 fetch 的协议校验路径覆盖。
 
 非 JSONP 错误页与 rc != 0 现在由传输层在返回文本前用 validator 拦截并换 IP
 （InvalidContentError）；本文件用执行真实 validator 的 HttpClient 桩锁住该契约。
-stock/get 的“查无此券”（rc 100 / 102）是例外，见 test_stock_info_bid_ask.py。
+stock/get 的“查无此券”（rc 100 / 102）是例外，见 test_stock_info_bid_ask.py；
+数据中心报表的 9201 / 9501 / 200 也是正常答复，见 test_datacenter.py。
 """
 
 import pytest
@@ -12,6 +13,7 @@ from em.channels.eastmoney import config
 from em.channels.eastmoney.source import EastMoneySource, _is_valid_payload
 from em.core.errors import InvalidContentError
 from em.domain.queries import (
+    BillboardDetailQuery,
     BoardChangesQuery,
     BoardFundFlowQuery,
     BoardListQuery,
@@ -65,6 +67,7 @@ _FETCH_NAMES = [
     "fetch_stock_bid_ask",
     "fetch_stock_changes",
     "fetch_board_changes",
+    "fetch_report_page",
 ]
 _REQUESTS = [
     registry.stock_list_request(MarketQuery()),
@@ -81,6 +84,7 @@ _REQUESTS = [
     registry.stock_bid_ask_request(StockBidAskQuery()),
     registry.stock_changes_request(StockChangesQuery()),
     registry.board_changes_request(BoardChangesQuery()),
+    registry.billboard_detail_request(BillboardDetailQuery("20261106", "20261106")),
 ]
 
 

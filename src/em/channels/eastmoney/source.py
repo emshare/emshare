@@ -1,9 +1,15 @@
 """东财列表取数来源：请求 -> 传输 -> 映射，返回领域模型。"""
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, TypeVar
 
 from em.channels.eastmoney import config
+from em.channels.eastmoney.datacenter import (
+    ReportChunk,
+    is_answer,
+    is_query_error,
+    to_report_chunk,
+)
 from em.channels.eastmoney.mapping import (
     is_ok,
     is_security_not_found,
@@ -26,6 +32,7 @@ from em.channels.eastmoney.mapping import (
 from em.channels.eastmoney.request import (
     BoardChangesRequest,
     ClistRequest,
+    DatacenterRequest,
     FundFlowRequest,
     KlineRequest,
     LimitPoolRequest,
@@ -33,7 +40,7 @@ from em.channels.eastmoney.request import (
     StockGetRequest,
     TrendsRequest,
 )
-from em.core.errors import SecurityNotFoundError
+from em.core.errors import QueryRejectedError, SecurityNotFoundError
 from em.core.transport import HttpClient
 from em.domain.models import (
     BoardChangesPage,
@@ -51,6 +58,8 @@ from em.domain.models import (
     StockInfo,
     TrendSeries,
 )
+
+T = TypeVar("T")
 
 
 def _is_valid_payload(text: str) -> bool:
@@ -98,6 +107,14 @@ def _fetch_stock_get(client: HttpClient, request: StockGetRequest) -> dict[str, 
             f"证券不存在：secid={request.secid}（上游 rc={data.get('rc')}）"
         )
     return data
+
+
+def _is_valid_datacenter(text: str) -> bool:
+    """数据中心协议校验：0 / 9201 / 9501 / 200 是上游的正常答复（见 ``datacenter.is_answer``）。
+
+    9201 查无数据与 9501 / 200 查询写错若按失败处理，会把好 IP 拉黑并换 IP 重试到耗尽。
+    """
+    return is_answer(parse_jsonp(text))
 
 
 class EastMoneySource:
@@ -163,3 +180,16 @@ class EastMoneySource:
     def fetch_board_changes(self, request: BoardChangesRequest) -> BoardChangesPage:
         data = _fetch_json(self._client, request, config.CHANGES_READ_TIMEOUT_SEC)
         return to_board_changes_page(data)
+
+    def fetch_report_page(self, request: DatacenterRequest[T]) -> ReportChunk[T]:
+        """数据中心报表的一页（翻页由上层驱动）。查询写错（9501 / 200）抛 ``QueryRejectedError``：
+        换 IP 也一样，不重试、不拉黑出口；查无数据（9201）返回空页。"""
+        data = _fetch_json(
+            self._client, request, config.DATACENTER_READ_TIMEOUT_SEC, _is_valid_datacenter
+        )
+        if is_query_error(data):
+            raise QueryRejectedError(
+                f"数据中心拒绝了查询（报表 {request.report}）："
+                f"code={data.get('code')} {str(data.get('message') or '')[:120]}"
+            )
+        return to_report_chunk(data, request.mapper)

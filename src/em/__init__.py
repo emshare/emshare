@@ -4,7 +4,8 @@
 对外公共面统一从本模块导出，渠道明细从 ``em.channels`` 子包取。
 ``*_em`` 返回领域模型（``QuotePage`` / ``KlineSeries`` / ``TrendSeries`` / ``FundFlowSeries`` 等，
 ``board_kline_em`` 与 ``stock_kline_em`` 共用 ``KlineSeries``，``index_list_em`` 返回 ``IndexListPage``，``hk_stock_list_em`` 返回 ``HkStockListPage``，``fund_list_em`` 返回 ``FundListPage``，``stock_limit_pool_em`` 返回 ``LimitPoolPage``，``stock_info_em`` / ``stock_bid_ask_em`` 返回
-``StockInfo`` / ``StockBidAsk``，``stock_changes_em`` / ``board_changes_em`` 返回 ``StockChangesPage`` / ``BoardChangesPage``），
+``StockInfo`` / ``StockBidAsk``，``stock_changes_em`` / ``board_changes_em`` 返回 ``StockChangesPage`` / ``BoardChangesPage``，
+数据中心报表（龙虎榜等）返回 ``ReportPage``，已翻完全部页），
 ``df_*_em`` 返回 pandas DataFrame（需 pandas）。
 ``search`` / ``interface_info`` / ``list_categories`` 提供离线接口检索（对齐 akshare）。
 ``resolve_code`` / ``resolve_board`` 提供中文名→代码解析（东财搜索接口，单请求）；
@@ -29,6 +30,7 @@ from em.application.convenience import (
     trends_by_name,
 )
 from em.application.dataframe import (
+    to_billboard_detail_dataframe,
     to_board_changes_dataframe,
     to_board_fund_flow_dataframe,
     to_board_list_dataframe,
@@ -45,11 +47,13 @@ from em.application.dataframe import (
     to_trend_dataframe,
 )
 from em.application.market_data import (
+    billboard_detail_em,
     board_changes_em,
     board_constituent_em,
     board_fund_flow_em,
     board_industry_list_em,
     board_kline_em,
+    df_billboard_detail_em,
     df_board_changes_em,
     df_board_constituent_em,
     df_board_fund_flow_em,
@@ -95,6 +99,7 @@ for _candidate in (Path(".env"), Path(__file__).resolve().parents[2] / ".env"):
 __all__ = [
     "BoardRef",
     "StockRef",
+    "billboard_detail_em",
     "board_changes_em",
     "board_constituent_by_name",
     "board_constituent_em",
@@ -102,6 +107,7 @@ __all__ = [
     "board_fund_flow_em",
     "board_industry_list_em",
     "board_kline_em",
+    "df_billboard_detail_em",
     "df_board_changes_em",
     "df_board_constituent_em",
     "df_board_fund_flow_em",
@@ -142,6 +148,7 @@ __all__ = [
     "stock_list_all_em",
     "stock_list_em",
     "stock_trends_em",
+    "to_billboard_detail_dataframe",
     "to_board_changes_dataframe",
     "to_board_fund_flow_dataframe",
     "to_board_list_dataframe",

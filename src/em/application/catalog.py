@@ -266,6 +266,31 @@ _FUND_LIST_FIELDS = (
 )
 
 
+_BILLBOARD_DETAIL_FIELDS = (
+    ("code", "str", "—", "股票代码"),
+    ("name", "str", "—", "股票简称"),
+    ("market", "str | None", "—", "市场：sh / sz / bj，可连同 code 传给 stock_kline_em"),
+    ("trade_date", "str | None", "—", "上榜日 YYYY-MM-DD"),
+    ("reason", "str | None", "—", "上榜原因（同股同日多个原因时为多条记录）"),
+    ("interpretation", "str | None", "—", "解读，如“2家机构卖出，成功率18.37%”"),
+    ("close", "float | None", "元", "收盘价"),
+    ("change_pct", "float | None", "%", "涨跌幅"),
+    ("net_buy", "float | None", "元", "龙虎榜净买额"),
+    ("buy", "float | None", "元", "龙虎榜买入额"),
+    ("sell", "float | None", "元", "龙虎榜卖出额"),
+    ("billboard_turnover", "float | None", "元", "龙虎榜成交额"),
+    ("turnover", "float | None", "元", "市场总成交额"),
+    ("net_buy_ratio", "float | None", "%", "净买额占总成交比"),
+    ("billboard_turnover_ratio", "float | None", "%", "龙虎榜成交额占总成交比"),
+    ("turnover_rate", "float | None", "%", "换手率"),
+    ("float_market_cap", "float | None", "元", "流通市值"),
+    ("change_after_1d", "float | None", "%", "上榜后 1 日涨跌幅（未到期为 None）"),
+    ("change_after_2d", "float | None", "%", "上榜后 2 日涨跌幅"),
+    ("change_after_5d", "float | None", "%", "上榜后 5 日涨跌幅"),
+    ("change_after_10d", "float | None", "%", "上榜后 10 日涨跌幅"),
+)
+
+
 @dataclass(frozen=True)
 class Param:
     name: str
@@ -293,6 +318,19 @@ class Interface:
     outputs: tuple[Field, ...]
     example: str
     dataframe_variant: str | None = None
+
+
+# 数据中心报表接口的公共参数说明
+_DATE_RANGE_PARAMS = (
+    Param(
+        "start_date",
+        "str | None",
+        False,
+        "None",
+        "起始日期 YYYYMMDD；起止都留空取最近一个有数据的交易日，只给起始取到今天",
+    ),
+    Param("end_date", "str | None", False, "None", "结束日期 YYYYMMDD；只给结束日期时只取那一天"),
+)
 
 
 _INTERFACES: tuple[Interface, ...] = (
@@ -737,6 +775,24 @@ _INTERFACES: tuple[Interface, ...] = (
             "    print(b.code, b.name, b.change_count, b.top_stock_name, b.type_counts[:3])"
         ),
         dataframe_variant="df_board_changes_em",
+    ),
+    Interface(
+        name="billboard_detail_em",
+        category="billboard",
+        desc="龙虎榜详情（按上榜日期区间取全部上榜记录：上榜原因、净买额、成交占比、上榜后涨跌幅）",
+        documented=True,
+        inputs=_DATE_RANGE_PARAMS,
+        outputs=tuple(Field(*f) for f in _BILLBOARD_DETAIL_FIELDS),
+        example=(
+            "from em import billboard_detail_em\n"
+            "from em.domain.queries import BillboardDetailQuery\n"
+            "\n"
+            'page = billboard_detail_em(BillboardDetailQuery("20261102", "20261106"))\n'
+            "print(page.total)\n"
+            "for e in page.items[:5]:\n"
+            "    print(e.trade_date, e.code, e.name, e.net_buy, e.reason)"
+        ),
+        dataframe_variant="df_billboard_detail_em",
     ),
 )
 

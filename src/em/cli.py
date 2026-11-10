@@ -8,6 +8,7 @@ from typing import TypeVar
 
 from em.application.dataframe import CHANGE_TYPE_LABELS_ZH
 from em.application.market_data import (
+    billboard_detail_em,
     board_changes_em,
     board_constituent_em,
     board_fund_flow_em,
@@ -40,6 +41,7 @@ from em.channels.eastmoney.config import (
     KLT_PERIODS,
     MARKET_IDS,
 )
+from em.channels.eastmoney.datacenter import date_span
 from em.channels.eastmoney.fund_market.fund_list import FUND_TYPE_FS
 from em.channels.eastmoney.hk_market.hk_stock_list import HK_SCOPE_FS
 from em.core.env import load_dotenv
@@ -59,12 +61,14 @@ from em.domain.models import (
     LimitPoolStock,
     Quote,
     QuotePage,
+    ReportPage,
     StockBidAsk,
     StockChangesPage,
     StockInfo,
     TrendSeries,
 )
 from em.domain.queries import (
+    BillboardDetailQuery,
     BoardChangesQuery,
     BoardFundFlowQuery,
     BoardKlineQuery,
@@ -439,6 +443,45 @@ def _render_board_changes(page: BoardChangesPage, head: int | None = None) -> No
     print("-" * 110)
 
 
+# 报表预设（数据中心）的展示列：(字段, 标签, 格式)。格式 "amount" 按亿 / 万显示金额，
+# 其余为 format() 格式串，空串原样显示
+_ReportColumn = tuple[str, str, str]
+
+
+def _cell(value: object, style: str) -> str:
+    if value is None:
+        return "-"
+    if style == "amount" and isinstance(value, (int, float)):
+        return _fmt_amount(float(value))
+    if style and isinstance(value, (int, float)):
+        return format(value, style)
+    return str(value)
+
+
+def _render_report(
+    title: str, page: ReportPage[_T], columns: tuple[_ReportColumn, ...], head: int | None
+) -> None:
+    """数据中心报表的通用表格：每行按 ``columns`` 取字段，默认只展示前 20 条（``--head 0`` 全部）。"""
+    shown = _head_slice(page.items, head)
+    print(f"\n✅ {title} 共 {page.total} 条，展示 {len(shown)} 条")
+    print("-" * 110)
+    for item in shown:
+        cells = [f"{label}:{_cell(getattr(item, field), style)}" for field, label, style in columns]
+        print("  " + "  ".join(cells))
+    print("-" * 110)
+
+
+_BILLBOARD_DETAIL_COLUMNS: tuple[_ReportColumn, ...] = (
+    ("trade_date", "上榜日", ""),
+    ("code", "代码", ""),
+    ("name", "名称", ""),
+    ("change_pct", "涨跌幅", ".2f"),
+    ("net_buy", "净买额", "amount"),
+    ("billboard_turnover", "龙虎榜成交额", "amount"),
+    ("reason", "上榜原因", ""),
+)
+
+
 # 这些预设的 secid 只认沪深京（csi / hk 仅 K 线支持）
 _SZ_SH_BJ_PRESETS = ("trends", "fundflow", "stockinfo", "bidask")
 
@@ -465,6 +508,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
             "bidask",
             "changes",
             "boardchanges",
+            "billboard",
         ],
         default="board",
         help="接口预设",
@@ -484,6 +528,12 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     ap.add_argument(
         "--date", default=None, help="交易日 YYYYMMDD（limitpool 预设，留空取最近交易日）"
     )
+    ap.add_argument(
+        "--start-date",
+        default=None,
+        help="起始日期 YYYYMMDD（billboard 预设；起止都留空取最近一个有数据的交易日）",
+    )
+    ap.add_argument("--end-date", default=None, help="结束日期 YYYYMMDD（billboard 预设）")
     ap.add_argument(
         "--fund-type",
         choices=list(FUND_TYPE_FS),
@@ -546,8 +596,9 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         type=int,
         default=None,
         help=(
-            "展示前 N 条（kline/boardkline/fundflow/market-all/limitpool/changes/boardchanges 预设，"
-            "0=全部；changes/boardchanges 不指定时展示前 20 条；可与 --tail 同时使用）"
+            "展示前 N 条（kline/boardkline/fundflow/market-all/limitpool/changes/boardchanges/"
+            "billboard 等报表预设，0=全部；changes/boardchanges 与报表预设不指定时展示前 20 条；"
+            "可与 --tail 同时使用）"
         ),
     )
     ap.add_argument(
@@ -567,6 +618,10 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
             resolve_date(args.date)
         except ValueError as exc:
             ap.error(str(exc))
+    try:
+        date_span(args.start_date, args.end_date)
+    except ValueError as exc:
+        ap.error(str(exc))
     return args
 
 
@@ -680,6 +735,9 @@ def main(argv: list[str] | None = None) -> int:
             _render_stock_changes(changes_page, head=args.head)
         elif args.preset == "boardchanges":
             _render_board_changes(board_changes_em(BoardChangesQuery()), head=args.head)
+        elif args.preset == "billboard":
+            billboard = billboard_detail_em(BillboardDetailQuery(args.start_date, args.end_date))
+            _render_report("龙虎榜详情", billboard, _BILLBOARD_DETAIL_COLUMNS, args.head)
         else:
             page = board_constituent_em(
                 BoardQuery(board=args.board, period=args.rank, page=args.pn, size=args.pz or 8)

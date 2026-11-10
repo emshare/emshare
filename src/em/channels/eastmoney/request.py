@@ -1,9 +1,13 @@
 """请求构建：把查询句柄翻译为东财 clist 的渠道参数（渠道键空间只在此出现）。"""
 
-from dataclasses import dataclass
-from typing import Any
+import functools
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass, replace
+from typing import Any, Generic, TypeVar
 
 from em.channels.eastmoney import config
+
+T = TypeVar("T")
 
 
 @dataclass(frozen=True)
@@ -215,3 +219,81 @@ class BoardChangesRequest:
 
     def params(self) -> dict[str, Any]:
         return _changes_params(self.page_size)
+
+
+@dataclass(frozen=True)
+class DatacenterRequest(Generic[T]):
+    """数据中心报表的单页请求句柄：报表名 / 列 / 过滤 / 排序 / 页码，``mapper`` 把一行映射为领域模型。
+
+    ``columns`` 只列要用到的列（单页体积可降一个数量级），并包含 ``filter`` 用到的列：上游对
+    拼错的过滤字段静默忽略、返回整张表，而拼错的返回列会报 9501，借此把上游改名暴露出来。
+    ``latest_of`` 非空表示查询没给日期：先取该日期列的最新值（``latest_lookup``），
+    再用 ``on_day`` 过滤到那一天。``distinct`` 为 True 时整行去重（只对已知会重复返回同一行的报表打开）。
+    """
+
+    report: str
+    columns: tuple[str, ...]
+    mapper: Callable[[dict[str, Any]], T]
+    filter: str = ""
+    sort_columns: tuple[str, ...] = ()
+    sort_types: tuple[int, ...] = ()
+    latest_of: str = ""
+    distinct: bool = False
+    page: int = 1
+    page_size: int = config.DATACENTER_PAGE_SIZE
+    host: str = config.DATACENTER_HOST
+
+    def url(self) -> str:
+        return f"{self.host}{config.DATACENTER_PATH}"
+
+    def params(self) -> dict[str, Any]:
+        params: dict[str, Any] = {
+            "reportName": self.report,
+            "columns": ",".join(self.columns),
+            "pageNumber": str(self.page),
+            "pageSize": str(self.page_size),
+            "source": "WEB",
+            "client": "WEB",
+        }
+        if self.sort_columns:
+            params["sortColumns"] = ",".join(self.sort_columns)
+            params["sortTypes"] = ",".join(str(t) for t in self.sort_types)
+        if self.filter:
+            params["filter"] = self.filter
+        return params
+
+    def with_page(self, page: int) -> "DatacenterRequest[T]":
+        return replace(self, page=page)
+
+    def latest_lookup(self) -> "DatacenterRequest[str | None]":
+        """取 ``latest_of`` 列的最新值：只请求该列，按它倒序取 1 行，过滤条件同本请求。"""
+        return DatacenterRequest(
+            report=self.report,
+            columns=(self.latest_of,),
+            mapper=functools.partial(_day_of, self.latest_of),
+            filter=self.filter,
+            sort_columns=(self.latest_of,),
+            sort_types=(-1,),
+            page_size=1,
+            host=self.host,
+        )
+
+    def on_day(self, day: str) -> "DatacenterRequest[T]":
+        """把 ``latest_of`` 列过滤到 ``day``（``YYYY-MM-DD``），得到可以直接翻页的请求。"""
+        return replace(
+            self,
+            filter=f"{self.filter}({self.latest_of}='{day}')",
+            columns=unique_columns(self.columns, (self.latest_of,)),
+            latest_of="",
+        )
+
+
+def unique_columns(*groups: Iterable[str]) -> tuple[str, ...]:
+    """合并几组列名，去重并保持首次出现的顺序。"""
+    return tuple(dict.fromkeys(c for group in groups for c in group))
+
+
+def _day_of(column: str, row: dict[str, Any]) -> str | None:
+    """``2026-11-06 00:00:00`` → ``2026-11-06``。"""
+    value = row.get(column)
+    return str(value)[:10] if value else None

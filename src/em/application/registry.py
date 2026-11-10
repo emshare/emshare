@@ -3,6 +3,9 @@
 新增渠道时只改这里与 ``channels/``，``market_data`` / ``cli`` 无需改动。
 """
 
+from em.channels.eastmoney.ashare_billboard.billboard_detail.billboard_detail_em import (
+    billboard_detail_request,
+)
 from em.channels.eastmoney.ashare_boards.board_changes.board_changes_em import (
     board_changes_request,
 )
@@ -38,6 +41,7 @@ from em.channels.eastmoney.source import EastMoneySource
 
 __all__ = [
     "EastMoneySource",
+    "billboard_detail_request",
     "board_changes_request",
     "board_constituent_request",
     "board_fund_flow_request",

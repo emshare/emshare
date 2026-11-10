@@ -1,0 +1,203 @@
+{
+  "detail_page": {
+    "version": "5f3672b4e4b44bac4da08032d132f060",
+    "result": {
+      "pages": 20,
+      "data": [
+        {
+          "SECURITY_CODE": "000525",
+          "SECURITY_NAME_ABBR": "红太阳",
+          "SECUCODE": "000525.SZ",
+          "TRADE_DATE": "2026-11-06 00:00:00",
+          "EXPLANATION": "日涨幅偏离值达到7%的前5只证券",
+          "EXPLAIN": "普通席位买入，成功率38.49%",
+          "CLOSE_PRICE": 5.02,
+          "CHANGE_RATE": 10.0877,
+          "BILLBOARD_NET_AMT": 98694262.06,
+          "BILLBOARD_BUY_AMT": 148944265.27,
+          "BILLBOARD_SELL_AMT": 50250003.21,
+          "BILLBOARD_DEAL_AMT": 199194268.48,
+          "ACCUM_AMOUNT": 593597267,
+          "DEAL_NET_RATIO": 16.626468406567,
+          "DEAL_AMOUNT_RATIO": 33.557140430702,
+          "TURNOVERRATE": 11.3403,
+          "FREE_MARKET_CAP": 5581035225.1,
+          "D1_CLOSE_ADJCHRATE": 9.96015936,
+          "D2_CLOSE_ADJCHRATE": null,
+          "D5_CLOSE_ADJCHRATE": null,
+          "D10_CLOSE_ADJCHRATE": null,
+          "TRADE_ID": 100440276
+        },
+        {
+          "SECURITY_CODE": "000530",
+          "SECURITY_NAME_ABBR": "冰山冷热",
+          "SECUCODE": "000530.SZ",
+          "TRADE_DATE": "2026-11-06 00:00:00",
+          "EXPLANATION": "日换手率达到20%的前5只证券",
+          "EXPLAIN": "2家机构卖出，成功率18.37%",
+          "CLOSE_PRICE": 8.7,
+          "CHANGE_RATE": -3.7611,
+          "BILLBOARD_NET_AMT": -27359349,
+          "BILLBOARD_BUY_AMT": 126251727.43,
+          "BILLBOARD_SELL_AMT": 153611076.43,
+          "BILLBOARD_DEAL_AMT": 279862803.86,
+          "ACCUM_AMOUNT": 1623302557,
+          "DEAL_NET_RATIO": -1.68541279517,
+          "DEAL_AMOUNT_RATIO": 17.240335306143,
+          "TURNOVERRATE": 30.0962,
+          "FREE_MARKET_CAP": 5629150507.5,
+          "D1_CLOSE_ADJCHRATE": 10,
+          "D2_CLOSE_ADJCHRATE": null,
+          "D5_CLOSE_ADJCHRATE": null,
+          "D10_CLOSE_ADJCHRATE": null,
+          "TRADE_ID": 100440309
+        },
+        {
+          "SECURITY_CODE": "000603",
+          "SECURITY_NAME_ABBR": "盛达资源",
+          "SECUCODE": "000603.SZ",
+          "TRADE_DATE": "2026-11-06 00:00:00",
+          "EXPLANATION": "连续三个交易日内，涨幅偏离值累计达到20%的证券",
+          "EXPLAIN": "4家机构买入，成功率18.11%",
+          "CLOSE_PRICE": 26.53,
+          "CHANGE_RATE": 1.8426,
+          "BILLBOARD_NET_AMT": -27526649.09,
+          "BILLBOARD_BUY_AMT": 897849991.23,
+          "BILLBOARD_SELL_AMT": 925376640.32,
+          "BILLBOARD_DEAL_AMT": 1823226631.55,
+          "ACCUM_AMOUNT": 4474338756,
+          "DEAL_NET_RATIO": -0.61521155619,
+          "DEAL_AMOUNT_RATIO": 40.748515724365,
+          "TURNOVERRATE": 12.0592,
+          "FREE_MARKET_CAP": 17687985004.27,
+          "D1_CLOSE_ADJCHRATE": 4.5231813,
+          "D2_CLOSE_ADJCHRATE": null,
+          "D5_CLOSE_ADJCHRATE": null,
+          "D10_CLOSE_ADJCHRATE": null,
+          "TRADE_ID": 100440302
+        },
+        {
+          "SECURITY_CODE": "000635",
+          "SECURITY_NAME_ABBR": "英力特",
+          "SECUCODE": "000635.SZ",
+          "TRADE_DATE": "2026-11-06 00:00:00",
+          "EXPLANATION": "连续三个交易日内，涨幅偏离值累计达到20%的证券",
+          "EXPLAIN": "4家机构买入，成功率25.87%",
+          "CLOSE_PRICE": 9.5,
+          "CHANGE_RATE": 8.8202,
+          "BILLBOARD_NET_AMT": 50509879.7,
+          "BILLBOARD_BUY_AMT": 154879130.11,
+          "BILLBOARD_SELL_AMT": 104369250.41,
+          "BILLBOARD_DEAL_AMT": 259248380.52,
+          "ACCUM_AMOUNT": 625377755,
+          "DEAL_NET_RATIO": 8.076699130432,
+          "DEAL_AMOUNT_RATIO": 41.454685339743,
+          "TURNOVERRATE": 13.2854,
+          "FREE_MARKET_CAP": 3484788252,
+          "D1_CLOSE_ADJCHRATE": -5.68421053,
+          "D2_CLOSE_ADJCHRATE": null,
+          "D5_CLOSE_ADJCHRATE": null,
+          "D10_CLOSE_ADJCHRATE": null,
+          "TRADE_ID": 100440274
+        }
+      ],
+      "count": 79
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "same_stock_two_reasons": {
+    "version": "b4758c424d9433e3e5ba7f67b9b3041f",
+    "result": {
+      "pages": 1,
+      "data": [
+        {
+          "SECURITY_CODE": "000530",
+          "SECURITY_NAME_ABBR": "冰山冷热",
+          "SECUCODE": "000530.SZ",
+          "TRADE_DATE": "2026-11-02 00:00:00",
+          "EXPLANATION": "日涨幅偏离值达到7%的前5只证券",
+          "EXPLAIN": "2家机构买入，成功率39.83%",
+          "CLOSE_PRICE": 8.71,
+          "CHANGE_RATE": 9.9747,
+          "BILLBOARD_NET_AMT": 149804757.14,
+          "BILLBOARD_BUY_AMT": 316180200.81,
+          "BILLBOARD_SELL_AMT": 166375443.67,
+          "BILLBOARD_DEAL_AMT": 482555644.48,
+          "ACCUM_AMOUNT": 1805134883,
+          "DEAL_NET_RATIO": 8.298812379662,
+          "DEAL_AMOUNT_RATIO": 26.732387093314,
+          "TURNOVERRATE": 36.6945,
+          "FREE_MARKET_CAP": 5632736674.75,
+          "D1_CLOSE_ADJCHRATE": -1.26291619,
+          "D2_CLOSE_ADJCHRATE": 8.61079219,
+          "D5_CLOSE_ADJCHRATE": 9.87370838,
+          "D10_CLOSE_ADJCHRATE": null,
+          "TRADE_ID": 100436678
+        },
+        {
+          "SECURITY_CODE": "000530",
+          "SECURITY_NAME_ABBR": "冰山冷热",
+          "SECUCODE": "000530.SZ",
+          "TRADE_DATE": "2026-11-02 00:00:00",
+          "EXPLANATION": "日换手率达到20%的前5只证券",
+          "EXPLAIN": "2家机构买入，成功率39.83%",
+          "CLOSE_PRICE": 8.71,
+          "CHANGE_RATE": 9.9747,
+          "BILLBOARD_NET_AMT": 149804757.14,
+          "BILLBOARD_BUY_AMT": 316180200.81,
+          "BILLBOARD_SELL_AMT": 166375443.67,
+          "BILLBOARD_DEAL_AMT": 482555644.48,
+          "ACCUM_AMOUNT": 1805134883,
+          "DEAL_NET_RATIO": 8.298812379662,
+          "DEAL_AMOUNT_RATIO": 26.732387093314,
+          "TURNOVERRATE": 36.6945,
+          "FREE_MARKET_CAP": 5632736674.75,
+          "D1_CLOSE_ADJCHRATE": -1.26291619,
+          "D2_CLOSE_ADJCHRATE": 8.61079219,
+          "D5_CLOSE_ADJCHRATE": 9.87370838,
+          "D10_CLOSE_ADJCHRATE": null,
+          "TRADE_ID": 100436691
+        }
+      ],
+      "count": 2
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "empty": {
+    "version": null,
+    "result": null,
+    "success": false,
+    "message": "返回数据为空",
+    "code": 9201
+  },
+  "query_error": {
+    "version": null,
+    "result": null,
+    "success": false,
+    "message": "NO_SUCH_COL返回字段不存在",
+    "code": 9501
+  },
+  "param_error": {
+    "code": "200",
+    "message": "全局错误:org.springframework.validation.BeanPropertyBindingResult: 1 errors\nField error in object 'newApiModelV1' on field 'pageNumber': rejected value [x]; codes [typeMismatch.newApiModelV1.pageNumber,typeMismatch.pageNumber,typeMismatch.java.lang.Integer,typeMismatch]; arguments [org.springframework.context.support.DefaultMessageSourceResolvable: codes [newApiModelV1.pageNumber,pageNumber]; arguments []; default message [pageNumber]]; default message [Failed to convert property value of type 'java.lang.String' to required type 'java.lang.Integer' for property 'pageNumber'; nested exception is java.lang.NumberFormatException: For input string: \"x\"]"
+  },
+  "latest": {
+    "version": "2026d9e172c95dc371ef055076ed9a08",
+    "result": {
+      "pages": 270816,
+      "data": [
+        {
+          "TRADE_DATE": "2026-11-09 00:00:00"
+        }
+      ],
+      "count": 270816
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  }
+}

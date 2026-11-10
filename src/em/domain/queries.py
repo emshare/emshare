@@ -163,3 +163,15 @@ class StockChangesQuery:
 @dataclass(frozen=True)
 class BoardChangesQuery:
     """板块异动（push2ex），一次返回最近一个交易日全部有异动的板块。上游无可选参数。"""
+
+
+@dataclass(frozen=True)
+class BillboardDetailQuery:
+    """龙虎榜详情（数据中心），按上榜日期区间取全部上榜记录。
+
+    日期为 ``YYYYMMDD``：都留空取最近一个有龙虎榜的交易日；只给 ``start_date`` 时取到今天
+    （北京时间）；只给 ``end_date`` 时只取那一天。
+    """
+
+    start_date: str | None = None
+    end_date: str | None = None

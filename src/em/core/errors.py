@@ -20,6 +20,14 @@ class SecurityNotFoundError(EmError):
     """
 
 
+class QueryRejectedError(EmError):
+    """上游明确拒绝了查询：查询本身写错了，换 IP 也一样，不重试。
+
+    如数据中心的 code=9501（报表 / 列名 / 排序列不存在、日期格式不对）。不是渠道异常：
+    响应是正常协议，归为 ``ChannelError`` 会被当成劫持页、拉黑好 IP 并重试到耗尽。
+    """
+
+
 class PageDeadlineExceeded(EmError):
     """单页超过时间预算：标记为失败页，交给定向补漏，不阻塞整轮。
 

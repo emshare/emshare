@@ -149,3 +149,30 @@ CHANGE_TYPE_CODES = {
     "new_low_60d": 8214,  # 60日新低
     "big_drop_60d": 8216,  # 60日大幅下跌
 }
+# 数据中心（datacenter-web）报表接口：龙虎榜 / 大宗交易 / 业绩与财报等，按 reportName 区分报表
+DATACENTER_HOST = "https://datacenter-web.eastmoney.com"
+DATACENTER_PATH = "/api/data/v1/get"
+# 单页上限：pageSize 传 5000 / 50000 也只返回 500 条（实测），全量要翻页
+DATACENTER_PAGE_SIZE = 500
+# 返回码（实测）：0 成功；9201 查无数据（过滤后为空、页号越界）。查询写错的两种：9501（报表 / 列名 /
+# 排序列不存在、日期格式不对）、200（参数类型不对，如页码不是整数；这种 code 是字符串 "200"）——
+# 换 IP 也一样，不重试。9701 服务器繁忙与其余未知码按渠道异常换 IP 重试
+DATACENTER_OK = 0
+DATACENTER_EMPTY = 9201
+DATACENTER_QUERY_ERRORS = (9501, 200)
+# 单页 500 行，响应体实测几十到几百 KB（龙虎榜详情 22 列 347KB、全部列 572KB），与全量 K 线同量级，读预算同 K 线
+DATACENTER_READ_TIMEOUT_SEC = KLINE_READ_TIMEOUT_SEC
+# 市场范围 -> TRADE_MARKET_CODE 过滤（取值同 stock_list_em 的 scope；实测 2026-09-30 资产负债表
+# all 5578 = sh 2318 + sz 2905 + bj 355，kc 616 / cy 1372 / st 181）
+DATACENTER_SCOPE_FILTERS = {
+    "all": "",
+    "sh": '(TRADE_MARKET_CODE in ("069001001001","069001001003","069001001006"))',
+    "sz": '(TRADE_MARKET_CODE in ("069001002001","069001002002","069001002003","069001002005"))',
+    "bj": '(TRADE_MARKET_CODE="069001017")',
+    "kc": '(TRADE_MARKET_CODE="069001001006")',
+    "cy": '(TRADE_MARKET_CODE="069001002002")',
+    "st": '(TRADE_MARKET_CODE in ("069001001003","069001002005"))',
+}
+# 统计周期 -> 上游取值（用户定 1mo / 3mo / 6mo / 1y，避免与 K 线分钟周期 5m 混淆）
+# 龙虎榜个股统计 / 机构席位追踪 / 营业部排行与统计（STATISTICS_CYCLE / STATISTICSCYCLE）
+BILLBOARD_PERIODS = {"1mo": "01", "3mo": "02", "6mo": "03", "1y": "04"}

@@ -6,8 +6,8 @@
 em/                                          # 东方财富行情抓取
 ├── src/em/                                  # 源码包
 │   ├── domain/                              # 领域模型（最内层，零渠道依赖）
-│   │   ├── models.py                        # Quote/Kline/Trend/FundFlow/IndexQuote/HkQuote/FundQuote/LimitPoolStock/StockInfo/StockBidAsk/StockChange/BoardChange 及各自 Series/Page
-│   │   ├── queries.py                       # BoardQuery/MarketQuery/KlineQuery/TrendQuery/FundFlowQuery/BoardKlineQuery/IndexListQuery/HkStockListQuery/FundListQuery/LimitPoolQuery/StockInfoQuery/StockBidAskQuery/StockChangesQuery/BoardChangesQuery 等
+│   │   ├── models.py                        # Quote/Kline/Trend/FundFlow/IndexQuote/HkQuote/FundQuote/LimitPoolStock/StockInfo/StockBidAsk/StockChange/BoardChange/BillboardEntry 及各自 Series/Page，报表结果 ReportPage
+│   │   ├── queries.py                       # BoardQuery/MarketQuery/KlineQuery/TrendQuery/FundFlowQuery/BoardKlineQuery/IndexListQuery/HkStockListQuery/FundListQuery/LimitPoolQuery/StockInfoQuery/StockBidAskQuery/StockChangesQuery/BoardChangesQuery/BillboardDetailQuery 等
 │   │   ├── units.py                         # 单位别名与换算（元 / % / 手 / 点 / 港元 / 股）
 │   │   └── __init__.py
 │   ├── core/                                # 基座：配置 / 弹性 / 代理 / 传输
@@ -35,6 +35,8 @@ em/                                          # 东方财富行情抓取
 │   │   │   ├── stock_info/                  # 个股基本信息（stock_info_em.py，stock/get）
 │   │   │   ├── stock_bid_ask/               # 个股五档盘口（stock_bid_ask_em.py，stock/get）
 │   │   │   └── stock_changes/               # 盘口异动（stock_changes_em.py，push2ex）
+│   │   ├── ashare_billboard/                # 龙虎榜（数据中心）
+│   │   │   └── billboard_detail/            # 龙虎榜详情（billboard_detail_em.py）
 │   │   ├── ashare_indices/                  # 沪深京指数
 │   │   │   └── index_list/                  # 指数列表（index_list_em.py）
 │   │   ├── hk_market/                       # 港股市场
@@ -51,13 +53,15 @@ em/                                          # 东方财富行情抓取
 │   │   ├── special_quotes/.gitkeep          # 特色行情（占位）
 │   │   ├── stock_connect/.gitkeep           # 沪深港通（占位）
 │   │   ├── config.py                        # 域名 / 请求头 / 字段集 / 周期与复权映射
-│   │   ├── request.py                       # ClistRequest / KlineRequest / TrendsRequest / FundFlowRequest / LimitPoolRequest / StockGetRequest / StockChangesRequest / BoardChangesRequest
+│   │   ├── request.py                       # ClistRequest / KlineRequest / TrendsRequest / FundFlowRequest / LimitPoolRequest / StockGetRequest / StockChangesRequest / BoardChangesRequest / DatacenterRequest
+│   │   ├── datacenter.py                    # 数据中心报表公共部分：列映射 / 单位换算 / 过滤条件 / 单页解析
 │   │   ├── mapping.py                       # JSONP 解析 + f* -> 领域模型
 │   │   ├── source.py                        # 取数来源
 │   │   └── __init__.py
 │   ├── application/                         # 组合根
 │   │   ├── registry.py                      # 唯一的渠道入口登记
-│   │   ├── market_data.py                   # board_constituent_em/industry_list/board_kline/market/index_list/hk_stock_list/fund_list/limit_pool/stock_info/bid_ask/stock_changes/board_changes/kline/trends/fund_flow + _df 版
+│   │   ├── market_data.py                   # board_constituent_em/industry_list/board_kline/market/index_list/hk_stock_list/fund_list/limit_pool/stock_info/bid_ask/stock_changes/board_changes/billboard_detail/kline/trends/fund_flow + _df 版
+│   │   ├── reports.py                       # 数据中心报表翻页（并发取页、条数校验、取最近一天）
 │   │   ├── dataframe.py                     # 领域模型 -> DataFrame（中文列名）
 │   │   ├── catalog.py                       # 接口检索：search/interface_info/list_categories
 │   │   └── __init__.py
@@ -79,6 +83,8 @@ em/                                          # 东方财富行情抓取
 │   │   ├── test_stock_limit_pool.py / test_stock_limit_pool_dataframe.py
 │   │   ├── test_stock_info_bid_ask.py / test_stock_info_bid_ask_dataframe.py
 │   │   ├── test_stock_changes.py / test_board_changes.py / test_changes_dataframe.py
+│   │   ├── test_datacenter.py               # 数据中心底座：协议校验 / 单页解析 / 查询条件 / 翻页器
+│   │   ├── test_billboard_detail.py
 │   │   ├── test_board_industry_list.py / test_board_industry_list_dataframe.py
 │   │   ├── test_dataframe.py                # QuotePage DataFrame
 │   │   ├── test_mapping.py                  # 报文映射
@@ -93,7 +99,7 @@ em/                                          # 东方财富行情抓取
 │   │   ├── test_docs_sync.py                # 文档与源码同步守卫
 │   │   ├── test_env_example.py              # .env.example 完整性守卫
 │   │   └── __init__.py
-│   ├── fixtures/eastmoney/                  # 固定报文（kline/trends/fund_flow/board_fund_flow/board_kline/clist_board/clist_board_industry/clist_index/clist_hk_stock/clist_fund/push2ex_limit_pool/stock_get/push2ex_changes）
+│   ├── fixtures/eastmoney/                  # 固定报文（kline/trends/fund_flow/board_fund_flow/board_kline/clist_board/clist_board_industry/clist_index/clist_hk_stock/clist_fund/push2ex_limit_pool/stock_get/push2ex_changes/datacenter_billboard）
 │   ├── conftest.py
 │   └── __init__.py
 ├── docs/interfaces/eastmoney/               # 接口文档（按渠道分组，详见该目录 directory_tree.md）
@@ -105,5 +111,5 @@ em/                                          # 东方财富行情抓取
 └── .env                                     # 环境变量（不入库，含代理 API 凭证）
 ```
 
-> - 除 `ashare_boards/`、`ashare_stocks/`、`ashare_indices/`、`hk_market/`、`fund_market/` 外，其余市场目录暂为空占位，待对应功能实现后填充。
+> - 除 `ashare_boards/`、`ashare_stocks/`、`ashare_billboard/`、`ashare_indices/`、`hk_market/`、`fund_market/` 外，其余市场目录暂为空占位，待对应功能实现后填充。
 > - `.env`、`uv.lock`、`123.txt` 不纳入接口文档视野，仅在此标注存在。
