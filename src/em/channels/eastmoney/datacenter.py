@@ -239,6 +239,16 @@ def normalize_scope(scope: str) -> str:
     return scope if scope in config.DATACENTER_SCOPE_FILTERS else "all"
 
 
+def normalize_period(period: str) -> str:
+    """龙虎榜统计周期；未知回退 1mo。"""
+    return period if period in config.BILLBOARD_PERIODS else "1mo"
+
+
+def period_filter(column: str, period: str) -> str:
+    """龙虎榜统计周期 → 过滤条件（各报表的周期列名不同：STATISTICS_CYCLE / STATISTICSCYCLE）。"""
+    return equals(column, config.BILLBOARD_PERIODS[normalize_period(period)])
+
+
 # ---------------------------------------------------------------- 单页解析
 
 

@@ -1,0 +1,720 @@
+{
+  "stock_stats": {
+    "version": "f6105a480f4ed9808ed532d1d926d405",
+    "result": {
+      "pages": 330,
+      "data": [
+        {
+          "SECURITY_CODE": "000530",
+          "SECURITY_NAME_ABBR": "冰山冷热",
+          "SECUCODE": "000530.SZ",
+          "LATEST_TDATE": "2026-11-11 00:00:00",
+          "CLOSE_PRICE": 11.28,
+          "CHANGE_RATE": 7.1225,
+          "BILLBOARD_TIMES": 23,
+          "BILLBOARD_NET_BUY": 331420685.06,
+          "BILLBOARD_BUY_AMT": 5509563110.57,
+          "BILLBOARD_SELL_AMT": 5178142425.51,
+          "BILLBOARD_DEAL_AMT": 10687705536.08,
+          "ORG_BUY_TIMES": 81,
+          "ORG_SELL_TIMES": 81,
+          "ORG_NET_BUY": 159776200.24,
+          "ORG_BUY_AMT": 2793846487.92,
+          "ORG_SELL_AMT": 2634070287.68,
+          "IPCT1M": 111.63227017,
+          "IPCT3M": 123.80952381,
+          "IPCT6M": 87.40793121,
+          "IPCT1Y": 59.80928777,
+          "STATISTICS_CYCLE": "01"
+        },
+        {
+          "SECURITY_CODE": "002343",
+          "SECURITY_NAME_ABBR": "慈文传媒",
+          "SECUCODE": "002343.SZ",
+          "LATEST_TDATE": "2026-11-11 00:00:00",
+          "CLOSE_PRICE": 9.7,
+          "CHANGE_RATE": 3.9657,
+          "BILLBOARD_TIMES": 21,
+          "BILLBOARD_NET_BUY": -85747416.19,
+          "BILLBOARD_BUY_AMT": 4193107871.61,
+          "BILLBOARD_SELL_AMT": 4278855287.8,
+          "BILLBOARD_DEAL_AMT": 8471963159.41,
+          "ORG_BUY_TIMES": 67,
+          "ORG_SELL_TIMES": 63,
+          "ORG_NET_BUY": 105522595.57,
+          "ORG_BUY_AMT": 1845692205,
+          "ORG_SELL_AMT": 1740169609.43,
+          "IPCT1M": 59.53947368,
+          "IPCT3M": 85.46845124,
+          "IPCT6M": 53.48101266,
+          "IPCT1Y": 19.75308642,
+          "STATISTICS_CYCLE": "01"
+        }
+      ],
+      "count": 660
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "institution": {
+    "version": "581d542347975da787fea6b022307cfd",
+    "result": {
+      "pages": 26,
+      "data": [
+        {
+          "SECURITY_CODE": "002384",
+          "SECURITY_NAME_ABBR": "东山精密",
+          "SECUCODE": "002384.SZ",
+          "TRADE_DATE": "2026-11-11 00:00:00",
+          "EXPLANATION": "日涨幅偏离值达到7%的前5只证券",
+          "CLOSE_PRICE": 92.06,
+          "CHANGE_RATE": 10.0012,
+          "BUY_TIMES": 3,
+          "SELL_TIMES": 4,
+          "BUY_AMT": 1253002378.12,
+          "SELL_AMT": 783096486.73,
+          "NET_BUY_AMT": 469905891.39,
+          "ACCUM_AMOUNT": 12653578551,
+          "RATIO": 3.713620534271,
+          "TURNOVERRATE": 10.3151,
+          "FREECAP": 1276.25,
+          "D1_CLOSE_ADJCHRATE": null,
+          "D2_CLOSE_ADJCHRATE": null,
+          "D3_CLOSE_ADJCHRATE": null,
+          "D5_CLOSE_ADJCHRATE": null,
+          "D10_CLOSE_ADJCHRATE": null
+        },
+        {
+          "SECURITY_CODE": "688801",
+          "SECURITY_NAME_ABBR": "燧原科技",
+          "SECUCODE": "688801.SH",
+          "TRADE_DATE": "2026-11-11 00:00:00",
+          "EXPLANATION": "有价格涨跌幅限制的连续3个交易日内收盘价格涨幅偏离值累计达到30%的证券",
+          "CLOSE_PRICE": 494,
+          "CHANGE_RATE": 11.2738,
+          "BUY_TIMES": 2,
+          "SELL_TIMES": 1,
+          "BUY_AMT": 555507051.18,
+          "SELL_AMT": 120908315.3,
+          "NET_BUY_AMT": 434598735.88,
+          "ACCUM_AMOUNT": 4136849000,
+          "RATIO": 10.505549897519,
+          "TURNOVERRATE": 15.3249,
+          "FREECAP": 88.43,
+          "D1_CLOSE_ADJCHRATE": null,
+          "D2_CLOSE_ADJCHRATE": null,
+          "D3_CLOSE_ADJCHRATE": null,
+          "D5_CLOSE_ADJCHRATE": null,
+          "D10_CLOSE_ADJCHRATE": null
+        }
+      ],
+      "count": 52
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "institution_two_reasons": {
+    "version": "9946b742b61d7ee373a0d6de76e7dcd8",
+    "result": {
+      "pages": 1,
+      "data": [
+        {
+          "SECURITY_CODE": "688836",
+          "SECURITY_NAME_ABBR": "宇树科技",
+          "SECUCODE": "688836.SH",
+          "TRADE_DATE": "2026-10-26 00:00:00",
+          "EXPLANATION": "有价格涨跌幅限制的连续3个交易日内收盘价格涨幅偏离值累计达到30%的证券",
+          "CLOSE_PRICE": 672,
+          "CHANGE_RATE": 7.6923,
+          "BUY_TIMES": 1,
+          "SELL_TIMES": 0,
+          "BUY_AMT": 553323921.87,
+          "SELL_AMT": 0,
+          "NET_BUY_AMT": 553323921.87,
+          "ACCUM_AMOUNT": 15127914600,
+          "RATIO": 3.65763514999,
+          "TURNOVERRATE": 37.7152,
+          "FREECAP": 202.19,
+          "D1_CLOSE_ADJCHRATE": -4.76785714,
+          "D2_CLOSE_ADJCHRATE": 3.55654762,
+          "D3_CLOSE_ADJCHRATE": -1.43005952,
+          "D5_CLOSE_ADJCHRATE": -1.46279762,
+          "D10_CLOSE_ADJCHRATE": 6.54761905
+        },
+        {
+          "SECURITY_CODE": "688836",
+          "SECURITY_NAME_ABBR": "宇树科技",
+          "SECUCODE": "688836.SH",
+          "TRADE_DATE": "2026-10-26 00:00:00",
+          "EXPLANATION": "有价格涨跌幅限制的日换手率达到30%的前五只证券",
+          "CLOSE_PRICE": 672,
+          "CHANGE_RATE": 7.6923,
+          "BUY_TIMES": 2,
+          "SELL_TIMES": 0,
+          "BUY_AMT": 249064990.53,
+          "SELL_AMT": 0,
+          "NET_BUY_AMT": 249064990.53,
+          "ACCUM_AMOUNT": 7464759700,
+          "RATIO": 3.336543981851,
+          "TURNOVERRATE": 37.7152,
+          "FREECAP": 202.19,
+          "D1_CLOSE_ADJCHRATE": -4.76785714,
+          "D2_CLOSE_ADJCHRATE": 3.55654762,
+          "D3_CLOSE_ADJCHRATE": -1.43005952,
+          "D5_CLOSE_ADJCHRATE": -1.46279762,
+          "D10_CLOSE_ADJCHRATE": 6.54761905
+        }
+      ],
+      "count": 2
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "institution_stats": {
+    "version": "78e7ea5e4e98bd805c8c73460ac8a6f4",
+    "result": {
+      "pages": 247,
+      "data": [
+        {
+          "SECURITY_CODE": "000530",
+          "SECURITY_NAME_ABBR": "冰山冷热",
+          "SECUCODE": "000530.SZ",
+          "CLOSE_PRICE": 11.28,
+          "CHANGE_RATE": 7.1225,
+          "AMOUNT": 10395854562.3,
+          "ONLIST_TIMES": 22,
+          "BUY_AMT": 2793846487.92,
+          "BUY_TIMES": 81,
+          "SELL_AMT": 2634070287.68,
+          "SELL_TIMES": 81,
+          "NET_BUY_AMT": 159776200.24,
+          "M1_CLOSE_ADJCHRATE": 111.63227017,
+          "M3_CLOSE_ADJCHRATE": 123.80952381,
+          "M6_CLOSE_ADJCHRATE": 87.40793121,
+          "Y1_CLOSE_ADJCHRATE": 59.80928777,
+          "STATISTICSCYCLE": "01"
+        },
+        {
+          "SECURITY_CODE": "301052",
+          "SECURITY_NAME_ABBR": "果麦文化",
+          "SECUCODE": "301052.SZ",
+          "CLOSE_PRICE": 48.96,
+          "CHANGE_RATE": 20,
+          "AMOUNT": 6146602729.62,
+          "ONLIST_TIMES": 21,
+          "BUY_AMT": 2185070139.21,
+          "BUY_TIMES": 94,
+          "SELL_AMT": 2338431970.51,
+          "SELL_TIMES": 96,
+          "NET_BUY_AMT": -153361831.3,
+          "M1_CLOSE_ADJCHRATE": 92.83182355,
+          "M3_CLOSE_ADJCHRATE": 95.99679744,
+          "M6_CLOSE_ADJCHRATE": 44.51003542,
+          "Y1_CLOSE_ADJCHRATE": 12.67378454,
+          "STATISTICSCYCLE": "01"
+        }
+      ],
+      "count": 494
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "branch_active": {
+    "version": "754548c23b1d70d2a09c4a7ac19191a7",
+    "result": {
+      "pages": 100,
+      "data": [
+        {
+          "OPERATEDEPT_CODE": "10634757",
+          "OPERATEDEPT_NAME": "深股通专用",
+          "ONLIST_DATE": "2026-11-11 00:00:00",
+          "BUYER_APPEAR_NUM": 21,
+          "SELLER_APPEAR_NUM": 22,
+          "TOTAL_BUYAMT": 5014364348.87,
+          "TOTAL_SELLAMT": 4327120769.35,
+          "TOTAL_NETAMT": 687243579.52,
+          "SECURITY_NAME_ABBR": "飞亚达 德龙汇能 襄阳轴承 胜通能源 智微智能 东方海洋 桂林三金 光迅科技 东山精密 沪电股份 光洋股份 中坚科技 奥士康 深南电路 锋龙股份 德尔股份 阿尔特 博硕科技 同飞股份 致尚科技 瑞迪智驱 贝特利",
+          "BUY_STOCK": "000026.SZ 000593.SZ 000678.SZ 001331.SZ 001339.SZ 002086.SZ 002275.SZ 002281.SZ 002384.SZ 002463.SZ 002708.SZ 002779.SZ 002913.SZ 002916.SZ 002931.SZ 300473.SZ 300825.SZ 300951.SZ 300990.SZ 301486.SZ 301596.SZ 301697.SZ"
+        },
+        {
+          "OPERATEDEPT_CODE": "10434470",
+          "OPERATEDEPT_NAME": "沪股通专用",
+          "ONLIST_DATE": "2026-11-11 00:00:00",
+          "BUYER_APPEAR_NUM": 15,
+          "SELLER_APPEAR_NUM": 16,
+          "TOTAL_BUYAMT": 2181827964.5,
+          "TOTAL_SELLAMT": 1950810545.06,
+          "TOTAL_NETAMT": 231017419.44,
+          "SECURITY_NAME_ABBR": "青山纸业 金健米业 文投控股 东方通信 上海电影 新坐标 电魂网络 永臻股份 风语筑 苏州科达 岱美股份 世运电路 新炬网络 福莱新材 龙版传媒 利扬芯片 源杰科技",
+          "BUY_STOCK": "600103.SH 600127.SH 600715.SH 600776.SH 601595.SH 603040.SH 603258.SH 603381.SH 603466.SH 603660.SH 603730.SH 603920.SH 605398.SH 605488.SH 605577.SH 688135.SH 688498.SH"
+        }
+      ],
+      "count": 200
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "branch_active_same_code": {
+    "version": "0c9cf242261df05fc4b20147b6a56067",
+    "result": {
+      "pages": 1,
+      "data": [
+        {
+          "OPERATEDEPT_CODE": "10025080",
+          "OPERATEDEPT_NAME": "国泰海通证券股份有限公司长宁区江苏路证券营业部",
+          "ONLIST_DATE": "2026-11-11 00:00:00",
+          "BUYER_APPEAR_NUM": 9,
+          "SELLER_APPEAR_NUM": 6,
+          "TOTAL_BUYAMT": 557573650.72,
+          "TOTAL_SELLAMT": 423612037.62,
+          "TOTAL_NETAMT": 133961613.1,
+          "SECURITY_NAME_ABBR": "文投控股 大晟文化 浙文影业 电魂网络 天洋新材 风语筑",
+          "BUY_STOCK": "600715.SH 600892.SH 601599.SH 603258.SH 603330.SH 603466.SH"
+        },
+        {
+          "OPERATEDEPT_CODE": "10025080",
+          "OPERATEDEPT_NAME": "国泰海通证券股份有限公司上海长宁区江苏路证券营业部",
+          "ONLIST_DATE": "2026-11-11 00:00:00",
+          "BUYER_APPEAR_NUM": 9,
+          "SELLER_APPEAR_NUM": 6,
+          "TOTAL_BUYAMT": 557573650.72,
+          "TOTAL_SELLAMT": 423612037.62,
+          "TOTAL_NETAMT": 133961613.1,
+          "SECURITY_NAME_ABBR": "胜通能源 阿尔特 肯特股份 瑞迪智驱",
+          "BUY_STOCK": "001331.SZ 300825.SZ 301591.SZ 301596.SZ"
+        }
+      ],
+      "count": 2
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "branch_rank": {
+    "version": "c55d4f65238eb838eb2d303a3201c0d0",
+    "result": {
+      "pages": 500,
+      "data": [
+        {
+          "OPERATEDEPT_CODE": "10004865",
+          "OPERATEDEPT_NAME": "国泰海通",
+          "TOTAL_BUYER_SALESTIMES_1DAY": 355,
+          "AVERAGE_INCREASE_1DAY": -0.366519958563,
+          "RISE_PROBABILITY_1DAY": 41.971830985916,
+          "TOTAL_BUYER_SALESTIMES_2DAY": 339,
+          "AVERAGE_INCREASE_2DAY": -1.177640640295,
+          "RISE_PROBABILITY_2DAY": 36.283185840708,
+          "TOTAL_BUYER_SALESTIMES_3DAY": 324,
+          "AVERAGE_INCREASE_3DAY": -2.424836784599,
+          "RISE_PROBABILITY_3DAY": 33.333333333333,
+          "TOTAL_BUYER_SALESTIMES_5DAY": 287,
+          "AVERAGE_INCREASE_5DAY": -4.358377676341,
+          "RISE_PROBABILITY_5DAY": 29.616724738676,
+          "TOTAL_BUYER_SALESTIMES_10DAY": 214,
+          "AVERAGE_INCREASE_10DAY": -8.733084272804,
+          "RISE_PROBABILITY_10DAY": 21.495327102804,
+          "STATISTICSCYCLE": "01"
+        },
+        {
+          "OPERATEDEPT_CODE": "10634757",
+          "OPERATEDEPT_NAME": "深股通专用",
+          "TOTAL_BUYER_SALESTIMES_1DAY": 334,
+          "AVERAGE_INCREASE_1DAY": 0.00177276979,
+          "RISE_PROBABILITY_1DAY": 46.706586826347,
+          "TOTAL_BUYER_SALESTIMES_2DAY": 322,
+          "AVERAGE_INCREASE_2DAY": -0.691904748851,
+          "RISE_PROBABILITY_2DAY": 42.236024844721,
+          "TOTAL_BUYER_SALESTIMES_3DAY": 309,
+          "AVERAGE_INCREASE_3DAY": -1.491421326796,
+          "RISE_PROBABILITY_3DAY": 43.36569579288,
+          "TOTAL_BUYER_SALESTIMES_5DAY": 280,
+          "AVERAGE_INCREASE_5DAY": -2.700790859643,
+          "RISE_PROBABILITY_5DAY": 35,
+          "TOTAL_BUYER_SALESTIMES_10DAY": 193,
+          "AVERAGE_INCREASE_10DAY": -6.282595432798,
+          "RISE_PROBABILITY_10DAY": 33.160621761658,
+          "STATISTICSCYCLE": "01"
+        }
+      ],
+      "count": 1000
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "branch_stats": {
+    "version": "2de37d348b1518813df172584a017a04",
+    "result": {
+      "pages": 501,
+      "data": [
+        {
+          "OPERATEDEPT_CODE": "10634757",
+          "OPERATEDEPT_NAME": "深股通专用",
+          "AMOUNT": 77633117523.64,
+          "SALES_ONLIST_TIMES": 426,
+          "ACT_BUY": 39537762336.88,
+          "TOTAL_BUYER_SALESTIMES": 425,
+          "ACT_SELL": 38095355186.76,
+          "TOTAL_SELLER_SALESTIMES": 425,
+          "STATISTICSCYCLE": "01"
+        },
+        {
+          "OPERATEDEPT_CODE": "10434470",
+          "OPERATEDEPT_NAME": "沪股通专用",
+          "AMOUNT": 52270989817.81,
+          "SALES_ONLIST_TIMES": 534,
+          "ACT_BUY": 27260753649.88,
+          "TOTAL_BUYER_SALESTIMES": 264,
+          "ACT_SELL": 25010236167.93,
+          "TOTAL_SELLER_SALESTIMES": 270,
+          "STATISTICSCYCLE": "01"
+        }
+      ],
+      "count": 1001
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "branch_trades": {
+    "version": "5460cd7698a2499d6171ae0d32d91d1a",
+    "result": {
+      "pages": 1,
+      "data": [
+        {
+          "OPERATEDEPT_CODE": "10188715",
+          "OPERATEDEPT_NAME": "东方证券股份有限公司上海普陀区云岭东路证券营业部",
+          "ORG_NAME_ABBR": "东方证券上海普陀区云岭东路证券营业部",
+          "TRADE_DATE": "2026-10-30 00:00:00",
+          "SECURITY_CODE": "603131",
+          "SECURITY_NAME_ABBR": "上海沪工",
+          "SECUCODE": "603131.SH",
+          "CHANGE_RATE": 10.0313,
+          "ACT_BUY": null,
+          "ACT_SELL": 5265000,
+          "NET_AMT": -5265000,
+          "EXPLANATION": "有价格涨跌幅限制的日收盘价格涨幅偏离值达到7%的前五只证券",
+          "D1_CLOSE_ADJCHRATE": -1.42450142,
+          "D2_CLOSE_ADJCHRATE": -11.28205128,
+          "D3_CLOSE_ADJCHRATE": -5.64102564,
+          "D5_CLOSE_ADJCHRATE": -7.97720798,
+          "D10_CLOSE_ADJCHRATE": null,
+          "D20_CLOSE_ADJCHRATE": null,
+          "D30_CLOSE_ADJCHRATE": null
+        }
+      ],
+      "count": 1
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "stock_dates": {
+    "version": "76e2ffd2c1694b216a3a517e1e1586dd",
+    "result": {
+      "pages": 24,
+      "data": [
+        {
+          "SECURITY_CODE": "000530",
+          "TRADE_DATE": "2026-11-11 00:00:00"
+        },
+        {
+          "SECURITY_CODE": "000530",
+          "TRADE_DATE": "2026-11-10 00:00:00"
+        },
+        {
+          "SECURITY_CODE": "000530",
+          "TRADE_DATE": "2026-11-06 00:00:00"
+        }
+      ],
+      "count": 72
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "stock_buy_two_reasons": {
+    "version": "43223917a934e45e4db7d67f2245bf8c",
+    "result": {
+      "pages": 1,
+      "data": [
+        {
+          "SECURITY_CODE": "000530",
+          "SECUCODE": "000530.SZ",
+          "TRADE_DATE": "2026-11-02 00:00:00",
+          "EXPLANATION": "日涨幅偏离值达到7%的前5只证券",
+          "OPERATEDEPT_CODE": "10026937",
+          "OPERATEDEPT_NAME": "国泰海通证券股份有限公司武汉紫阳东路证券营业部",
+          "BUY": 96641108.61,
+          "TOTAL_BUYRIO": 0.053536779728,
+          "SELL": 251259,
+          "TOTAL_SELLRIO": 0.000139191261,
+          "NET": 96389849.61,
+          "CLOSE_PRICE": 8.71,
+          "CHANGE_RATE": 9.9747,
+          "ACCUM_AMOUNT": 1805134883,
+          "TRADE_ID": "100436678"
+        },
+        {
+          "SECURITY_CODE": "000530",
+          "SECUCODE": "000530.SZ",
+          "TRADE_DATE": "2026-11-02 00:00:00",
+          "EXPLANATION": "日涨幅偏离值达到7%的前5只证券",
+          "OPERATEDEPT_CODE": "0",
+          "OPERATEDEPT_NAME": "机构专用",
+          "BUY": 44938927.19,
+          "TOTAL_BUYRIO": 0.024895052228,
+          "SELL": 33441581.08,
+          "TOTAL_SELLRIO": 0.018525807348,
+          "NET": 11497346.11,
+          "CLOSE_PRICE": 8.71,
+          "CHANGE_RATE": 9.9747,
+          "ACCUM_AMOUNT": 1805134883,
+          "TRADE_ID": "100436678"
+        },
+        {
+          "SECURITY_CODE": "000530",
+          "SECUCODE": "000530.SZ",
+          "TRADE_DATE": "2026-11-02 00:00:00",
+          "EXPLANATION": "日涨幅偏离值达到7%的前5只证券",
+          "OPERATEDEPT_CODE": "0",
+          "OPERATEDEPT_NAME": "机构专用",
+          "BUY": 40570811.34,
+          "TOTAL_BUYRIO": 0.022475224274,
+          "SELL": 16387426.36,
+          "TOTAL_SELLRIO": 0.009078228178,
+          "NET": 24183384.98,
+          "CLOSE_PRICE": 8.71,
+          "CHANGE_RATE": 9.9747,
+          "ACCUM_AMOUNT": 1805134883,
+          "TRADE_ID": "100436678"
+        },
+        {
+          "SECURITY_CODE": "000530",
+          "SECUCODE": "000530.SZ",
+          "TRADE_DATE": "2026-11-02 00:00:00",
+          "EXPLANATION": "日涨幅偏离值达到7%的前5只证券",
+          "OPERATEDEPT_CODE": "10467900",
+          "OPERATEDEPT_NAME": "国泰海通证券股份有限公司上海自贸试验区第二分公司",
+          "BUY": 37856915.68,
+          "TOTAL_BUYRIO": 0.020971793319,
+          "SELL": 0,
+          "TOTAL_SELLRIO": 0,
+          "NET": 37856915.68,
+          "CLOSE_PRICE": 8.71,
+          "CHANGE_RATE": 9.9747,
+          "ACCUM_AMOUNT": 1805134883,
+          "TRADE_ID": "100436678"
+        },
+        {
+          "SECURITY_CODE": "000530",
+          "SECUCODE": "000530.SZ",
+          "TRADE_DATE": "2026-11-02 00:00:00",
+          "EXPLANATION": "日涨幅偏离值达到7%的前5只证券",
+          "OPERATEDEPT_CODE": "10025080",
+          "OPERATEDEPT_NAME": "国泰海通证券股份有限公司上海长宁区江苏路证券营业部",
+          "BUY": 33374151.6,
+          "TOTAL_BUYRIO": 0.018488453087,
+          "SELL": 2405229.38,
+          "TOTAL_SELLRIO": 0.001332437483,
+          "NET": 30968922.22,
+          "CLOSE_PRICE": 8.71,
+          "CHANGE_RATE": 9.9747,
+          "ACCUM_AMOUNT": 1805134883,
+          "TRADE_ID": "100436678"
+        },
+        {
+          "SECURITY_CODE": "000530",
+          "SECUCODE": "000530.SZ",
+          "TRADE_DATE": "2026-11-02 00:00:00",
+          "EXPLANATION": "日换手率达到20%的前5只证券",
+          "OPERATEDEPT_CODE": "10026937",
+          "OPERATEDEPT_NAME": "国泰海通证券股份有限公司武汉紫阳东路证券营业部",
+          "BUY": 96641108.61,
+          "TOTAL_BUYRIO": 0.053536779728,
+          "SELL": 251259,
+          "TOTAL_SELLRIO": 0.000139191261,
+          "NET": 96389849.61,
+          "CLOSE_PRICE": 8.71,
+          "CHANGE_RATE": 9.9747,
+          "ACCUM_AMOUNT": 1805134883,
+          "TRADE_ID": "100436691"
+        },
+        {
+          "SECURITY_CODE": "000530",
+          "SECUCODE": "000530.SZ",
+          "TRADE_DATE": "2026-11-02 00:00:00",
+          "EXPLANATION": "日换手率达到20%的前5只证券",
+          "OPERATEDEPT_CODE": "0",
+          "OPERATEDEPT_NAME": "机构专用",
+          "BUY": 44938927.19,
+          "TOTAL_BUYRIO": 0.024895052228,
+          "SELL": 33441581.08,
+          "TOTAL_SELLRIO": 0.018525807348,
+          "NET": 11497346.11,
+          "CLOSE_PRICE": 8.71,
+          "CHANGE_RATE": 9.9747,
+          "ACCUM_AMOUNT": 1805134883,
+          "TRADE_ID": "100436691"
+        },
+        {
+          "SECURITY_CODE": "000530",
+          "SECUCODE": "000530.SZ",
+          "TRADE_DATE": "2026-11-02 00:00:00",
+          "EXPLANATION": "日换手率达到20%的前5只证券",
+          "OPERATEDEPT_CODE": "0",
+          "OPERATEDEPT_NAME": "机构专用",
+          "BUY": 40570811.34,
+          "TOTAL_BUYRIO": 0.022475224274,
+          "SELL": 16387426.36,
+          "TOTAL_SELLRIO": 0.009078228178,
+          "NET": 24183384.98,
+          "CLOSE_PRICE": 8.71,
+          "CHANGE_RATE": 9.9747,
+          "ACCUM_AMOUNT": 1805134883,
+          "TRADE_ID": "100436691"
+        },
+        {
+          "SECURITY_CODE": "000530",
+          "SECUCODE": "000530.SZ",
+          "TRADE_DATE": "2026-11-02 00:00:00",
+          "EXPLANATION": "日换手率达到20%的前5只证券",
+          "OPERATEDEPT_CODE": "10467900",
+          "OPERATEDEPT_NAME": "国泰海通证券股份有限公司上海自贸试验区第二分公司",
+          "BUY": 37856915.68,
+          "TOTAL_BUYRIO": 0.020971793319,
+          "SELL": 0,
+          "TOTAL_SELLRIO": 0,
+          "NET": 37856915.68,
+          "CLOSE_PRICE": 8.71,
+          "CHANGE_RATE": 9.9747,
+          "ACCUM_AMOUNT": 1805134883,
+          "TRADE_ID": "100436691"
+        },
+        {
+          "SECURITY_CODE": "000530",
+          "SECUCODE": "000530.SZ",
+          "TRADE_DATE": "2026-11-02 00:00:00",
+          "EXPLANATION": "日换手率达到20%的前5只证券",
+          "OPERATEDEPT_CODE": "10025080",
+          "OPERATEDEPT_NAME": "国泰海通证券股份有限公司上海长宁区江苏路证券营业部",
+          "BUY": 33374151.6,
+          "TOTAL_BUYRIO": 0.018488453087,
+          "SELL": 2405229.38,
+          "TOTAL_SELLRIO": 0.001332437483,
+          "NET": 30968922.22,
+          "CLOSE_PRICE": 8.71,
+          "CHANGE_RATE": 9.9747,
+          "ACCUM_AMOUNT": 1805134883,
+          "TRADE_ID": "100436691"
+        }
+      ],
+      "count": 10
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "stock_sell": {
+    "version": "045fdbbd879cab12454877c941702c4b",
+    "result": {
+      "pages": 1,
+      "data": [
+        {
+          "SECURITY_CODE": "000026",
+          "SECUCODE": "000026.SZ",
+          "TRADE_DATE": "2026-11-11 00:00:00",
+          "EXPLANATION": "连续三个交易日内，涨幅偏离值累计达到20%的证券",
+          "OPERATEDEPT_CODE": "10634757",
+          "OPERATEDEPT_NAME": "深股通专用",
+          "BUY": 127214515.37,
+          "TOTAL_BUYRIO": 0.073252009523,
+          "SELL": 109168564,
+          "TOTAL_SELLRIO": 0.062860882396,
+          "NET": 18045951.37,
+          "CLOSE_PRICE": 23.16,
+          "CHANGE_RATE": 10.0238,
+          "ACCUM_AMOUNT": 1736669290,
+          "TRADE_ID": "100442541"
+        },
+        {
+          "SECURITY_CODE": "000026",
+          "SECUCODE": "000026.SZ",
+          "TRADE_DATE": "2026-11-11 00:00:00",
+          "EXPLANATION": "连续三个交易日内，涨幅偏离值累计达到20%的证券",
+          "OPERATEDEPT_CODE": "10046745",
+          "OPERATEDEPT_NAME": "开源证券股份有限公司西安西大街证券营业部",
+          "BUY": 103793213.04,
+          "TOTAL_BUYRIO": 0.059765675387,
+          "SELL": 44184366,
+          "TOTAL_SELLRIO": 0.025442014927,
+          "NET": 59608847.04,
+          "CLOSE_PRICE": 23.16,
+          "CHANGE_RATE": 10.0238,
+          "ACCUM_AMOUNT": 1736669290,
+          "TRADE_ID": "100442541"
+        },
+        {
+          "SECURITY_CODE": "000026",
+          "SECUCODE": "000026.SZ",
+          "TRADE_DATE": "2026-11-11 00:00:00",
+          "EXPLANATION": "连续三个交易日内，涨幅偏离值累计达到20%的证券",
+          "OPERATEDEPT_CODE": "0",
+          "OPERATEDEPT_NAME": "机构专用",
+          "BUY": 23148329.28,
+          "TOTAL_BUYRIO": 0.013329152196,
+          "SELL": 31417751,
+          "TOTAL_SELLRIO": 0.018090808181,
+          "NET": -8269421.72,
+          "CLOSE_PRICE": 23.16,
+          "CHANGE_RATE": 10.0238,
+          "ACCUM_AMOUNT": 1736669290,
+          "TRADE_ID": "100442541"
+        },
+        {
+          "SECURITY_CODE": "000026",
+          "SECUCODE": "000026.SZ",
+          "TRADE_DATE": "2026-11-11 00:00:00",
+          "EXPLANATION": "连续三个交易日内，涨幅偏离值累计达到20%的证券",
+          "OPERATEDEPT_CODE": "0",
+          "OPERATEDEPT_NAME": "机构专用",
+          "BUY": 46483659.19,
+          "TOTAL_BUYRIO": 0.026765982135,
+          "SELL": 30960401.85,
+          "TOTAL_SELLRIO": 0.01782745974,
+          "NET": 15523257.34,
+          "CLOSE_PRICE": 23.16,
+          "CHANGE_RATE": 10.0238,
+          "ACCUM_AMOUNT": 1736669290,
+          "TRADE_ID": "100442541"
+        },
+        {
+          "SECURITY_CODE": "000026",
+          "SECUCODE": "000026.SZ",
+          "TRADE_DATE": "2026-11-11 00:00:00",
+          "EXPLANATION": "连续三个交易日内，涨幅偏离值累计达到20%的证券",
+          "OPERATEDEPT_CODE": "10048511",
+          "OPERATEDEPT_NAME": "国泰海通证券股份有限公司上海长宁区天山路证券营业部",
+          "BUY": 129753,
+          "TOTAL_BUYRIO": 7.4713707e-05,
+          "SELL": 24497509,
+          "TOTAL_SELLRIO": 0.01410602994,
+          "NET": -24367756,
+          "CLOSE_PRICE": 23.16,
+          "CHANGE_RATE": 10.0238,
+          "ACCUM_AMOUNT": 1736669290,
+          "TRADE_ID": "100442541"
+        }
+      ],
+      "count": 5
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  }
+}

@@ -480,3 +480,198 @@ class BillboardEntry:
     change_after_2d: Pct = None  # 上榜后 2 日涨跌幅
     change_after_5d: Pct = None  # 上榜后 5 日涨跌幅
     change_after_10d: Pct = None  # 上榜后 10 日涨跌幅
+
+
+@dataclass(frozen=True)
+class BillboardStockStats:
+    """个股上榜统计：统计周期内一只股票的上榜次数与龙虎榜、机构买卖合计。金额单位元。"""
+
+    code: str
+    name: str
+    market: str | None = None  # sh 沪市 / sz 深市 / bj 北交所
+    latest_date: str | None = None  # 最近上榜日 YYYY-MM-DD
+    close: Yuan = None  # 收盘价
+    change_pct: Pct = None  # 涨跌幅
+    billboard_times: int | None = None  # 上榜次数
+    net_buy: Yuan = None  # 龙虎榜净买额
+    buy: Yuan = None  # 龙虎榜买入额
+    sell: Yuan = None  # 龙虎榜卖出额
+    billboard_turnover: Yuan = None  # 龙虎榜总成交额
+    institution_buy_times: int | None = None  # 买方机构次数
+    institution_sell_times: int | None = None  # 卖方机构次数
+    institution_net_buy: Yuan = None  # 机构买入净额
+    institution_buy: Yuan = None  # 机构买入总额
+    institution_sell: Yuan = None  # 机构卖出总额
+    change_1mo: Pct = None  # 近 1 个月涨跌幅
+    change_3mo: Pct = None  # 近 3 个月涨跌幅
+    change_6mo: Pct = None  # 近 6 个月涨跌幅
+    change_1y: Pct = None  # 近 1 年涨跌幅
+
+
+@dataclass(frozen=True)
+class BillboardInstitutionTrade:
+    """机构买卖每日统计的一条记录：某只股票某次上榜中机构席位的买卖合计。金额单位元，比率单位 %。
+
+    同一只股票同一天因多个原因上榜时有多条记录，各按自己的上榜原因统计，不能直接相加。
+    """
+
+    code: str
+    name: str
+    market: str | None = None  # sh 沪市 / sz 深市 / bj 北交所
+    trade_date: str | None = None  # 上榜日 YYYY-MM-DD
+    reason: str | None = None  # 上榜原因
+    close: Yuan = None  # 收盘价
+    change_pct: Pct = None  # 涨跌幅
+    buy_institutions: int | None = None  # 买方机构数
+    sell_institutions: int | None = None  # 卖方机构数
+    institution_buy: Yuan = None  # 机构买入总额
+    institution_sell: Yuan = None  # 机构卖出总额
+    institution_net_buy: Yuan = None  # 机构买入净额
+    turnover: Yuan = None  # 市场总成交额
+    net_buy_ratio: Pct = None  # 机构净买额占总成交额比
+    turnover_rate: Pct = None  # 换手率
+    float_market_cap: Yuan = None  # 流通市值
+    change_after_1d: Pct = None  # 上榜后 1 日涨跌幅（尚未到期为 None）
+    change_after_2d: Pct = None  # 上榜后 2 日涨跌幅
+    change_after_3d: Pct = None  # 上榜后 3 日涨跌幅
+    change_after_5d: Pct = None  # 上榜后 5 日涨跌幅
+    change_after_10d: Pct = None  # 上榜后 10 日涨跌幅
+
+
+@dataclass(frozen=True)
+class BillboardInstitutionStats:
+    """机构席位追踪：统计周期内一只股票上榜时机构席位的买卖合计。金额单位元。"""
+
+    code: str
+    name: str
+    market: str | None = None  # sh 沪市 / sz 深市 / bj 北交所
+    close: Yuan = None  # 收盘价
+    change_pct: Pct = None  # 涨跌幅
+    billboard_turnover: Yuan = None  # 龙虎榜成交金额
+    billboard_times: int | None = None  # 上榜次数
+    institution_buy: Yuan = None  # 机构买入额
+    institution_buy_times: int | None = None  # 机构买入次数
+    institution_sell: Yuan = None  # 机构卖出额
+    institution_sell_times: int | None = None  # 机构卖出次数
+    institution_net_buy: Yuan = None  # 机构净买额
+    change_1mo: Pct = None  # 近 1 个月涨跌幅
+    change_3mo: Pct = None  # 近 3 个月涨跌幅
+    change_6mo: Pct = None  # 近 6 个月涨跌幅
+    change_1y: Pct = None  # 近 1 年涨跌幅
+
+
+@dataclass(frozen=True)
+class BillboardBranchActive:
+    """每日活跃营业部：一家营业部某个上榜日的买卖合计与当日上榜交易的股票。金额单位元。
+
+    ``stocks`` / ``stock_codes`` 是该营业部当日买入或卖出过的全部上榜股票（实测与营业部详情逐家一致），
+    个数可以大于 ``buy_stock_count``。东财页面与上游列名（``BUY_STOCK``）把它叫“买入股票”，名不副实。
+    """
+
+    branch_code: str
+    branch_name: str
+    trade_date: str | None = None  # 上榜日 YYYY-MM-DD
+    buy_stock_count: int | None = None  # 买入个股数
+    sell_stock_count: int | None = None  # 卖出个股数
+    buy: Yuan = None  # 买入总金额
+    sell: Yuan = None  # 卖出总金额
+    net_buy: Yuan = None  # 总买卖净额
+    stocks: str | None = None  # 当日买入或卖出过的股票简称，空格分隔（上游原文）
+    stock_codes: tuple[str, ...] = ()  # 上述股票的代码，与 stocks 一一对应
+
+
+@dataclass(frozen=True)
+class BillboardBranchRank:
+    """营业部排行：统计周期内一家营业部买入上榜后 1 / 2 / 3 / 5 / 10 天的表现。涨幅、概率单位 %。"""
+
+    branch_code: str
+    branch_name: str
+    buy_times_1d: int | None = None  # 上榜后 1 天：买入次数
+    avg_change_1d: Pct = None  # 上榜后 1 天：平均涨幅
+    rise_prob_1d: Pct = None  # 上榜后 1 天：上涨概率
+    buy_times_2d: int | None = None
+    avg_change_2d: Pct = None
+    rise_prob_2d: Pct = None
+    buy_times_3d: int | None = None
+    avg_change_3d: Pct = None
+    rise_prob_3d: Pct = None
+    buy_times_5d: int | None = None
+    avg_change_5d: Pct = None
+    rise_prob_5d: Pct = None
+    buy_times_10d: int | None = None
+    avg_change_10d: Pct = None
+    rise_prob_10d: Pct = None
+
+
+@dataclass(frozen=True)
+class BillboardBranchStats:
+    """营业部统计：统计周期内一家营业部的上榜次数与买卖合计。金额单位元。"""
+
+    branch_code: str
+    branch_name: str
+    billboard_turnover: Yuan = None  # 龙虎榜成交金额
+    billboard_times: int | None = None  # 上榜次数
+    buy: Yuan = None  # 买入额
+    buy_times: int | None = None  # 买入次数
+    sell: Yuan = None  # 卖出额
+    sell_times: int | None = None  # 卖出次数
+
+
+@dataclass(frozen=True)
+class BillboardBranchTrade:
+    """营业部详情的一条记录：一家营业部在某只股票某次上榜中的买卖。金额单位元。
+
+    同一只股票同一天因多个原因上榜时有多条记录（上榜原因不同）。
+    """
+
+    branch_code: str
+    branch_name: str
+    branch_short_name: str | None = None  # 营业部简称
+    trade_date: str | None = None  # 交易日期 YYYY-MM-DD
+    code: str = ""  # 股票代码
+    name: str = ""  # 股票名称
+    market: str | None = None  # sh 沪市 / sz 深市 / bj 北交所
+    change_pct: Pct = None  # 涨跌幅
+    buy: Yuan = None  # 买入金额（该营业部只卖出时为 None）
+    sell: Yuan = None  # 卖出金额（该营业部只买入时为 None）
+    net_buy: Yuan = None  # 净额
+    reason: str | None = None  # 上榜原因
+    change_after_1d: Pct = None  # 1 日后涨跌幅（尚未到期为 None）
+    change_after_2d: Pct = None
+    change_after_3d: Pct = None
+    change_after_5d: Pct = None
+    change_after_10d: Pct = None
+    change_after_20d: Pct = None
+    change_after_30d: Pct = None
+
+
+@dataclass(frozen=True)
+class BillboardStockDate:
+    """一只股票的一个上榜日。"""
+
+    code: str
+    trade_date: str | None = None  # 上榜日 YYYY-MM-DD
+
+
+@dataclass(frozen=True)
+class BillboardSeat:
+    """个股龙虎榜详情的一个席位：某只股票某次上榜中，买入或卖出金额最大的前 5 家营业部之一。
+
+    金额单位元，占比单位 %（占该次上榜统计区间的总成交额）。同一天因多个原因上榜时，
+    每个原因各有一组席位，``reason`` 区分。
+    """
+
+    code: str
+    market: str | None = None  # sh 沪市 / sz 深市 / bj 北交所
+    trade_date: str | None = None  # 上榜日 YYYY-MM-DD
+    reason: str | None = None  # 上榜原因
+    branch_code: str | None = None  # 营业部代码（机构专用为 "0"）
+    branch_name: str | None = None  # 交易营业部名称
+    buy: Yuan = None  # 买入金额
+    buy_ratio: Pct = None  # 买入金额占总成交比例
+    sell: Yuan = None  # 卖出金额
+    sell_ratio: Pct = None  # 卖出金额占总成交比例
+    net_buy: Yuan = None  # 净额
+    close: Yuan = None  # 收盘价
+    change_pct: Pct = None  # 涨跌幅
+    turnover: Yuan = None  # 总成交额（该上榜原因统计区间内）

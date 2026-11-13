@@ -175,3 +175,81 @@ class BillboardDetailQuery:
 
     start_date: str | None = None
     end_date: str | None = None
+
+
+@dataclass(frozen=True)
+class BillboardStockStatsQuery:
+    """个股上榜统计（数据中心）。``period`` 统计周期：1mo / 3mo / 6mo / 1y，未知回退 1mo。"""
+
+    period: str = "1mo"
+
+
+@dataclass(frozen=True)
+class BillboardInstitutionQuery:
+    """机构买卖每日统计（数据中心），按上榜日期区间。日期规则同 ``BillboardDetailQuery``。"""
+
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+@dataclass(frozen=True)
+class BillboardInstitutionStatsQuery:
+    """机构席位追踪（数据中心）。``period`` 统计周期：1mo / 3mo / 6mo / 1y，未知回退 1mo。"""
+
+    period: str = "1mo"
+
+
+@dataclass(frozen=True)
+class BillboardBranchActiveQuery:
+    """每日活跃营业部（数据中心），按上榜日期区间。日期规则同 ``BillboardDetailQuery``。"""
+
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+@dataclass(frozen=True)
+class BillboardBranchRankQuery:
+    """营业部排行（数据中心）。``period`` 统计周期：1mo / 3mo / 6mo / 1y，未知回退 1mo。"""
+
+    period: str = "1mo"
+
+
+@dataclass(frozen=True)
+class BillboardBranchStatsQuery:
+    """营业部统计（数据中心）。``period`` 统计周期：1mo / 3mo / 6mo / 1y，未知回退 1mo。"""
+
+    period: str = "1mo"
+
+
+@dataclass(frozen=True)
+class BillboardBranchTradesQuery:
+    """营业部详情（数据中心）：一家营业部的全部上榜买卖记录。
+
+    ``branch_code`` 是营业部代码（见活跃营业部 / 营业部排行 / 营业部统计的 ``branch_code``）。
+    日期为 ``YYYYMMDD``：都留空取全部历史（活跃营业部有上万条）；只给 ``start_date`` 时取到今天
+    （北京时间）；只给 ``end_date`` 时只取那一天。
+    """
+
+    branch_code: str
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+@dataclass(frozen=True)
+class BillboardStockDatesQuery:
+    """个股上榜日期（数据中心）：一只股票历次上榜的日期。"""
+
+    code: str
+
+
+@dataclass(frozen=True)
+class BillboardStockQuery:
+    """个股龙虎榜详情（数据中心）：一只股票某个上榜日的买入或卖出席位。
+
+    ``date`` 为 ``YYYYMMDD``，留空取该股最近一个上榜日；``side``：buy 买入金额最大的前 5 名 /
+    sell 卖出金额最大的前 5 名，未知回退 buy。
+    """
+
+    code: str
+    date: str | None = None
+    side: str = "buy"

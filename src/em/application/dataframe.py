@@ -9,7 +9,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from em.domain.models import (
+    BillboardBranchActive,
+    BillboardBranchRank,
+    BillboardBranchStats,
+    BillboardBranchTrade,
     BillboardEntry,
+    BillboardInstitutionStats,
+    BillboardInstitutionTrade,
+    BillboardSeat,
+    BillboardStockDate,
+    BillboardStockStats,
     BoardChangesPage,
     BoardFundFlowSeries,
     BoardListPage,
@@ -694,3 +703,248 @@ def to_billboard_detail_dataframe(
     """把龙虎榜详情转为 ``DataFrame``，列顺序同 akshare（另加“市场”）。"""
     naming = columns or BILLBOARD_DETAIL_COLUMNS_ZH
     return _records_frame(page.items, naming, tuple(BILLBOARD_DETAIL_COLUMNS_ZH))
+
+
+# 个股上榜统计字段 -> 默认中文列名（对齐 akshare stock_lhb_stock_statistic_em，另在名称后加“市场”）
+BILLBOARD_STOCK_STATS_COLUMNS_ZH: dict[str, str] = {
+    "code": "代码",
+    "name": "名称",
+    "market": "市场",
+    "latest_date": "最近上榜日",
+    "close": "收盘价",
+    "change_pct": "涨跌幅",
+    "billboard_times": "上榜次数",
+    "net_buy": "龙虎榜净买额",
+    "buy": "龙虎榜买入额",
+    "sell": "龙虎榜卖出额",
+    "billboard_turnover": "龙虎榜总成交额",
+    "institution_buy_times": "买方机构次数",
+    "institution_sell_times": "卖方机构次数",
+    "institution_net_buy": "机构买入净额",
+    "institution_buy": "机构买入总额",
+    "institution_sell": "机构卖出总额",
+    "change_1mo": "近1个月涨跌幅",
+    "change_3mo": "近3个月涨跌幅",
+    "change_6mo": "近6个月涨跌幅",
+    "change_1y": "近1年涨跌幅",
+}
+
+
+def to_billboard_stock_stats_dataframe(
+    page: ReportPage[BillboardStockStats], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把个股上榜统计转为 ``DataFrame``，列顺序同 akshare。"""
+    naming = columns or BILLBOARD_STOCK_STATS_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(BILLBOARD_STOCK_STATS_COLUMNS_ZH))
+
+
+# 机构买卖每日统计字段 -> 默认中文列名（对齐 akshare stock_lhb_jgmmtj_em，另在名称后加“市场”，末尾加上榜后 1 / 2 / 3 / 5 / 10 日涨跌幅）
+BILLBOARD_INSTITUTION_COLUMNS_ZH: dict[str, str] = {
+    "code": "代码",
+    "name": "名称",
+    "market": "市场",
+    "close": "收盘价",
+    "change_pct": "涨跌幅",
+    "buy_institutions": "买方机构数",
+    "sell_institutions": "卖方机构数",
+    "institution_buy": "机构买入总额",
+    "institution_sell": "机构卖出总额",
+    "institution_net_buy": "机构买入净额",
+    "turnover": "市场总成交额",
+    "net_buy_ratio": "机构净买额占总成交额比",
+    "turnover_rate": "换手率",
+    "float_market_cap": "流通市值",
+    "reason": "上榜原因",
+    "trade_date": "上榜日期",
+    "change_after_1d": "上榜后1日",
+    "change_after_2d": "上榜后2日",
+    "change_after_3d": "上榜后3日",
+    "change_after_5d": "上榜后5日",
+    "change_after_10d": "上榜后10日",
+}
+
+
+def to_billboard_institution_dataframe(
+    page: ReportPage[BillboardInstitutionTrade], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把机构买卖每日统计转为 ``DataFrame``，列顺序同 akshare。"""
+    naming = columns or BILLBOARD_INSTITUTION_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(BILLBOARD_INSTITUTION_COLUMNS_ZH))
+
+
+# 机构席位追踪字段 -> 默认中文列名（对齐 akshare stock_lhb_jgstatistic_em，另在名称后加“市场”）
+BILLBOARD_INSTITUTION_STATS_COLUMNS_ZH: dict[str, str] = {
+    "code": "代码",
+    "name": "名称",
+    "market": "市场",
+    "close": "收盘价",
+    "change_pct": "涨跌幅",
+    "billboard_turnover": "龙虎榜成交金额",
+    "billboard_times": "上榜次数",
+    "institution_buy": "机构买入额",
+    "institution_buy_times": "机构买入次数",
+    "institution_sell": "机构卖出额",
+    "institution_sell_times": "机构卖出次数",
+    "institution_net_buy": "机构净买额",
+    "change_1mo": "近1个月涨跌幅",
+    "change_3mo": "近3个月涨跌幅",
+    "change_6mo": "近6个月涨跌幅",
+    "change_1y": "近1年涨跌幅",
+}
+
+
+def to_billboard_institution_stats_dataframe(
+    page: ReportPage[BillboardInstitutionStats], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把机构席位追踪转为 ``DataFrame``，列顺序同 akshare。"""
+    naming = columns or BILLBOARD_INSTITUTION_STATS_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(BILLBOARD_INSTITUTION_STATS_COLUMNS_ZH))
+
+
+# 每日活跃营业部字段 -> 默认中文列名（对齐 akshare stock_lhb_hyyyb_em，末尾加“买入股票代码”）。
+# “买入股票”是 akshare 与东财页面的列名，实际含只卖出的股票，模型字段因此叫 stocks / stock_codes
+BILLBOARD_BRANCH_ACTIVE_COLUMNS_ZH: dict[str, str] = {
+    "branch_name": "营业部名称",
+    "trade_date": "上榜日",
+    "buy_stock_count": "买入个股数",
+    "sell_stock_count": "卖出个股数",
+    "buy": "买入总金额",
+    "sell": "卖出总金额",
+    "net_buy": "总买卖净额",
+    "stocks": "买入股票",
+    "branch_code": "营业部代码",
+    "stock_codes": "买入股票代码",
+}
+
+
+def to_billboard_branch_active_dataframe(
+    page: ReportPage[BillboardBranchActive], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把每日活跃营业部转为 ``DataFrame``，列顺序同 akshare。"""
+    naming = columns or BILLBOARD_BRANCH_ACTIVE_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(BILLBOARD_BRANCH_ACTIVE_COLUMNS_ZH))
+
+
+# 营业部排行字段 -> 默认中文列名（对齐 akshare stock_lhb_yybph_em，末尾加“营业部代码”）
+BILLBOARD_BRANCH_RANK_COLUMNS_ZH: dict[str, str] = {
+    "branch_name": "营业部名称",
+    "buy_times_1d": "上榜后1天-买入次数",
+    "avg_change_1d": "上榜后1天-平均涨幅",
+    "rise_prob_1d": "上榜后1天-上涨概率",
+    "buy_times_2d": "上榜后2天-买入次数",
+    "avg_change_2d": "上榜后2天-平均涨幅",
+    "rise_prob_2d": "上榜后2天-上涨概率",
+    "buy_times_3d": "上榜后3天-买入次数",
+    "avg_change_3d": "上榜后3天-平均涨幅",
+    "rise_prob_3d": "上榜后3天-上涨概率",
+    "buy_times_5d": "上榜后5天-买入次数",
+    "avg_change_5d": "上榜后5天-平均涨幅",
+    "rise_prob_5d": "上榜后5天-上涨概率",
+    "buy_times_10d": "上榜后10天-买入次数",
+    "avg_change_10d": "上榜后10天-平均涨幅",
+    "rise_prob_10d": "上榜后10天-上涨概率",
+    "branch_code": "营业部代码",
+}
+
+
+def to_billboard_branch_rank_dataframe(
+    page: ReportPage[BillboardBranchRank], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把营业部排行转为 ``DataFrame``，列顺序同 akshare。"""
+    naming = columns or BILLBOARD_BRANCH_RANK_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(BILLBOARD_BRANCH_RANK_COLUMNS_ZH))
+
+
+# 营业部统计字段 -> 默认中文列名（对齐 akshare stock_lhb_traderstatistic_em，末尾加“营业部代码”）
+BILLBOARD_BRANCH_STATS_COLUMNS_ZH: dict[str, str] = {
+    "branch_name": "营业部名称",
+    "billboard_turnover": "龙虎榜成交金额",
+    "billboard_times": "上榜次数",
+    "buy": "买入额",
+    "buy_times": "买入次数",
+    "sell": "卖出额",
+    "sell_times": "卖出次数",
+    "branch_code": "营业部代码",
+}
+
+
+def to_billboard_branch_stats_dataframe(
+    page: ReportPage[BillboardBranchStats], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把营业部统计转为 ``DataFrame``，列顺序同 akshare。"""
+    naming = columns or BILLBOARD_BRANCH_STATS_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(BILLBOARD_BRANCH_STATS_COLUMNS_ZH))
+
+
+# 营业部详情字段 -> 默认中文列名（对齐 akshare stock_lhb_yyb_detail_em，另在股票名称后加“市场”）
+BILLBOARD_BRANCH_TRADES_COLUMNS_ZH: dict[str, str] = {
+    "branch_code": "营业部代码",
+    "branch_name": "营业部名称",
+    "branch_short_name": "营业部简称",
+    "trade_date": "交易日期",
+    "code": "股票代码",
+    "name": "股票名称",
+    "market": "市场",
+    "change_pct": "涨跌幅",
+    "buy": "买入金额",
+    "sell": "卖出金额",
+    "net_buy": "净额",
+    "reason": "上榜原因",
+    "change_after_1d": "1日后涨跌幅",
+    "change_after_2d": "2日后涨跌幅",
+    "change_after_3d": "3日后涨跌幅",
+    "change_after_5d": "5日后涨跌幅",
+    "change_after_10d": "10日后涨跌幅",
+    "change_after_20d": "20日后涨跌幅",
+    "change_after_30d": "30日后涨跌幅",
+}
+
+
+def to_billboard_branch_trades_dataframe(
+    page: ReportPage[BillboardBranchTrade], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把营业部详情转为 ``DataFrame``，列顺序同 akshare。"""
+    naming = columns or BILLBOARD_BRANCH_TRADES_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(BILLBOARD_BRANCH_TRADES_COLUMNS_ZH))
+
+
+# 个股上榜日期字段 -> 默认中文列名（对齐 akshare stock_lhb_stock_detail_date_em）
+BILLBOARD_STOCK_DATES_COLUMNS_ZH: dict[str, str] = {
+    "code": "股票代码",
+    "trade_date": "交易日",
+}
+
+
+def to_billboard_stock_dates_dataframe(
+    page: ReportPage[BillboardStockDate], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把个股上榜日期转为 ``DataFrame``，列顺序同 akshare。"""
+    naming = columns or BILLBOARD_STOCK_DATES_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(BILLBOARD_STOCK_DATES_COLUMNS_ZH))
+
+
+# 个股龙虎榜详情字段 -> 默认中文列名（对齐 akshare stock_lhb_stock_detail_em，末尾加营业部代码、代码、市场、上榜日、收盘价、涨跌幅、总成交额）
+BILLBOARD_STOCK_COLUMNS_ZH: dict[str, str] = {
+    "branch_name": "交易营业部名称",
+    "buy": "买入金额",
+    "buy_ratio": "买入金额-占总成交比例",
+    "sell": "卖出金额",
+    "sell_ratio": "卖出金额-占总成交比例",
+    "net_buy": "净额",
+    "reason": "类型",
+    "branch_code": "营业部代码",
+    "code": "代码",
+    "market": "市场",
+    "trade_date": "上榜日",
+    "close": "收盘价",
+    "change_pct": "涨跌幅",
+    "turnover": "总成交额",
+}
+
+
+def to_billboard_stock_dataframe(
+    page: ReportPage[BillboardSeat], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把个股龙虎榜详情转为 ``DataFrame``，列顺序同 akshare。"""
+    naming = columns or BILLBOARD_STOCK_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(BILLBOARD_STOCK_COLUMNS_ZH))

@@ -14,7 +14,16 @@ import requests
 
 from em.application import registry
 from em.application.dataframe import (
+    to_billboard_branch_active_dataframe,
+    to_billboard_branch_rank_dataframe,
+    to_billboard_branch_stats_dataframe,
+    to_billboard_branch_trades_dataframe,
     to_billboard_detail_dataframe,
+    to_billboard_institution_dataframe,
+    to_billboard_institution_stats_dataframe,
+    to_billboard_stock_dataframe,
+    to_billboard_stock_dates_dataframe,
+    to_billboard_stock_stats_dataframe,
     to_board_changes_dataframe,
     to_board_fund_flow_dataframe,
     to_board_list_dataframe,
@@ -39,7 +48,16 @@ from em.core.resilience import RetryPolicy
 from em.core.settings import Settings
 from em.core.transport import HttpClient
 from em.domain.models import (
+    BillboardBranchActive,
+    BillboardBranchRank,
+    BillboardBranchStats,
+    BillboardBranchTrade,
     BillboardEntry,
+    BillboardInstitutionStats,
+    BillboardInstitutionTrade,
+    BillboardSeat,
+    BillboardStockDate,
+    BillboardStockStats,
     BoardChangesPage,
     BoardFundFlowSeries,
     BoardListPage,
@@ -58,7 +76,16 @@ from em.domain.models import (
     TrendSeries,
 )
 from em.domain.queries import (
+    BillboardBranchActiveQuery,
+    BillboardBranchRankQuery,
+    BillboardBranchStatsQuery,
+    BillboardBranchTradesQuery,
     BillboardDetailQuery,
+    BillboardInstitutionQuery,
+    BillboardInstitutionStatsQuery,
+    BillboardStockDatesQuery,
+    BillboardStockQuery,
+    BillboardStockStatsQuery,
     BoardChangesQuery,
     BoardFundFlowQuery,
     BoardKlineQuery,
@@ -772,3 +799,168 @@ def df_billboard_detail_em(
 ) -> pd.DataFrame:
     """``billboard_detail_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
     return to_billboard_detail_dataframe(billboard_detail_em(query, settings), columns)
+
+
+def billboard_stock_stats_em(
+    query: BillboardStockStatsQuery | None = None, settings: Settings | None = None
+) -> ReportPage[BillboardStockStats]:
+    """抓取个股上榜统计（统计周期内各股的上榜次数与龙虎榜、机构买卖合计），自动翻完全部页。"""
+    query = query or BillboardStockStatsQuery()
+    request = registry.billboard_stock_stats_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_billboard_stock_stats_em(
+    query: BillboardStockStatsQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``billboard_stock_stats_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_billboard_stock_stats_dataframe(billboard_stock_stats_em(query, settings), columns)
+
+
+def billboard_institution_em(
+    query: BillboardInstitutionQuery | None = None, settings: Settings | None = None
+) -> ReportPage[BillboardInstitutionTrade]:
+    """抓取机构买卖每日统计（按上榜日期区间，日期留空取最近一个有机构席位上榜的交易日），自动翻完全部页。"""
+    query = query or BillboardInstitutionQuery()
+    request = registry.billboard_institution_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_billboard_institution_em(
+    query: BillboardInstitutionQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``billboard_institution_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_billboard_institution_dataframe(billboard_institution_em(query, settings), columns)
+
+
+def billboard_institution_stats_em(
+    query: BillboardInstitutionStatsQuery | None = None, settings: Settings | None = None
+) -> ReportPage[BillboardInstitutionStats]:
+    """抓取机构席位追踪（统计周期内各股上榜时机构席位的买卖合计），自动翻完全部页。"""
+    query = query or BillboardInstitutionStatsQuery()
+    request = registry.billboard_institution_stats_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_billboard_institution_stats_em(
+    query: BillboardInstitutionStatsQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``billboard_institution_stats_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_billboard_institution_stats_dataframe(
+        billboard_institution_stats_em(query, settings), columns
+    )
+
+
+def billboard_branch_active_em(
+    query: BillboardBranchActiveQuery | None = None, settings: Settings | None = None
+) -> ReportPage[BillboardBranchActive]:
+    """抓取每日活跃营业部（按上榜日期区间，日期留空取最近一个有龙虎榜的交易日），自动翻完全部页。"""
+    query = query or BillboardBranchActiveQuery()
+    request = registry.billboard_branch_active_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_billboard_branch_active_em(
+    query: BillboardBranchActiveQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``billboard_branch_active_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_billboard_branch_active_dataframe(
+        billboard_branch_active_em(query, settings), columns
+    )
+
+
+def billboard_branch_rank_em(
+    query: BillboardBranchRankQuery | None = None, settings: Settings | None = None
+) -> ReportPage[BillboardBranchRank]:
+    """抓取营业部排行（统计周期内各营业部买入上榜后 1 / 2 / 3 / 5 / 10 天的平均涨幅与上涨概率），自动翻完全部页。"""
+    query = query or BillboardBranchRankQuery()
+    request = registry.billboard_branch_rank_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_billboard_branch_rank_em(
+    query: BillboardBranchRankQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``billboard_branch_rank_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_billboard_branch_rank_dataframe(billboard_branch_rank_em(query, settings), columns)
+
+
+def billboard_branch_stats_em(
+    query: BillboardBranchStatsQuery | None = None, settings: Settings | None = None
+) -> ReportPage[BillboardBranchStats]:
+    """抓取营业部统计（统计周期内各营业部的上榜次数与买卖合计），自动翻完全部页。"""
+    query = query or BillboardBranchStatsQuery()
+    request = registry.billboard_branch_stats_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_billboard_branch_stats_em(
+    query: BillboardBranchStatsQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``billboard_branch_stats_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_billboard_branch_stats_dataframe(billboard_branch_stats_em(query, settings), columns)
+
+
+def billboard_branch_trades_em(
+    query: BillboardBranchTradesQuery, settings: Settings | None = None
+) -> ReportPage[BillboardBranchTrade]:
+    """抓取营业部详情（一家营业部的上榜买卖记录，日期留空取全部历史），自动翻完全部页。"""
+    request = registry.billboard_branch_trades_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_billboard_branch_trades_em(
+    query: BillboardBranchTradesQuery,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``billboard_branch_trades_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_billboard_branch_trades_dataframe(
+        billboard_branch_trades_em(query, settings), columns
+    )
+
+
+def billboard_stock_dates_em(
+    query: BillboardStockDatesQuery, settings: Settings | None = None
+) -> ReportPage[BillboardStockDate]:
+    """抓取一只股票历次上榜的日期（倒序），自动翻完全部页。"""
+    request = registry.billboard_stock_dates_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_billboard_stock_dates_em(
+    query: BillboardStockDatesQuery,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``billboard_stock_dates_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_billboard_stock_dates_dataframe(billboard_stock_dates_em(query, settings), columns)
+
+
+def billboard_stock_em(
+    query: BillboardStockQuery, settings: Settings | None = None
+) -> ReportPage[BillboardSeat]:
+    """抓取个股龙虎榜详情（一只股票某个上榜日的买入或卖出席位，日期留空取该股最近一个上榜日）。"""
+    request = registry.billboard_stock_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_billboard_stock_em(
+    query: BillboardStockQuery,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``billboard_stock_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_billboard_stock_dataframe(billboard_stock_em(query, settings), columns)

@@ -3,8 +3,35 @@
 新增渠道时只改这里与 ``channels/``，``market_data`` / ``cli`` 无需改动。
 """
 
+from em.channels.eastmoney.ashare_billboard.billboard_branch_active.billboard_branch_active_em import (
+    billboard_branch_active_request,
+)
+from em.channels.eastmoney.ashare_billboard.billboard_branch_rank.billboard_branch_rank_em import (
+    billboard_branch_rank_request,
+)
+from em.channels.eastmoney.ashare_billboard.billboard_branch_stats.billboard_branch_stats_em import (
+    billboard_branch_stats_request,
+)
+from em.channels.eastmoney.ashare_billboard.billboard_branch_trades.billboard_branch_trades_em import (
+    billboard_branch_trades_request,
+)
 from em.channels.eastmoney.ashare_billboard.billboard_detail.billboard_detail_em import (
     billboard_detail_request,
+)
+from em.channels.eastmoney.ashare_billboard.billboard_institution.billboard_institution_em import (
+    billboard_institution_request,
+)
+from em.channels.eastmoney.ashare_billboard.billboard_institution_stats.billboard_institution_stats_em import (
+    billboard_institution_stats_request,
+)
+from em.channels.eastmoney.ashare_billboard.billboard_stock.billboard_stock_em import (
+    billboard_stock_request,
+)
+from em.channels.eastmoney.ashare_billboard.billboard_stock_dates.billboard_stock_dates_em import (
+    billboard_stock_dates_request,
+)
+from em.channels.eastmoney.ashare_billboard.billboard_stock_stats.billboard_stock_stats_em import (
+    billboard_stock_stats_request,
 )
 from em.channels.eastmoney.ashare_boards.board_changes.board_changes_em import (
     board_changes_request,
@@ -41,7 +68,16 @@ from em.channels.eastmoney.source import EastMoneySource
 
 __all__ = [
     "EastMoneySource",
+    "billboard_branch_active_request",
+    "billboard_branch_rank_request",
+    "billboard_branch_stats_request",
+    "billboard_branch_trades_request",
     "billboard_detail_request",
+    "billboard_institution_request",
+    "billboard_institution_stats_request",
+    "billboard_stock_dates_request",
+    "billboard_stock_request",
+    "billboard_stock_stats_request",
     "board_changes_request",
     "board_constituent_request",
     "board_fund_flow_request",

@@ -132,6 +132,78 @@
 - 源码：`src/em/channels/eastmoney/ashare_billboard/billboard_detail/billboard_detail_em.py`
 
 
+### `个股上榜统计`
+接口：`billboard_stock_stats_em`, `df_billboard_stock_stats_em`->（DataFrame版）
+描述：个股上榜统计（数据中心，按统计周期 `1mo` / `3mo` / `6mo` / `1y` 取全部上过榜的股票：上榜次数与龙虎榜、机构买卖合计）。
+
+- 详情：[billboard_stock_stats_em.md](./ashare_billboard/billboard_stock_stats_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_billboard/billboard_stock_stats/billboard_stock_stats_em.py`
+
+
+### `机构买卖每日统计`
+接口：`billboard_institution_em`, `df_billboard_institution_em`->（DataFrame版）
+描述：机构买卖每日统计（数据中心，按上榜日期区间取有机构席位参与的上榜记录；日期留空取最近一个有机构席位上榜的交易日）。同股同日多个上榜原因为多条记录，金额不能直接相加。
+
+- 详情：[billboard_institution_em.md](./ashare_billboard/billboard_institution_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_billboard/billboard_institution/billboard_institution_em.py`
+
+
+### `机构席位追踪`
+接口：`billboard_institution_stats_em`, `df_billboard_institution_stats_em`->（DataFrame版）
+描述：机构席位追踪（数据中心，按统计周期取各股上榜时机构席位的买卖次数与金额合计）。
+
+- 详情：[billboard_institution_stats_em.md](./ashare_billboard/billboard_institution_stats_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_billboard/billboard_institution_stats/billboard_institution_stats_em.py`
+
+
+### `每日活跃营业部`
+接口：`billboard_branch_active_em`, `df_billboard_branch_active_em`->（DataFrame版）
+描述：每日活跃营业部（数据中心，按上榜日期区间取各营业部的买卖个股数、买卖合计与当日交易的上榜股票；日期留空取最近一个有龙虎榜的交易日）。`stocks` / `stock_codes`（DataFrame 列“买入股票”）是当日买入或卖出过的全部上榜股票，含只卖出的。
+
+- 详情：[billboard_branch_active_em.md](./ashare_billboard/billboard_branch_active_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_billboard/billboard_branch_active/billboard_branch_active_em.py`
+
+
+### `营业部排行`
+接口：`billboard_branch_rank_em`, `df_billboard_branch_rank_em`->（DataFrame版）
+描述：营业部排行（数据中心，按统计周期取各营业部买入上榜后 1 / 2 / 3 / 5 / 10 天的买入次数、平均涨幅与上涨概率）。
+
+- 详情：[billboard_branch_rank_em.md](./ashare_billboard/billboard_branch_rank_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_billboard/billboard_branch_rank/billboard_branch_rank_em.py`
+
+
+### `营业部统计`
+接口：`billboard_branch_stats_em`, `df_billboard_branch_stats_em`->（DataFrame版）
+描述：营业部统计（数据中心，按统计周期取各营业部的上榜次数与买卖次数、金额合计）。
+
+- 详情：[billboard_branch_stats_em.md](./ashare_billboard/billboard_branch_stats_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_billboard/billboard_branch_stats/billboard_branch_stats_em.py`
+
+
+### `营业部详情`
+接口：`billboard_branch_trades_em`, `df_billboard_branch_trades_em`->（DataFrame版）
+描述：营业部详情（数据中心，取一家营业部的上榜买卖记录，可按日期区间筛选；日期留空取全部历史）。只买入或只卖出时另一侧为 `None`。
+
+- 详情：[billboard_branch_trades_em.md](./ashare_billboard/billboard_branch_trades_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_billboard/billboard_branch_trades/billboard_branch_trades_em.py`
+
+
+### `个股上榜日期`
+接口：`billboard_stock_dates_em`, `df_billboard_stock_dates_em`->（DataFrame版）
+描述：个股上榜日期（数据中心，取一只股票历次上榜的日期，倒序）。
+
+- 详情：[billboard_stock_dates_em.md](./ashare_billboard/billboard_stock_dates_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_billboard/billboard_stock_dates/billboard_stock_dates_em.py`
+
+
+### `个股龙虎榜详情`
+接口：`billboard_stock_em`, `df_billboard_stock_em`->（DataFrame版）
+描述：个股龙虎榜详情（数据中心，取一只股票某个上榜日买入或卖出金额最大的前 5 家营业部；日期留空取该股最近一个上榜日）。同一天多个上榜原因时每个原因各有一组席位。
+
+- 详情：[billboard_stock_em.md](./ashare_billboard/billboard_stock_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_billboard/billboard_stock/billboard_stock_em.py`
+
+
 ### `通用转换`
 接口：`to_dataframe`
 描述：任意 `QuotePage` → `DataFrame`，默认中文列名，可传 `columns` 覆盖。

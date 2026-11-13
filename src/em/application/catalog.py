@@ -290,6 +290,161 @@ _BILLBOARD_DETAIL_FIELDS = (
     ("change_after_10d", "float | None", "%", "上榜后 10 日涨跌幅"),
 )
 
+_MARKET_FIELD = ("market", "str | None", "—", "市场：sh / sz / bj，可连同 code 传给 stock_kline_em")
+_PERIOD_CHANGE_FIELDS = (
+    ("change_1mo", "float | None", "%", "近 1 个月涨跌幅"),
+    ("change_3mo", "float | None", "%", "近 3 个月涨跌幅"),
+    ("change_6mo", "float | None", "%", "近 6 个月涨跌幅"),
+    ("change_1y", "float | None", "%", "近 1 年涨跌幅"),
+)
+
+_BILLBOARD_STOCK_STATS_FIELDS = (
+    ("code", "str", "—", "股票代码"),
+    ("name", "str", "—", "股票简称"),
+    _MARKET_FIELD,
+    ("latest_date", "str | None", "—", "最近上榜日 YYYY-MM-DD"),
+    ("close", "float | None", "元", "收盘价"),
+    ("change_pct", "float | None", "%", "涨跌幅"),
+    ("billboard_times", "int | None", "次", "上榜次数"),
+    ("net_buy", "float | None", "元", "龙虎榜净买额"),
+    ("buy", "float | None", "元", "龙虎榜买入额"),
+    ("sell", "float | None", "元", "龙虎榜卖出额"),
+    ("billboard_turnover", "float | None", "元", "龙虎榜总成交额"),
+    ("institution_buy_times", "int | None", "次", "买方机构次数"),
+    ("institution_sell_times", "int | None", "次", "卖方机构次数"),
+    ("institution_net_buy", "float | None", "元", "机构买入净额"),
+    ("institution_buy", "float | None", "元", "机构买入总额"),
+    ("institution_sell", "float | None", "元", "机构卖出总额"),
+    *_PERIOD_CHANGE_FIELDS,
+)
+
+_BILLBOARD_INSTITUTION_FIELDS = (
+    ("code", "str", "—", "股票代码"),
+    ("name", "str", "—", "股票简称"),
+    _MARKET_FIELD,
+    ("trade_date", "str | None", "—", "上榜日 YYYY-MM-DD"),
+    ("reason", "str | None", "—", "上榜原因（同股同日多个原因时为多条记录，各自统计，不能相加）"),
+    ("close", "float | None", "元", "收盘价"),
+    ("change_pct", "float | None", "%", "涨跌幅"),
+    ("buy_institutions", "int | None", "家", "买方机构数"),
+    ("sell_institutions", "int | None", "家", "卖方机构数"),
+    ("institution_buy", "float | None", "元", "机构买入总额"),
+    ("institution_sell", "float | None", "元", "机构卖出总额"),
+    ("institution_net_buy", "float | None", "元", "机构买入净额"),
+    ("turnover", "float | None", "元", "市场总成交额"),
+    ("net_buy_ratio", "float | None", "%", "机构净买额占总成交额比"),
+    ("turnover_rate", "float | None", "%", "换手率"),
+    ("float_market_cap", "float | None", "元", "流通市值（上游亿元，已换算）"),
+    ("change_after_1d", "float | None", "%", "上榜后 1 日涨跌幅（未到期为 None）"),
+    ("change_after_2d", "float | None", "%", "上榜后 2 日涨跌幅"),
+    ("change_after_3d", "float | None", "%", "上榜后 3 日涨跌幅"),
+    ("change_after_5d", "float | None", "%", "上榜后 5 日涨跌幅"),
+    ("change_after_10d", "float | None", "%", "上榜后 10 日涨跌幅"),
+)
+
+_BILLBOARD_INSTITUTION_STATS_FIELDS = (
+    ("code", "str", "—", "股票代码"),
+    ("name", "str", "—", "股票简称"),
+    _MARKET_FIELD,
+    ("close", "float | None", "元", "收盘价"),
+    ("change_pct", "float | None", "%", "涨跌幅"),
+    ("billboard_turnover", "float | None", "元", "龙虎榜成交金额"),
+    ("billboard_times", "int | None", "次", "上榜次数"),
+    ("institution_buy", "float | None", "元", "机构买入额"),
+    ("institution_buy_times", "int | None", "次", "机构买入次数"),
+    ("institution_sell", "float | None", "元", "机构卖出额"),
+    ("institution_sell_times", "int | None", "次", "机构卖出次数"),
+    ("institution_net_buy", "float | None", "元", "机构净买额"),
+    *_PERIOD_CHANGE_FIELDS,
+)
+
+_BILLBOARD_BRANCH_ACTIVE_FIELDS = (
+    ("branch_code", "str", "—", "营业部代码，可传给 billboard_branch_trades_em"),
+    ("branch_name", "str", "—", "营业部名称"),
+    ("trade_date", "str | None", "—", "上榜日 YYYY-MM-DD"),
+    ("buy_stock_count", "int | None", "只", "买入个股数"),
+    ("sell_stock_count", "int | None", "只", "卖出个股数"),
+    ("buy", "float | None", "元", "买入总金额"),
+    ("sell", "float | None", "元", "卖出总金额"),
+    ("net_buy", "float | None", "元", "总买卖净额"),
+    (
+        "stocks",
+        "str | None",
+        "—",
+        "当日买入或卖出过的全部上榜股票的简称，空格分隔（东财页面叫“买入股票”，实际含只卖出的）",
+    ),
+    ("stock_codes", "tuple[str, ...]", "—", "上述股票的代码，与 stocks 一一对应"),
+)
+
+_BILLBOARD_BRANCH_RANK_FIELDS = (
+    ("branch_code", "str", "—", "营业部代码，可传给 billboard_branch_trades_em"),
+    ("branch_name", "str", "—", "营业部名称"),
+    *(
+        field
+        for days in (1, 2, 3, 5, 10)
+        for field in (
+            (f"buy_times_{days}d", "int | None", "次", f"上榜后 {days} 天：买入次数"),
+            (f"avg_change_{days}d", "float | None", "%", f"上榜后 {days} 天：平均涨幅"),
+            (f"rise_prob_{days}d", "float | None", "%", f"上榜后 {days} 天：上涨概率"),
+        )
+    ),
+)
+
+_BILLBOARD_BRANCH_STATS_FIELDS = (
+    ("branch_code", "str", "—", "营业部代码，可传给 billboard_branch_trades_em"),
+    ("branch_name", "str", "—", "营业部名称"),
+    ("billboard_turnover", "float | None", "元", "龙虎榜成交金额"),
+    ("billboard_times", "int | None", "次", "上榜次数"),
+    ("buy", "float | None", "元", "买入额"),
+    ("buy_times", "int | None", "次", "买入次数"),
+    ("sell", "float | None", "元", "卖出额"),
+    ("sell_times", "int | None", "次", "卖出次数"),
+)
+
+_BILLBOARD_BRANCH_TRADES_FIELDS = (
+    ("branch_code", "str", "—", "营业部代码"),
+    ("branch_name", "str", "—", "营业部名称"),
+    ("branch_short_name", "str | None", "—", "营业部简称"),
+    ("trade_date", "str | None", "—", "交易日期 YYYY-MM-DD"),
+    ("code", "str", "—", "股票代码"),
+    ("name", "str", "—", "股票简称"),
+    _MARKET_FIELD,
+    ("change_pct", "float | None", "%", "涨跌幅"),
+    ("buy", "float | None", "元", "买入金额（该营业部只卖出时为 None）"),
+    ("sell", "float | None", "元", "卖出金额（该营业部只买入时为 None）"),
+    ("net_buy", "float | None", "元", "净额"),
+    ("reason", "str | None", "—", "上榜原因（同股同日多个原因时为多条记录）"),
+    ("change_after_1d", "float | None", "%", "1 日后涨跌幅（未到期为 None）"),
+    ("change_after_2d", "float | None", "%", "2 日后涨跌幅"),
+    ("change_after_3d", "float | None", "%", "3 日后涨跌幅"),
+    ("change_after_5d", "float | None", "%", "5 日后涨跌幅"),
+    ("change_after_10d", "float | None", "%", "10 日后涨跌幅"),
+    ("change_after_20d", "float | None", "%", "20 日后涨跌幅"),
+    ("change_after_30d", "float | None", "%", "30 日后涨跌幅"),
+)
+
+_BILLBOARD_STOCK_DATES_FIELDS = (
+    ("code", "str", "—", "股票代码"),
+    ("trade_date", "str | None", "—", "上榜日 YYYY-MM-DD，可传给 billboard_stock_em 的 date"),
+)
+
+_BILLBOARD_STOCK_FIELDS = (
+    ("code", "str", "—", "股票代码"),
+    _MARKET_FIELD,
+    ("trade_date", "str | None", "—", "上榜日 YYYY-MM-DD"),
+    ("reason", "str | None", "—", "上榜原因（同一天多个原因时每个原因各有一组席位）"),
+    ("branch_code", "str | None", "—", '营业部代码（机构专用为 "0"）'),
+    ("branch_name", "str | None", "—", "交易营业部名称"),
+    ("buy", "float | None", "元", "买入金额"),
+    ("buy_ratio", "float | None", "%", "买入金额占总成交比例（上游比例，已换算）"),
+    ("sell", "float | None", "元", "卖出金额"),
+    ("sell_ratio", "float | None", "%", "卖出金额占总成交比例（上游比例，已换算）"),
+    ("net_buy", "float | None", "元", "净额"),
+    ("close", "float | None", "元", "收盘价"),
+    ("change_pct", "float | None", "%", "涨跌幅"),
+    ("turnover", "float | None", "元", "总成交额（该上榜原因统计区间内）"),
+)
+
 
 @dataclass(frozen=True)
 class Param:
@@ -330,6 +485,15 @@ _DATE_RANGE_PARAMS = (
         "起始日期 YYYYMMDD；起止都留空取最近一个有数据的交易日，只给起始取到今天",
     ),
     Param("end_date", "str | None", False, "None", "结束日期 YYYYMMDD；只给结束日期时只取那一天"),
+)
+_PERIOD_PARAMS = (
+    Param(
+        "period",
+        "str",
+        False,
+        '"1mo"',
+        "统计周期：1mo 近一月 / 3mo 近三月 / 6mo 近六月 / 1y 近一年，未知回退 1mo",
+    ),
 )
 
 
@@ -793,6 +957,197 @@ _INTERFACES: tuple[Interface, ...] = (
             "    print(e.trade_date, e.code, e.name, e.net_buy, e.reason)"
         ),
         dataframe_variant="df_billboard_detail_em",
+    ),
+    Interface(
+        name="billboard_stock_stats_em",
+        category="billboard",
+        desc="个股上榜统计（统计周期内各股的上榜次数与龙虎榜、机构买卖合计）",
+        documented=True,
+        inputs=_PERIOD_PARAMS,
+        outputs=tuple(Field(*f) for f in _BILLBOARD_STOCK_STATS_FIELDS),
+        example=(
+            "from em import billboard_stock_stats_em\n"
+            "from em.domain.queries import BillboardStockStatsQuery\n"
+            "\n"
+            'page = billboard_stock_stats_em(BillboardStockStatsQuery(period="3mo"))\n'
+            "print(page.total)\n"
+            "for s in page.items[:5]:\n"
+            "    print(s.code, s.name, s.billboard_times, s.net_buy, s.institution_net_buy)"
+        ),
+        dataframe_variant="df_billboard_stock_stats_em",
+    ),
+    Interface(
+        name="billboard_institution_em",
+        category="billboard",
+        desc="机构买卖每日统计（按上榜日期区间取有机构席位参与的上榜记录：买卖机构数、机构净买额、上榜后涨跌幅）",
+        documented=True,
+        inputs=_DATE_RANGE_PARAMS,
+        outputs=tuple(Field(*f) for f in _BILLBOARD_INSTITUTION_FIELDS),
+        example=(
+            "from em import billboard_institution_em\n"
+            "from em.domain.queries import BillboardInstitutionQuery\n"
+            "\n"
+            'page = billboard_institution_em(BillboardInstitutionQuery("20261102", "20261106"))\n'
+            "print(page.total)\n"
+            "for t in page.items[:5]:\n"
+            "    print(t.trade_date, t.code, t.name, t.buy_institutions, t.institution_net_buy)"
+        ),
+        dataframe_variant="df_billboard_institution_em",
+    ),
+    Interface(
+        name="billboard_institution_stats_em",
+        category="billboard",
+        desc="机构席位追踪（统计周期内各股上榜时机构席位的买卖次数与金额合计）",
+        documented=True,
+        inputs=_PERIOD_PARAMS,
+        outputs=tuple(Field(*f) for f in _BILLBOARD_INSTITUTION_STATS_FIELDS),
+        example=(
+            "from em import billboard_institution_stats_em\n"
+            "from em.domain.queries import BillboardInstitutionStatsQuery\n"
+            "\n"
+            'page = billboard_institution_stats_em(BillboardInstitutionStatsQuery(period="1mo"))\n'
+            "print(page.total)\n"
+            "for s in page.items[:5]:\n"
+            "    print(s.code, s.name, s.billboard_times, s.institution_net_buy)"
+        ),
+        dataframe_variant="df_billboard_institution_stats_em",
+    ),
+    Interface(
+        name="billboard_branch_active_em",
+        category="billboard",
+        desc="每日活跃营业部（按上榜日期区间取各营业部的买卖个股数、买卖合计与当日交易的上榜股票）",
+        documented=True,
+        inputs=_DATE_RANGE_PARAMS,
+        outputs=tuple(Field(*f) for f in _BILLBOARD_BRANCH_ACTIVE_FIELDS),
+        example=(
+            "from em import billboard_branch_active_em\n"
+            "from em.domain.queries import BillboardBranchActiveQuery\n"
+            "\n"
+            "page = billboard_branch_active_em(BillboardBranchActiveQuery())  # 最近一个上榜日\n"
+            "print(page.total)\n"
+            "for b in page.items[:5]:\n"
+            "    print(b.trade_date, b.branch_code, b.branch_name, b.net_buy, b.stock_codes)"
+        ),
+        dataframe_variant="df_billboard_branch_active_em",
+    ),
+    Interface(
+        name="billboard_branch_rank_em",
+        category="billboard",
+        desc="营业部排行（统计周期内各营业部买入上榜后 1 / 2 / 3 / 5 / 10 天的买入次数、平均涨幅与上涨概率）",
+        documented=True,
+        inputs=_PERIOD_PARAMS,
+        outputs=tuple(Field(*f) for f in _BILLBOARD_BRANCH_RANK_FIELDS),
+        example=(
+            "from em import billboard_branch_rank_em\n"
+            "from em.domain.queries import BillboardBranchRankQuery\n"
+            "\n"
+            'page = billboard_branch_rank_em(BillboardBranchRankQuery(period="1y"))\n'
+            "print(page.total)\n"
+            "for b in page.items[:5]:\n"
+            "    print(b.branch_code, b.branch_name, b.buy_times_1d, b.avg_change_1d, b.rise_prob_1d)"
+        ),
+        dataframe_variant="df_billboard_branch_rank_em",
+    ),
+    Interface(
+        name="billboard_branch_stats_em",
+        category="billboard",
+        desc="营业部统计（统计周期内各营业部的上榜次数与买卖次数、金额合计）",
+        documented=True,
+        inputs=_PERIOD_PARAMS,
+        outputs=tuple(Field(*f) for f in _BILLBOARD_BRANCH_STATS_FIELDS),
+        example=(
+            "from em import billboard_branch_stats_em\n"
+            "from em.domain.queries import BillboardBranchStatsQuery\n"
+            "\n"
+            'page = billboard_branch_stats_em(BillboardBranchStatsQuery(period="6mo"))\n'
+            "print(page.total)\n"
+            "for b in page.items[:5]:\n"
+            "    print(b.branch_code, b.branch_name, b.billboard_times, b.buy, b.sell)"
+        ),
+        dataframe_variant="df_billboard_branch_stats_em",
+    ),
+    Interface(
+        name="billboard_branch_trades_em",
+        category="billboard",
+        desc="营业部详情（一家营业部的上榜买卖记录：股票、买卖金额、之后 1 ~ 30 日涨跌幅）",
+        documented=True,
+        inputs=(
+            Param(
+                "branch_code",
+                "str",
+                True,
+                "—",
+                "营业部代码（见活跃营业部 / 营业部排行 / 营业部统计的 branch_code）",
+            ),
+            Param(
+                "start_date",
+                "str | None",
+                False,
+                "None",
+                "起始日期 YYYYMMDD；起止都留空取该营业部的全部历史，只给起始取到今天",
+            ),
+            _DATE_RANGE_PARAMS[1],
+        ),
+        outputs=tuple(Field(*f) for f in _BILLBOARD_BRANCH_TRADES_FIELDS),
+        example=(
+            "from em import billboard_branch_trades_em\n"
+            "from em.domain.queries import BillboardBranchTradesQuery\n"
+            "\n"
+            'page = billboard_branch_trades_em(BillboardBranchTradesQuery("10188715", "20261001"))\n'
+            "print(page.total)\n"
+            "for t in page.items[:5]:\n"
+            "    print(t.trade_date, t.code, t.name, t.buy, t.sell, t.net_buy)"
+        ),
+        dataframe_variant="df_billboard_branch_trades_em",
+    ),
+    Interface(
+        name="billboard_stock_dates_em",
+        category="billboard",
+        desc="个股上榜日期（一只股票历次上榜的日期，倒序）",
+        documented=True,
+        inputs=(Param("code", "str", True, "—", "股票代码（如 000530）"),),
+        outputs=tuple(Field(*f) for f in _BILLBOARD_STOCK_DATES_FIELDS),
+        example=(
+            "from em import billboard_stock_dates_em\n"
+            "from em.domain.queries import BillboardStockDatesQuery\n"
+            "\n"
+            'page = billboard_stock_dates_em(BillboardStockDatesQuery("000530"))\n'
+            "print(page.total, [d.trade_date for d in page.items[:5]])"
+        ),
+        dataframe_variant="df_billboard_stock_dates_em",
+    ),
+    Interface(
+        name="billboard_stock_em",
+        category="billboard",
+        desc="个股龙虎榜详情（一只股票某个上榜日买入或卖出金额最大的前 5 家营业部席位）",
+        documented=True,
+        inputs=(
+            Param("code", "str", True, "—", "股票代码（如 000530）"),
+            Param(
+                "date",
+                "str | None",
+                False,
+                "None",
+                "上榜日 YYYYMMDD（可取自 billboard_stock_dates_em）；留空取该股最近一个上榜日",
+            ),
+            Param(
+                "side",
+                "str",
+                False,
+                '"buy"',
+                "buy 买入金额最大的前 5 名 / sell 卖出金额最大的前 5 名，未知回退 buy",
+            ),
+        ),
+        outputs=tuple(Field(*f) for f in _BILLBOARD_STOCK_FIELDS),
+        example=(
+            "from em import billboard_stock_em\n"
+            "from em.domain.queries import BillboardStockQuery\n"
+            "\n"
+            'page = billboard_stock_em(BillboardStockQuery("000530", "20261102", side="sell"))\n'
+            "for s in page.items:\n"
+            "    print(s.reason, s.branch_name, s.buy, s.sell, s.net_buy)"
+        ),
+        dataframe_variant="df_billboard_stock_em",
     ),
 )
 

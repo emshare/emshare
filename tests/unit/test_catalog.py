@@ -1,5 +1,7 @@
 """接口检索的行为锁（纯本地，不触网）。"""
 
+from dataclasses import MISSING
+
 import pytest
 
 from em import interface_info, list_categories, search
@@ -148,7 +150,7 @@ def test_interface_info_board_industry_list() -> None:
 def test_list_categories() -> None:
     cats = list_categories()
     assert cats == [
-        {"类目": "billboard", "接口数": 1},
+        {"类目": "billboard", "接口数": 10},
         {"类目": "board", "接口数": 2},
         {"类目": "changes", "接口数": 2},
         {"类目": "fund", "接口数": 1},
@@ -304,6 +306,91 @@ def test_interface_info_billboard_detail_covers_model_fields() -> None:
     units = {f["name"]: f["unit"] for f in info["outputs"]}
     assert units["net_buy"] == "元" and units["net_buy_ratio"] == "%"
     assert "billboard_detail_em(" in info["example"]
+
+
+_BILLBOARD_REPORTS = [
+    # 接口, 模型, 入参, 检索词
+    ("billboard_stock_stats_em", "BillboardStockStats", ["period"], "个股上榜统计"),
+    (
+        "billboard_institution_em",
+        "BillboardInstitutionTrade",
+        ["start_date", "end_date"],
+        "机构买卖每日统计",
+    ),
+    ("billboard_institution_stats_em", "BillboardInstitutionStats", ["period"], "机构席位追踪"),
+    (
+        "billboard_branch_active_em",
+        "BillboardBranchActive",
+        ["start_date", "end_date"],
+        "活跃营业部",
+    ),
+    ("billboard_branch_rank_em", "BillboardBranchRank", ["period"], "营业部排行"),
+    ("billboard_branch_stats_em", "BillboardBranchStats", ["period"], "营业部统计"),
+    (
+        "billboard_branch_trades_em",
+        "BillboardBranchTrade",
+        ["branch_code", "start_date", "end_date"],
+        "营业部详情",
+    ),
+    ("billboard_stock_dates_em", "BillboardStockDate", ["code"], "个股上榜日期"),
+    ("billboard_stock_em", "BillboardSeat", ["code", "date", "side"], "个股龙虎榜详情"),
+]
+
+
+@pytest.mark.parametrize(
+    "name,model,inputs,keyword", _BILLBOARD_REPORTS, ids=[r[0] for r in _BILLBOARD_REPORTS]
+)
+def test_interface_info_billboard_reports_cover_model_fields(
+    name: str, model: str, inputs: list[str], keyword: str
+) -> None:
+    from dataclasses import fields
+
+    import em
+    from em.domain import models, queries
+
+    info = interface_info(name)
+    assert info["category"] == "billboard" and info["documented"] is True
+    assert info["dataframe_variant"] == f"df_{name}"
+    assert callable(getattr(em, name)) and callable(getattr(em, f"df_{name}"))
+    # 入参与查询对象的字段一一对应，必填与否也一致
+    query = getattr(queries, model_query_name(name))
+    assert [p["name"] for p in info["inputs"]] == [f.name for f in fields(query)] == inputs
+    required = [p["name"] for p in info["inputs"] if p["required"]]
+    assert required == [f.name for f in fields(query) if f.default is MISSING]
+    # 出参与模型字段一一对应
+    assert [f["name"] for f in info["outputs"]] == [f.name for f in fields(getattr(models, model))]
+    assert all(f["unit"] and f["desc"] for f in info["outputs"])
+    assert f"{name}(" in info["example"]
+    assert search(keyword)[0]["接口名"] == name
+
+
+def model_query_name(interface: str) -> str:
+    """billboard_branch_rank_em -> BillboardBranchRankQuery。"""
+    stem = interface.removesuffix("_em")
+    return "".join(part.capitalize() for part in stem.split("_")) + "Query"
+
+
+def test_billboard_report_units() -> None:
+    def units(name: str) -> dict[str, str]:
+        return {f["name"]: f["unit"] for f in interface_info(name)["outputs"]}
+
+    assert units("billboard_institution_em")["float_market_cap"] == "元"  # 上游亿元，已换算
+    assert units("billboard_stock_em")["buy_ratio"] == "%"  # 上游比例，已换算
+    assert units("billboard_branch_rank_em")["rise_prob_10d"] == "%"
+    assert units("billboard_stock_stats_em")["billboard_times"] == "次"
+    assert units("billboard_branch_active_em")["stock_codes"] == "—"
+
+
+def test_search_billboard_family() -> None:
+    # “龙虎榜”命中多个接口，同分按接口名排序，详情仍在最前；“营业部”命中 4 个营业部接口
+    assert search("龙虎榜")[0]["接口名"] == "billboard_detail_em"
+    assert [r["接口名"] for r in search("营业部")[:4]] == [
+        "billboard_branch_active_em",
+        "billboard_branch_rank_em",
+        "billboard_branch_stats_em",
+        "billboard_branch_trades_em",
+    ]
+    assert len(search("billboard", category="billboard")) == 10
 
 
 def test_search_board_kline_by_keyword() -> None:
