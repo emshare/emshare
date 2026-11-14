@@ -24,6 +24,12 @@ from em.application.dataframe import (
     to_billboard_stock_dataframe,
     to_billboard_stock_dates_dataframe,
     to_billboard_stock_stats_dataframe,
+    to_block_trade_branch_active_dataframe,
+    to_block_trade_branch_rank_dataframe,
+    to_block_trade_detail_dataframe,
+    to_block_trade_market_daily_dataframe,
+    to_block_trade_stock_daily_dataframe,
+    to_block_trade_stock_stats_dataframe,
     to_board_changes_dataframe,
     to_board_fund_flow_dataframe,
     to_board_list_dataframe,
@@ -58,6 +64,12 @@ from em.domain.models import (
     BillboardSeat,
     BillboardStockDate,
     BillboardStockStats,
+    BlockTrade,
+    BlockTradeBranchActive,
+    BlockTradeBranchRank,
+    BlockTradeMarketDaily,
+    BlockTradeStockDaily,
+    BlockTradeStockStats,
     BoardChangesPage,
     BoardFundFlowSeries,
     BoardListPage,
@@ -86,6 +98,12 @@ from em.domain.queries import (
     BillboardStockDatesQuery,
     BillboardStockQuery,
     BillboardStockStatsQuery,
+    BlockTradeBranchActiveQuery,
+    BlockTradeBranchRankQuery,
+    BlockTradeDetailQuery,
+    BlockTradeMarketDailyQuery,
+    BlockTradeStockDailyQuery,
+    BlockTradeStockStatsQuery,
     BoardChangesQuery,
     BoardFundFlowQuery,
     BoardKlineQuery,
@@ -964,3 +982,121 @@ def df_billboard_stock_em(
 ) -> pd.DataFrame:
     """``billboard_stock_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
     return to_billboard_stock_dataframe(billboard_stock_em(query, settings), columns)
+
+
+def block_trade_market_daily_em(
+    query: BlockTradeMarketDailyQuery | None = None, settings: Settings | None = None
+) -> ReportPage[BlockTradeMarketDaily]:
+    """抓取大宗交易市场统计（一个交易日一行，日期留空取 2000-08-29 起的全部历史），自动翻完全部页。"""
+    query = query or BlockTradeMarketDailyQuery()
+    request = registry.block_trade_market_daily_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_block_trade_market_daily_em(
+    query: BlockTradeMarketDailyQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``block_trade_market_daily_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_block_trade_market_daily_dataframe(
+        block_trade_market_daily_em(query, settings), columns
+    )
+
+
+def block_trade_detail_em(
+    query: BlockTradeDetailQuery | None = None, settings: Settings | None = None
+) -> ReportPage[BlockTrade]:
+    """抓取大宗交易每日明细（按证券类型和交易日期区间，日期留空取最近一个交易日），自动翻完全部页。"""
+    query = query or BlockTradeDetailQuery()
+    request = registry.block_trade_detail_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_block_trade_detail_em(
+    query: BlockTradeDetailQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``block_trade_detail_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_block_trade_detail_dataframe(block_trade_detail_em(query, settings), columns)
+
+
+def block_trade_stock_daily_em(
+    query: BlockTradeStockDailyQuery | None = None, settings: Settings | None = None
+) -> ReportPage[BlockTradeStockDaily]:
+    """抓取大宗交易每日统计（各 A 股当天的大宗交易汇总，日期留空取最近一个交易日），自动翻完全部页。"""
+    query = query or BlockTradeStockDailyQuery()
+    request = registry.block_trade_stock_daily_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_block_trade_stock_daily_em(
+    query: BlockTradeStockDailyQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``block_trade_stock_daily_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_block_trade_stock_daily_dataframe(
+        block_trade_stock_daily_em(query, settings), columns
+    )
+
+
+def block_trade_stock_stats_em(
+    query: BlockTradeStockStatsQuery | None = None, settings: Settings | None = None
+) -> ReportPage[BlockTradeStockStats]:
+    """抓取大宗交易活跃 A 股统计（统计周期内各股的成交笔数、总成交额与之后的平均涨跌幅），自动翻完全部页。"""
+    query = query or BlockTradeStockStatsQuery()
+    request = registry.block_trade_stock_stats_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_block_trade_stock_stats_em(
+    query: BlockTradeStockStatsQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``block_trade_stock_stats_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_block_trade_stock_stats_dataframe(
+        block_trade_stock_stats_em(query, settings), columns
+    )
+
+
+def block_trade_branch_active_em(
+    query: BlockTradeBranchActiveQuery | None = None, settings: Settings | None = None
+) -> ReportPage[BlockTradeBranchActive]:
+    """抓取大宗交易活跃营业部统计（最近 N 个交易日各营业部的买卖笔数、金额与买入的股票），自动翻完全部页。"""
+    query = query or BlockTradeBranchActiveQuery()
+    request = registry.block_trade_branch_active_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_block_trade_branch_active_em(
+    query: BlockTradeBranchActiveQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``block_trade_branch_active_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_block_trade_branch_active_dataframe(
+        block_trade_branch_active_em(query, settings), columns
+    )
+
+
+def block_trade_branch_rank_em(
+    query: BlockTradeBranchRankQuery | None = None, settings: Settings | None = None
+) -> ReportPage[BlockTradeBranchRank]:
+    """抓取大宗交易营业部排行（最近 N 个交易日各营业部买入后 1 / 5 / 10 / 20 日的平均涨幅与上涨概率），自动翻完全部页。"""
+    query = query or BlockTradeBranchRankQuery()
+    request = registry.block_trade_branch_rank_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_block_trade_branch_rank_em(
+    query: BlockTradeBranchRankQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``block_trade_branch_rank_em`` 的 DataFrame 版（akshare 风格中文列名）。"""
+    return to_block_trade_branch_rank_dataframe(
+        block_trade_branch_rank_em(query, settings), columns
+    )

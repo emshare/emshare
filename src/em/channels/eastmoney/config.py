@@ -152,7 +152,9 @@ CHANGE_TYPE_CODES = {
 # 数据中心（datacenter-web）报表接口：龙虎榜 / 大宗交易 / 业绩与财报等，按 reportName 区分报表
 DATACENTER_HOST = "https://datacenter-web.eastmoney.com"
 DATACENTER_PATH = "/api/data/v1/get"
-# 单页上限：pageSize 传 5000 / 50000 也只返回 500 条（实测），全量要翻页
+# 单页上限：pageSize 传 5000 / 50000 也只返回 500 条（实测），全量要翻页。上限因报表而异：龙虎榜详情、
+# 大宗交易市场统计是 500；大宗交易每日明细、每日统计实测 2026-11-13 传 5000 能一页取回 5000 条。
+# 目前所有报表统一按 500 翻页
 DATACENTER_PAGE_SIZE = 500
 # 返回码（实测）：0 成功；9201 查无数据（过滤后为空、页号越界）。查询写错的两种：9501（报表 / 列名 /
 # 排序列不存在、日期格式不对）、200（参数类型不对，如页码不是整数；这种 code 是字符串 "200"）——
@@ -176,3 +178,15 @@ DATACENTER_SCOPE_FILTERS = {
 # 统计周期 -> 上游取值（用户定 1mo / 3mo / 6mo / 1y，避免与 K 线分钟周期 5m 混淆）
 # 龙虎榜个股统计 / 机构席位追踪 / 营业部排行与统计（STATISTICS_CYCLE / STATISTICSCYCLE）
 BILLBOARD_PERIODS = {"1mo": "01", "3mo": "02", "6mo": "03", "1y": "04"}
+# 大宗交易（block_trade_*）的枚举参数 -> 上游取值
+# 证券类型 -> SECURITY_TYPE_WEB（实测 2026-11-13 明细总条数：A 股 337441 / B 股 1661 / 基金 12589 /
+# 债券 333728；另有取值 5 的 2 条 2004 年回购记录，不开放）
+BLOCK_TRADE_SECURITY_TYPES = {"ashare": "1", "bshare": "2", "fund": "3", "bond": "4"}
+# 活跃 A 股统计的周期 -> DATE_TYPE_CODE：自然月，从 N 个月前同一天的次日算起（实测与明细逐只一致）
+BLOCK_TRADE_STOCK_PERIODS = {"1mo": "1", "3mo": "3", "6mo": "6", "1y": "12"}
+# 活跃营业部统计的周期 -> N_DATE：最近 N 个交易日；0 是上游的“最新”，即最近一个交易日
+# （akshare 的“当前交易日”传 -1，实测查不到任何行）
+BLOCK_TRADE_ACTIVE_PERIODS = {"1d": "0", "3d": "-3", "5d": "-5", "10d": "-10", "30d": "-30"}
+# 营业部排行的周期 -> N_DATE：最近 N 个交易日。东财页面与 akshare 叫近一月 / 三月 / 六月 / 一年，
+# 实测是 30 / 90 / 180 / 360 个交易日（360 个交易日约一年半），所以取值按“日”命名
+BLOCK_TRADE_RANK_PERIODS = {"30d": "-30", "90d": "-90", "180d": "-180", "360d": "-360"}

@@ -32,6 +32,13 @@ src/em/channels/eastmoney/                 docs/interfaces/eastmoney/
 │   ├── billboard_branch_trades/# 营业部详情    │   ├── billboard_branch_trades_em.md
 │   ├── billboard_stock_dates/  # 个股上榜日期  │   ├── billboard_stock_dates_em.md
 │   └── billboard_stock/        # 个股龙虎榜    │   └── billboard_stock_em.md
+├── ashare_block_trade/         # 大宗交易      ├── ashare_block_trade/
+│   ├── block_trade_market_daily/# 市场统计      │   ├── block_trade_market_daily_em.md
+│   ├── block_trade_detail/     # 每日明细      │   ├── block_trade_detail_em.md
+│   ├── block_trade_stock_daily/# 每日统计      │   ├── block_trade_stock_daily_em.md
+│   ├── block_trade_stock_stats/# 活跃A股统计   │   ├── block_trade_stock_stats_em.md
+│   ├── block_trade_branch_active/# 活跃营业部    │   ├── block_trade_branch_active_em.md
+│   └── block_trade_branch_rank/# 营业部排行    │   └── block_trade_branch_rank_em.md
 ├── ashare_indices/              # 沪深京指数    ├── ashare_indices/
 │   └── index_list/             # 指数列表      │   └── index_list_em.md
 ├── hk_market/                  # 港股市场      ├── hk_market/
@@ -55,4 +62,4 @@ src/em/channels/eastmoney/                 docs/interfaces/eastmoney/
 └── __init__.py
 ```
 
-> 除 `ashare_boards/`、`ashare_stocks/`、`ashare_billboard/`、`ashare_indices/`、`hk_market/`、`fund_market/` 外，其余市场目录暂为空占位，待对应功能实现后填充。
+> 除 `ashare_boards/`、`ashare_stocks/`、`ashare_billboard/`、`ashare_block_trade/`、`ashare_indices/`、`hk_market/`、`fund_market/` 外，其余市场目录暂为空占位，待对应功能实现后填充。

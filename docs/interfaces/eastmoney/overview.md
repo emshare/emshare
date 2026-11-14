@@ -204,6 +204,54 @@
 - 源码：`src/em/channels/eastmoney/ashare_billboard/billboard_stock/billboard_stock_em.py`
 
 
+### `大宗交易市场统计`
+接口：`block_trade_market_daily_em`, `df_block_trade_market_daily_em`->（DataFrame版）
+描述：大宗交易市场统计（数据中心，一个交易日一行：沪深京 A 股大宗交易成交总额、溢价 / 折价成交额及占比、上证指数；日期留空取 2000-08-29 起的全部历史）。只统计 A 股。
+
+- 详情：[block_trade_market_daily_em.md](./ashare_block_trade/block_trade_market_daily_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_block_trade/block_trade_market_daily/block_trade_market_daily_em.py`
+
+
+### `大宗交易每日明细`
+接口：`block_trade_detail_em`, `df_block_trade_detail_em`->（DataFrame版）
+描述：大宗交易每日明细（数据中心，按证券类型 `ashare` / `bshare` / `fund` / `bond` 和交易日期区间取全部成交，一笔成交一行；日期留空取最近一个有该类证券成交的交易日）。上游没有成交编号，相同的几笔成交各算一笔；成交量单位随证券类型不同。
+
+- 详情：[block_trade_detail_em.md](./ashare_block_trade/block_trade_detail_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_block_trade/block_trade_detail/block_trade_detail_em.py`
+
+
+### `大宗交易每日统计`
+接口：`block_trade_stock_daily_em`, `df_block_trade_stock_daily_em`->（DataFrame版）
+描述：大宗交易每日统计（数据中心，按交易日期区间取各 A 股当天的大宗交易汇总：成交笔数、成交总量、成交总额、成交均价、折溢率；日期留空取最近一个交易日）。成交总量、成交总额已从万股、万元换算成股、元。
+
+- 详情：[block_trade_stock_daily_em.md](./ashare_block_trade/block_trade_stock_daily_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_block_trade/block_trade_stock_daily/block_trade_stock_daily_em.py`
+
+
+### `大宗交易活跃 A 股统计`
+接口：`block_trade_stock_stats_em`, `df_block_trade_stock_stats_em`->（DataFrame版）
+描述：大宗交易活跃 A 股统计（数据中心，按统计周期 `1mo` / `3mo` / `6mo` / `1y` 取有过大宗交易的 A 股：成交笔数、总成交额、折溢率、上榜日后平均涨跌幅）。平均涨跌幅把未到期的成交按 0 计入。
+
+- 详情：[block_trade_stock_stats_em.md](./ashare_block_trade/block_trade_stock_stats_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_block_trade/block_trade_stock_stats/block_trade_stock_stats_em.py`
+
+
+### `大宗交易活跃营业部统计`
+接口：`block_trade_branch_active_em`, `df_block_trade_branch_active_em`->（DataFrame版）
+描述：大宗交易活跃营业部统计（数据中心，按最近 `1d` / `3d` / `5d` / `10d` / `30d` 个交易日取各营业部的买卖笔数、金额、净买入额与买入的股票）。只统计 A 股；`buy_stocks` 只含买入的股票。
+
+- 详情：[block_trade_branch_active_em.md](./ashare_block_trade/block_trade_branch_active_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_block_trade/block_trade_branch_active/block_trade_branch_active_em.py`
+
+
+### `大宗交易营业部排行`
+接口：`block_trade_branch_rank_em`, `df_block_trade_branch_rank_em`->（DataFrame版）
+描述：大宗交易营业部排行（数据中心，按最近 `30d` / `90d` / `180d` / `360d` 个交易日取各营业部买入后 1 / 5 / 10 / 20 天的买入次数、平均涨幅与上涨概率）。东财页面叫近一月 / 三月 / 六月 / 一年，实际是 30 / 90 / 180 / 360 个交易日。
+
+- 详情：[block_trade_branch_rank_em.md](./ashare_block_trade/block_trade_branch_rank_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_block_trade/block_trade_branch_rank/block_trade_branch_rank_em.py`
+
+
 ### `通用转换`
 接口：`to_dataframe`
 描述：任意 `QuotePage` → `DataFrame`，默认中文列名，可传 `columns` 覆盖。

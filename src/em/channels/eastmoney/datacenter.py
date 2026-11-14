@@ -81,6 +81,35 @@ def codes_of(value: Any) -> tuple[str, ...]:
     return tuple(token.split(".", 1)[0] for token in s.split()) if s else ()
 
 
+def required_day(value: Any) -> str:
+    """必填日期（一天一行的报表以日期为键）：缺失时为空串。"""
+    return day(value) or ""
+
+
+def _pairs(value: Any) -> list[tuple[str, str]]:
+    """``000338|潍柴动力,000725|京东方A`` → ``[("000338", "潍柴动力"), ("000725", "京东方A")]``。"""
+    s = text(value)
+    if not s:
+        return []
+    pairs: list[tuple[str, str]] = []
+    for item in s.split(","):
+        code, _, name = item.strip().partition("|")
+        if code:
+            pairs.append((code, name.strip()))
+    return pairs
+
+
+def pair_codes(value: Any) -> tuple[str, ...]:
+    """逗号分隔的 ``代码|简称`` 列表里的代码：``000338|潍柴动力,000725|京东方A`` → ``("000338", "000725")``。"""
+    return tuple(code for code, _ in _pairs(value))
+
+
+def pair_names(value: Any) -> str | None:
+    """逗号分隔的 ``代码|简称`` 列表里的简称，空格分隔（写法同龙虎榜活跃营业部的股票列表）。"""
+    names = [name for _, name in _pairs(value) if name]
+    return " ".join(names) if names else None
+
+
 # ---------------------------------------------------------------- 列声明
 
 

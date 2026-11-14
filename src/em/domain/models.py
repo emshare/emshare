@@ -675,3 +675,140 @@ class BillboardSeat:
     close: Yuan = None  # 收盘价
     change_pct: Pct = None  # 涨跌幅
     turnover: Yuan = None  # 总成交额（该上榜原因统计区间内）
+
+
+@dataclass(frozen=True)
+class BlockTradeMarketDaily:
+    """大宗交易市场统计的一个交易日：全市场 A 股大宗交易的成交总额与溢价、折价成交额。
+
+    金额单位元，占比单位 %。只统计 A 股，不含 B 股、基金、债券；溢价、折价之外的是平价成交。
+    """
+
+    trade_date: str  # 交易日期 YYYY-MM-DD
+    sh_index: Point = None  # 上证指数收盘点位
+    sh_index_change_pct: Pct = None  # 上证指数涨跌幅
+    amount: Yuan = None  # 大宗交易成交总额
+    premium_amount: Yuan = None  # 溢价成交总额
+    premium_ratio: Pct = None  # 溢价成交总额占比
+    discount_amount: Yuan = None  # 折价成交总额
+    discount_ratio: Pct = None  # 折价成交总额占比
+
+
+@dataclass(frozen=True)
+class BlockTrade:
+    """大宗交易的一笔成交。A 股的金额单位元、成交量单位股，比率单位 %。
+
+    上游没有成交编号：同一只证券同一天可以有几笔买卖双方、价格、数量完全相同的成交，各算一笔，
+    不能去重。B 股、基金、债券没有“成交额 / 流通市值”和之后 N 日涨跌幅（为 None）。
+    """
+
+    code: str
+    name: str
+    market: str | None = None  # sh 沪市 / sz 深市 / bj 北交所
+    trade_date: str | None = None  # 交易日期 YYYY-MM-DD
+    change_pct: Pct = None  # 当日涨跌幅
+    close: Yuan = None  # 当日收盘价
+    price: Yuan = None  # 成交价
+    premium_rate: Pct = None  # 折溢率 = 成交价 / 收盘价 - 1，正为溢价、负为折价
+    # 成交量，上游原值：A 股、B 股为股，基金为份；债券 2015 年以来为手（1 手 = 10 张），更早口径不一
+    volume: float | None = None
+    amount: Yuan = None  # 成交额；B 股为交易币种（沪市 B 股 2008–2020 年间的记录多为人民币）
+    float_market_cap_ratio: Pct = None  # 成交额 / 流通市值（按当日收盘价与流通 A 股计，仅 A 股有）
+    buyer_code: str | None = None  # 买方营业部代码（机构专用为 "0"）
+    buyer_name: str | None = None  # 买方营业部
+    seller_code: str | None = None  # 卖方营业部代码（机构专用为 "0"）
+    seller_name: str | None = None  # 卖方营业部
+    change_after_1d: Pct = None  # 1 日后涨跌幅（仅 A 股有；尚未到期为 None）
+    change_after_5d: Pct = None  # 5 日后涨跌幅
+    change_after_10d: Pct = None  # 10 日后涨跌幅
+    change_after_20d: Pct = None  # 20 日后涨跌幅
+
+
+@dataclass(frozen=True)
+class BlockTradeStockDaily:
+    """大宗交易每日统计：一只 A 股一个交易日的大宗交易汇总。金额单位元，成交量单位股，比率单位 %。"""
+
+    code: str
+    name: str
+    market: str | None = None  # sh 沪市 / sz 深市 / bj 北交所
+    trade_date: str | None = None  # 交易日期 YYYY-MM-DD
+    change_pct: Pct = None  # 当日涨跌幅
+    close: Yuan = None  # 当日收盘价
+    avg_price: Yuan = None  # 成交均价：各笔成交价按成交量加权（约等于 成交总额 / 成交总量）
+    premium_rate: Pct = None  # 折溢率 = 成交均价 / 收盘价 - 1，正为溢价、负为折价
+    deal_times: int | None = None  # 成交笔数
+    premium_times: int | None = None  # 其中溢价成交的笔数
+    discount_times: int | None = None  # 其中折价成交的笔数
+    volume: Shares = None  # 成交总量
+    amount: Yuan = None  # 成交总额
+    float_market_cap_ratio: Pct = None  # 成交总额 / 流通市值
+    change_after_1d: Pct = None  # 1 日后涨跌幅（尚未到期为 None）
+    change_after_5d: Pct = None  # 5 日后涨跌幅
+    change_after_10d: Pct = None  # 10 日后涨跌幅
+    change_after_20d: Pct = None  # 20 日后涨跌幅
+
+
+@dataclass(frozen=True)
+class BlockTradeStockStats:
+    """活跃 A 股统计：统计周期内一只 A 股的大宗交易汇总。金额单位元，比率单位 %。
+
+    ``avg_change_after_*`` 是“已到期各笔的 N 日后涨跌幅之和 ÷ 周期内全部笔数”：还没到期的成交
+    按 0 计入，周期越短、N 越大，被摊薄得越多。
+    """
+
+    code: str
+    name: str
+    market: str | None = None  # sh 沪市 / sz 深市 / bj 北交所
+    close: Yuan = None  # 最近上榜日的收盘价
+    change_pct: Pct = None  # 最近上榜日的涨跌幅
+    latest_date: str | None = None  # 最近上榜日 YYYY-MM-DD（周期内最后一次有大宗交易的交易日）
+    deal_times: int | None = None  # 成交笔数（东财页面叫“上榜次数”）
+    premium_times: int | None = None  # 其中溢价成交的笔数
+    discount_times: int | None = None  # 其中折价成交的笔数
+    amount: Yuan = None  # 总成交额
+    premium_rate: Pct = None  # 折溢率 = 总成交额 / Σ(成交量 × 当日收盘价) - 1
+    float_market_cap_ratio: Pct = None  # 成交总额 / 流通市值（各笔之和）
+    avg_change_after_1d: Pct = None  # 上榜日后 1 日平均涨跌幅
+    avg_change_after_5d: Pct = None  # 上榜日后 5 日平均涨跌幅
+    avg_change_after_10d: Pct = None  # 上榜日后 10 日平均涨跌幅
+    avg_change_after_20d: Pct = None  # 上榜日后 20 日平均涨跌幅
+
+
+@dataclass(frozen=True)
+class BlockTradeBranchActive:
+    """活跃营业部统计：最近 N 个交易日内一家营业部的 A 股大宗交易买卖汇总。金额单位元。"""
+
+    branch_code: str  # 营业部代码（机构专用为 "0"）
+    branch_name: str
+    latest_date: str | None = None  # 最近上榜日 YYYY-MM-DD（周期内最后一次买入或卖出的交易日）
+    buy_times: int | None = None  # 买入笔数
+    sell_times: int | None = None  # 卖出笔数
+    buy: Yuan = None  # 买入金额
+    sell: Yuan = None  # 卖出金额
+    net_buy: Yuan = None  # 净买入额 = 买入 - 卖出
+    buy_stocks: str | None = None  # 买入股票的简称，空格分隔；只卖出的营业部为 None
+    buy_stock_codes: tuple[str, ...] = ()  # 买入股票的代码，与 buy_stocks 一一对应
+
+
+@dataclass(frozen=True)
+class BlockTradeBranchRank:
+    """营业部排行：最近 N 个交易日内一家营业部买入的 A 股在成交后 1 / 5 / 10 / 20 日的表现。
+
+    涨幅、概率单位 %。各档只统计已经有 N 日后涨跌幅的买入；某一档还没有到期的买入时三项都是 None。
+    5 日档与每日明细逐家一致；1 / 10 / 20 日档有少数营业部比明细少（上游数据自身的出入）。
+    """
+
+    branch_code: str  # 营业部代码（机构专用为 "0"）
+    branch_name: str
+    buy_times_1d: int | None = None  # 上榜后 1 天：买入次数
+    avg_change_1d: Pct = None  # 上榜后 1 天：平均涨幅
+    rise_prob_1d: Pct = None  # 上榜后 1 天：上涨概率
+    buy_times_5d: int | None = None
+    avg_change_5d: Pct = None
+    rise_prob_5d: Pct = None
+    buy_times_10d: int | None = None
+    avg_change_10d: Pct = None
+    rise_prob_10d: Pct = None
+    buy_times_20d: int | None = None
+    avg_change_20d: Pct = None
+    rise_prob_20d: Pct = None

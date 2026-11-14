@@ -1,0 +1,515 @@
+{
+  "market_daily": {
+    "version": "a8e0582749752c6f12d221d8b7e74477",
+    "result": {
+      "pages": 1,
+      "data": [
+        {
+          "TRADE_DATE": "2026-11-12 00:00:00",
+          "SZ_INDEX": "3655.8295",
+          "SZ_CHANGE_RATE": -0.674156698933,
+          "BLOCKTRADE_DEAL_AMT": 843182600,
+          "PREMIUM_DEAL_AMT": 86593100,
+          "PREMIUM_RATIO": 10.269792094856,
+          "DISCOUNT_DEAL_AMT": 201519700,
+          "DISCOUNT_RATIO": 23.899888351586
+        },
+        {
+          "TRADE_DATE": "2026-11-11 00:00:00",
+          "SZ_INDEX": "3680.6428",
+          "SZ_CHANGE_RATE": 0.461806137936,
+          "BLOCKTRADE_DEAL_AMT": 2072442200,
+          "PREMIUM_DEAL_AMT": 591500300,
+          "PREMIUM_RATIO": 28.541220594717,
+          "DISCOUNT_DEAL_AMT": 832705900,
+          "DISCOUNT_RATIO": 40.179933606834
+        }
+      ],
+      "count": 2
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "detail": {
+    "version": "5647770ac7fda38767c2dccaf9c70d09",
+    "result": {
+      "pages": 32,
+      "data": [
+        {
+          "SECURITY_CODE": "000656",
+          "SECURITY_NAME_ABBR": "金科股份",
+          "SECUCODE": "000656.SZ",
+          "TRADE_DATE": "2026-11-12 00:00:00",
+          "CHANGE_RATE": -1.8868,
+          "CLOSE_PRICE": 1.04,
+          "DEAL_PRICE": 1.02,
+          "PREMIUM_RATIO": -0.019230769231,
+          "DEAL_VOLUME": 3000000,
+          "DEAL_AMT": 3060000,
+          "TURNOVER_RATE": 0.031349961031,
+          "BUYER_CODE": "10126062",
+          "BUYER_NAME": "招商证券股份有限公司温州府东路证券营业部",
+          "SELLER_CODE": "10046604",
+          "SELLER_NAME": "中信证券股份有限公司杭州凤起路证券营业部",
+          "CHANGE_RATE_1DAYS": -0.96153846,
+          "CHANGE_RATE_5DAYS": null,
+          "CHANGE_RATE_10DAYS": null,
+          "CHANGE_RATE_20DAYS": null,
+          "DAILY_RANK": 1,
+          "SECURITY_TYPE_WEB": "1"
+        },
+        {
+          "SECURITY_CODE": "000807",
+          "SECURITY_NAME_ABBR": "云铝股份",
+          "SECUCODE": "000807.SZ",
+          "TRADE_DATE": "2026-11-12 00:00:00",
+          "CHANGE_RATE": -0.4272,
+          "CLOSE_PRICE": 23.31,
+          "DEAL_PRICE": 23.31,
+          "PREMIUM_RATIO": 0,
+          "DEAL_VOLUME": 350000,
+          "DEAL_AMT": 8158500,
+          "TURNOVER_RATE": 0.010092504141,
+          "BUYER_CODE": "0",
+          "BUYER_NAME": "机构专用",
+          "SELLER_CODE": "0",
+          "SELLER_NAME": "机构专用",
+          "CHANGE_RATE_1DAYS": -1.15830116,
+          "CHANGE_RATE_5DAYS": null,
+          "CHANGE_RATE_10DAYS": null,
+          "CHANGE_RATE_20DAYS": null,
+          "DAILY_RANK": 1,
+          "SECURITY_TYPE_WEB": "1"
+        }
+      ],
+      "count": 64
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "detail_same_trades": {
+    "version": "410f718e375f0606550b51bc32b559fd",
+    "result": {
+      "pages": 1,
+      "data": [
+        {
+          "SECURITY_CODE": "300750",
+          "SECURITY_NAME_ABBR": "宁德时代",
+          "SECUCODE": "300750.SZ",
+          "TRADE_DATE": "2026-11-10 00:00:00",
+          "CHANGE_RATE": 0.5269,
+          "CLOSE_PRICE": 249.95,
+          "DEAL_PRICE": 249.95,
+          "PREMIUM_RATIO": 0,
+          "DEAL_VOLUME": 12000,
+          "DEAL_AMT": 2999400,
+          "TURNOVER_RATE": 0.000281649342,
+          "BUYER_CODE": "0",
+          "BUYER_NAME": "机构专用",
+          "SELLER_CODE": "0",
+          "SELLER_NAME": "机构专用",
+          "CHANGE_RATE_1DAYS": -1.31626325,
+          "CHANGE_RATE_5DAYS": null,
+          "CHANGE_RATE_10DAYS": null,
+          "CHANGE_RATE_20DAYS": null,
+          "DAILY_RANK": 1,
+          "SECURITY_TYPE_WEB": "1"
+        },
+        {
+          "SECURITY_CODE": "300750",
+          "SECURITY_NAME_ABBR": "宁德时代",
+          "SECUCODE": "300750.SZ",
+          "TRADE_DATE": "2026-11-10 00:00:00",
+          "CHANGE_RATE": 0.5269,
+          "CLOSE_PRICE": 249.95,
+          "DEAL_PRICE": 249.95,
+          "PREMIUM_RATIO": 0,
+          "DEAL_VOLUME": 12000,
+          "DEAL_AMT": 2999400,
+          "TURNOVER_RATE": 0.000281649342,
+          "BUYER_CODE": "0",
+          "BUYER_NAME": "机构专用",
+          "SELLER_CODE": "0",
+          "SELLER_NAME": "机构专用",
+          "CHANGE_RATE_1DAYS": -1.31626325,
+          "CHANGE_RATE_5DAYS": null,
+          "CHANGE_RATE_10DAYS": null,
+          "CHANGE_RATE_20DAYS": null,
+          "DAILY_RANK": 3,
+          "SECURITY_TYPE_WEB": "1"
+        },
+        {
+          "SECURITY_CODE": "300750",
+          "SECURITY_NAME_ABBR": "宁德时代",
+          "SECUCODE": "300750.SZ",
+          "TRADE_DATE": "2026-11-10 00:00:00",
+          "CHANGE_RATE": 0.5269,
+          "CLOSE_PRICE": 249.95,
+          "DEAL_PRICE": 249.95,
+          "PREMIUM_RATIO": 0,
+          "DEAL_VOLUME": 12000,
+          "DEAL_AMT": 2999400,
+          "TURNOVER_RATE": 0.000281649342,
+          "BUYER_CODE": "0",
+          "BUYER_NAME": "机构专用",
+          "SELLER_CODE": "0",
+          "SELLER_NAME": "机构专用",
+          "CHANGE_RATE_1DAYS": -1.31626325,
+          "CHANGE_RATE_5DAYS": null,
+          "CHANGE_RATE_10DAYS": null,
+          "CHANGE_RATE_20DAYS": null,
+          "DAILY_RANK": 4,
+          "SECURITY_TYPE_WEB": "1"
+        }
+      ],
+      "count": 3
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "detail_fund": {
+    "version": "1dfb49199c5a7a0c1aa66e230fa30379",
+    "result": {
+      "pages": 12,
+      "data": [
+        {
+          "SECURITY_CODE": "159352",
+          "SECURITY_NAME_ABBR": "南方中证A500ETF",
+          "SECUCODE": "159352.SZ",
+          "TRADE_DATE": "2026-11-12 00:00:00",
+          "CHANGE_RATE": -1.4427,
+          "CLOSE_PRICE": 1.093,
+          "DEAL_PRICE": 1.11,
+          "PREMIUM_RATIO": 0.015553522415,
+          "DEAL_VOLUME": 40577100,
+          "DEAL_AMT": 45000000,
+          "TURNOVER_RATE": null,
+          "BUYER_CODE": "10021768",
+          "BUYER_NAME": "华泰证券股份有限公司南京长江路证券营业部",
+          "SELLER_CODE": "0",
+          "SELLER_NAME": "机构专用",
+          "CHANGE_RATE_1DAYS": null,
+          "CHANGE_RATE_5DAYS": null,
+          "CHANGE_RATE_10DAYS": null,
+          "CHANGE_RATE_20DAYS": null,
+          "DAILY_RANK": 18,
+          "SECURITY_TYPE_WEB": "3"
+        }
+      ],
+      "count": 12
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "detail_bond": {
+    "version": "8baba70d1222062c594a29f893ee46cc",
+    "result": {
+      "pages": 9,
+      "data": [
+        {
+          "SECURITY_CODE": "123088",
+          "SECURITY_NAME_ABBR": "威唐转债",
+          "SECUCODE": "123088.SZ",
+          "TRADE_DATE": "2026-11-12 00:00:00",
+          "CHANGE_RATE": -0.006100111545,
+          "CLOSE_PRICE": 114.745,
+          "DEAL_PRICE": 111.33,
+          "PREMIUM_RATIO": -0.029761645388,
+          "DEAL_VOLUME": 509,
+          "DEAL_AMT": 566669.7,
+          "TURNOVER_RATE": null,
+          "BUYER_CODE": "10028535",
+          "BUYER_NAME": "南京证券股份有限公司南京热河路证券营业部",
+          "SELLER_CODE": "10061517",
+          "SELLER_NAME": "民生证券股份有限公司南京太平南路证券营业部",
+          "CHANGE_RATE_1DAYS": null,
+          "CHANGE_RATE_5DAYS": null,
+          "CHANGE_RATE_10DAYS": null,
+          "CHANGE_RATE_20DAYS": null,
+          "DAILY_RANK": 1,
+          "SECURITY_TYPE_WEB": "4"
+        }
+      ],
+      "count": 9
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "detail_bshare": {
+    "version": "647f368937635c07ba7847eebb4f2d42",
+    "result": {
+      "pages": 1,
+      "data": [
+        {
+          "SECURITY_CODE": "900905",
+          "SECURITY_NAME_ABBR": "老凤祥B",
+          "SECUCODE": "900905.SH",
+          "TRADE_DATE": "2026-06-23 00:00:00",
+          "CHANGE_RATE": -0.3862,
+          "CLOSE_PRICE": 3.095,
+          "DEAL_PRICE": 3.05,
+          "PREMIUM_RATIO": -0.014539579968,
+          "DEAL_VOLUME": 2186300,
+          "DEAL_AMT": 6659600,
+          "TURNOVER_RATE": null,
+          "BUYER_CODE": "10087361",
+          "BUYER_NAME": "国泰海通证券股份有限公司国际部",
+          "SELLER_CODE": "10087361",
+          "SELLER_NAME": "国泰海通证券股份有限公司国际部",
+          "CHANGE_RATE_1DAYS": null,
+          "CHANGE_RATE_5DAYS": null,
+          "CHANGE_RATE_10DAYS": null,
+          "CHANGE_RATE_20DAYS": null,
+          "DAILY_RANK": 1,
+          "SECURITY_TYPE_WEB": "2"
+        }
+      ],
+      "count": 1
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "stock_daily": {
+    "version": "5df678aa9763bda20ec2bda70ef9dea5",
+    "result": {
+      "pages": 20,
+      "data": [
+        {
+          "SECURITY_CODE": "301395",
+          "SECURITY_NAME_ABBR": "仁信新材",
+          "SECUCODE": "301395.SZ",
+          "TRADE_DATE": "2026-11-12 00:00:00",
+          "CHANGE_RATE": -2.386,
+          "CLOSE_PRICE": 13.91,
+          "AVERAGE_PRICE": 11.41,
+          "PREMIUM_RATIO": -0.179726815241,
+          "DEAL_NUM": 4,
+          "PREMIUM_TIMES": 0,
+          "DISCOUNT_TIMES": 4,
+          "VOLUME": 225.3,
+          "DEAL_AMT": 2570.67,
+          "TURNOVERRATE": 1.428730961632,
+          "D1_CLOSE_ADJCHRATE": 5.89503954,
+          "D5_CLOSE_ADJCHRATE": null,
+          "D10_CLOSE_ADJCHRATE": null,
+          "D20_CLOSE_ADJCHRATE": null
+        },
+        {
+          "SECURITY_CODE": "301051",
+          "SECURITY_NAME_ABBR": "信濠光电",
+          "SECUCODE": "301051.SZ",
+          "TRADE_DATE": "2026-11-12 00:00:00",
+          "CHANGE_RATE": -2.8996,
+          "CLOSE_PRICE": 13.73,
+          "AVERAGE_PRICE": 13.73,
+          "PREMIUM_RATIO": 0,
+          "DEAL_NUM": 2,
+          "PREMIUM_TIMES": 0,
+          "DISCOUNT_TIMES": 0,
+          "VOLUME": 148.34,
+          "DEAL_AMT": 2036.71,
+          "TURNOVERRATE": 0.656845667033,
+          "D1_CLOSE_ADJCHRATE": 0.80116533,
+          "D5_CLOSE_ADJCHRATE": null,
+          "D10_CLOSE_ADJCHRATE": null,
+          "D20_CLOSE_ADJCHRATE": null
+        }
+      ],
+      "count": 40
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "stock_stats": {
+    "version": "e51652af3bbceee3c1c2487320df0cbf",
+    "result": {
+      "pages": 238,
+      "data": [
+        {
+          "SECURITY_CODE": "688293",
+          "SECURITY_NAME_ABBR": "奥浦迈",
+          "SECUCODE": "688293.SH",
+          "CLOSE_PRICE": 68.83,
+          "CHANGE_RATE": 2.1368,
+          "TRADE_DATE": "2026-11-12 00:00:00",
+          "DEAL_NUM": 67,
+          "PREMIUM_TIMES": 0,
+          "DISCOUNT_TIMES": 67,
+          "DEAL_AMT": 25969.57,
+          "PREMIUM_RATIO": -0.091888054148,
+          "SUM_TURNOVERRATE": 3.254831334014,
+          "D1_AVG_ADJCHRATE": -1.512896822985,
+          "D5_AVG_ADJCHRATE": 0.690675921642,
+          "D10_AVG_ADJCHRATE": 2.61638878806,
+          "D20_AVG_ADJCHRATE": 0.944005806269,
+          "DATE_TYPE_CODE": "1"
+        },
+        {
+          "SECURITY_CODE": "300750",
+          "SECURITY_NAME_ABBR": "宁德时代",
+          "SECUCODE": "300750.SZ",
+          "CLOSE_PRICE": 237.7,
+          "CHANGE_RATE": -0.9583,
+          "TRADE_DATE": "2026-11-13 00:00:00",
+          "DEAL_NUM": 39,
+          "PREMIUM_TIMES": 0,
+          "DISCOUNT_TIMES": 0,
+          "DEAL_AMT": 68913.77,
+          "PREMIUM_RATIO": -9.417478e-06,
+          "SUM_TURNOVERRATE": 0.065215293266,
+          "D1_AVG_ADJCHRATE": -0.070296745128,
+          "D5_AVG_ADJCHRATE": -5.449585187949,
+          "D10_AVG_ADJCHRATE": -1.246022444103,
+          "D20_AVG_ADJCHRATE": -3.264850835897,
+          "DATE_TYPE_CODE": "1"
+        }
+      ],
+      "count": 475
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "branch_active": {
+    "version": "2999f1cfbea443c36cbe309b8bbaf7e3",
+    "result": {
+      "pages": 61,
+      "data": [
+        {
+          "OPERATEDEPT_CODE": "0",
+          "OPERATEDEPT_NAME": "机构专用",
+          "ONLIST_DATE": "2026-11-13 00:00:00",
+          "BUYER_NUM": 77,
+          "SELLER_NUM": 63,
+          "TOTAL_BUYAMT": 183621.53,
+          "TOTAL_SELLAMT": 134174.11,
+          "TOTAL_NETAMT": 49447.42,
+          "STOCK_DETAILS": "000338|潍柴动力,000725|京东方A,000807|云铝股份,000938|紫光股份,001221|悍高集团,002126|银轮股份,002245|蔚蓝锂芯,002353|杰瑞股份,002371|北方华创,002384|东山精密,002430|杭氧股份,002436|兴森科技,002493|荣盛石化,002681|奋达科技,002683|广东宏大,002713|东易日盛,002738|中矿资源,002821|凯莱英,002831|裕同科技,002916|深南电路,300054|鼎龙股份,300308|中际旭创,300331|苏大维格,300347|泰格医药,300413|芒果超媒,300666|江丰电子,300750|宁德时代,300759|康龙化成,300765|石药创新,300849|锦盛新材,300927|江天化学,300983|尤安设计,301001|凯淳股份,301051|信濠光电,301188|力诺药包,600519|贵州茅台,600547|山东黄金,601211|国泰海通,603019|中科曙光,603031|安孚科技,603135|中重科技,603228|景旺电子,603259|药明康德,603271|永杰新材,603341|龙旗科技,603893|瑞芯微,603936|博敏电子,605589|圣泉集团,688071|华依科技,688165|埃夫特,688213|思特威,688220|翱捷科技,688256|寒武纪,688293|奥浦迈,688301|奕瑞科技,688531|日联科技,688536|思瑞浦,688630|芯碁微装,688729|屹唐股份,688777|中控技术,688808|联讯仪器",
+          "N_DATE": -3
+        },
+        {
+          "OPERATEDEPT_CODE": "10388201",
+          "OPERATEDEPT_NAME": "平安证券深圳金田路证券营业部",
+          "ONLIST_DATE": "2026-11-13 00:00:00",
+          "BUYER_NUM": 6,
+          "SELLER_NUM": 1,
+          "TOTAL_BUYAMT": 8788.47,
+          "TOTAL_SELLAMT": 941.47,
+          "TOTAL_NETAMT": 7847,
+          "STOCK_DETAILS": "300308|中际旭创,601117|中国化学,603733|仙鹤股份,688208|道通科技",
+          "N_DATE": -3
+        }
+      ],
+      "count": 121
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "branch_active_sell_only": {
+    "version": "9731a77a0c0e05486a815c18c7c25eed",
+    "result": {
+      "pages": 44,
+      "data": [
+        {
+          "OPERATEDEPT_CODE": "10000559534",
+          "OPERATEDEPT_NAME": "国泰海通证券上海闵行区沪闵路证券营业部",
+          "ONLIST_DATE": "2026-11-11 00:00:00",
+          "BUYER_NUM": 0,
+          "SELLER_NUM": 4,
+          "TOTAL_BUYAMT": 0,
+          "TOTAL_SELLAMT": 880,
+          "TOTAL_NETAMT": -880,
+          "STOCK_DETAILS": null,
+          "N_DATE": -3
+        }
+      ],
+      "count": 44
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "branch_rank": {
+    "version": "ec1270329725bd8a9352363257ed1d3e",
+    "result": {
+      "pages": 199,
+      "data": [
+        {
+          "OPERATEDEPT_CODE": "0",
+          "OPERATEDEPT_NAME": "机构专用",
+          "D1_BUYER_NUM": 730,
+          "D1_AVERAGE_INCREASE": -0.765208804,
+          "D1_RISE_PROBABILITY": 40.27397260274,
+          "D5_BUYER_NUM": 630,
+          "D5_AVERAGE_INCREASE": -3.209395015381,
+          "D5_RISE_PROBABILITY": 29.047619047619,
+          "D10_BUYER_NUM": 512,
+          "D10_AVERAGE_INCREASE": -6.444206741113,
+          "D10_RISE_PROBABILITY": 28.7109375,
+          "D20_BUYER_NUM": 221,
+          "D20_AVERAGE_INCREASE": -12.952679051358,
+          "D20_RISE_PROBABILITY": 13.122171945701,
+          "N_DATE": -30
+        },
+        {
+          "OPERATEDEPT_CODE": "10510599",
+          "OPERATEDEPT_NAME": "广发证券慈溪浒山路证券营业部",
+          "D1_BUYER_NUM": 64,
+          "D1_AVERAGE_INCREASE": -1.285870166719,
+          "D1_RISE_PROBABILITY": 32.8125,
+          "D5_BUYER_NUM": 62,
+          "D5_AVERAGE_INCREASE": -1.135518107097,
+          "D5_RISE_PROBABILITY": 37.096774193548,
+          "D10_BUYER_NUM": 58,
+          "D10_AVERAGE_INCREASE": -1.229660142586,
+          "D10_RISE_PROBABILITY": 48.275862068966,
+          "D20_BUYER_NUM": 22,
+          "D20_AVERAGE_INCREASE": -9.319462768182,
+          "D20_RISE_PROBABILITY": 27.272727272727,
+          "N_DATE": -30
+        }
+      ],
+      "count": 398
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  },
+  "branch_rank_partial": {
+    "version": "9d14e12eb355becfeee6c5feedb708aa",
+    "result": {
+      "pages": 1,
+      "data": [
+        {
+          "OPERATEDEPT_CODE": "10021767",
+          "OPERATEDEPT_NAME": "华泰证券南京止马营证券营业部",
+          "D1_BUYER_NUM": 1,
+          "D1_AVERAGE_INCREASE": 7.11574953,
+          "D1_RISE_PROBABILITY": 100,
+          "D5_BUYER_NUM": null,
+          "D5_AVERAGE_INCREASE": null,
+          "D5_RISE_PROBABILITY": null,
+          "D10_BUYER_NUM": null,
+          "D10_AVERAGE_INCREASE": null,
+          "D10_RISE_PROBABILITY": null,
+          "D20_BUYER_NUM": null,
+          "D20_AVERAGE_INCREASE": null,
+          "D20_RISE_PROBABILITY": null,
+          "N_DATE": -30
+        }
+      ],
+      "count": 1
+    },
+    "success": true,
+    "message": "ok",
+    "code": 0
+  }
+}

@@ -151,6 +151,7 @@ def test_list_categories() -> None:
     cats = list_categories()
     assert cats == [
         {"类目": "billboard", "接口数": 10},
+        {"类目": "block_trade", "接口数": 6},
         {"类目": "board", "接口数": 2},
         {"类目": "changes", "接口数": 2},
         {"类目": "fund", "接口数": 1},
@@ -393,6 +394,109 @@ def test_search_billboard_family() -> None:
     assert len(search("billboard", category="billboard")) == 10
 
 
+_BLOCK_TRADE_REPORTS = [
+    # 接口, 模型, 入参, 检索词
+    (
+        "block_trade_market_daily_em",
+        "BlockTradeMarketDaily",
+        ["start_date", "end_date"],
+        "大宗交易市场统计",
+    ),
+    (
+        "block_trade_detail_em",
+        "BlockTrade",
+        ["start_date", "end_date", "security_type"],
+        "大宗交易每日明细",
+    ),
+    (
+        "block_trade_stock_daily_em",
+        "BlockTradeStockDaily",
+        ["start_date", "end_date"],
+        "大宗交易每日统计",
+    ),
+    ("block_trade_stock_stats_em", "BlockTradeStockStats", ["period"], "大宗交易活跃A股统计"),
+    (
+        "block_trade_branch_active_em",
+        "BlockTradeBranchActive",
+        ["period"],
+        "大宗交易活跃营业部统计",
+    ),
+    ("block_trade_branch_rank_em", "BlockTradeBranchRank", ["period"], "大宗交易营业部排行"),
+]
+
+
+@pytest.mark.parametrize(
+    "name,model,inputs,keyword", _BLOCK_TRADE_REPORTS, ids=[r[0] for r in _BLOCK_TRADE_REPORTS]
+)
+def test_interface_info_block_trade_covers_model_fields(
+    name: str, model: str, inputs: list[str], keyword: str
+) -> None:
+    from dataclasses import fields
+
+    import em
+    from em.domain import models, queries
+
+    info = interface_info(name)
+    assert info["category"] == "block_trade" and info["documented"] is True
+    assert info["dataframe_variant"] == f"df_{name}"
+    assert callable(getattr(em, name)) and callable(getattr(em, f"df_{name}"))
+    # 入参与查询对象的字段一一对应；大宗交易的查询都没有必填参数
+    query = getattr(queries, model_query_name(name))
+    assert [p["name"] for p in info["inputs"]] == [f.name for f in fields(query)] == inputs
+    assert not any(p["required"] for p in info["inputs"])
+    # 目录里写的默认值就是查询对象的默认值
+    assert [p["default"] for p in info["inputs"]] == [
+        "None" if f.default is None else f'"{f.default}"' for f in fields(query)
+    ]
+    # 出参与模型字段一一对应
+    assert [f["name"] for f in info["outputs"]] == [f.name for f in fields(getattr(models, model))]
+    assert all(f["unit"] and f["desc"] for f in info["outputs"])
+    assert f"{name}(" in info["example"]
+    assert search(keyword)[0]["接口名"] == name
+
+
+def test_block_trade_period_params_list_every_value() -> None:
+    from em.channels.eastmoney import config
+
+    for name, values in (
+        ("block_trade_stock_stats_em", config.BLOCK_TRADE_STOCK_PERIODS),
+        ("block_trade_branch_active_em", config.BLOCK_TRADE_ACTIVE_PERIODS),
+        ("block_trade_branch_rank_em", config.BLOCK_TRADE_RANK_PERIODS),
+    ):
+        (period,) = interface_info(name)["inputs"]
+        assert all(value in period["desc"] for value in values), name
+        assert period["default"] == f'"{next(iter(values))}"'
+    (*_, security_type) = interface_info("block_trade_detail_em")["inputs"]
+    assert all(v in security_type["desc"] for v in config.BLOCK_TRADE_SECURITY_TYPES)
+
+
+def test_block_trade_units() -> None:
+    def units(name: str) -> dict[str, str]:
+        return {f["name"]: f["unit"] for f in interface_info(name)["outputs"]}
+
+    assert units("block_trade_market_daily_em")["sh_index"] == "点"
+    assert units("block_trade_detail_em")["premium_rate"] == "%"  # 上游比例，已换算
+    assert units("block_trade_detail_em")["volume"] == "股 / 份 / 手"  # 随证券类型不同
+    assert units("block_trade_stock_daily_em")["volume"] == "股"  # 上游万股，已换算
+    assert units("block_trade_stock_daily_em")["amount"] == "元"  # 上游万元，已换算
+    assert units("block_trade_stock_stats_em")["deal_times"] == "笔"
+    assert units("block_trade_branch_active_em")["net_buy"] == "元"
+    assert units("block_trade_branch_rank_em")["rise_prob_20d"] == "%"
+
+
+def test_search_block_trade_family() -> None:
+    assert len(search("block_trade", category="block_trade")) == 6
+    # “交易”两字也会召回别的接口（如“交易日”），但前 6 名是大宗交易的 6 个接口
+    assert {r["类目"] for r in search("大宗交易")[:6]} == {"block_trade"}
+    assert len({r["接口名"] for r in search("大宗交易")[:6]}) == 6
+    # 龙虎榜与大宗交易各有一个营业部排行 / 活跃营业部：同分时龙虎榜的按接口名排在前，加“大宗交易”即可区分
+    assert [r["接口名"] for r in search("营业部排行")[:2]] == [
+        "billboard_branch_rank_em",
+        "block_trade_branch_rank_em",
+    ]
+    assert search("大宗交易 营业部排行")[0]["接口名"] == "block_trade_branch_rank_em"
+
+
 def test_search_board_kline_by_keyword() -> None:
     rows = search("板块 K线")
     assert rows and rows[0]["接口名"] == "board_kline_em"
@@ -432,7 +536,7 @@ def test_list_categories_df_returns_dataframe() -> None:
     df = list_categories_df()
     assert isinstance(df, pd.DataFrame)
     assert list(df.columns) == ["类目", "接口数"]
-    assert len(df) == 12
+    assert len(df) == 13
 
 
 def test_interface_info_df_returns_param_and_field_tables() -> None:

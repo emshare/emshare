@@ -33,6 +33,24 @@ from em.channels.eastmoney.ashare_billboard.billboard_stock_dates.billboard_stoc
 from em.channels.eastmoney.ashare_billboard.billboard_stock_stats.billboard_stock_stats_em import (
     billboard_stock_stats_request,
 )
+from em.channels.eastmoney.ashare_block_trade.block_trade_branch_active.block_trade_branch_active_em import (
+    block_trade_branch_active_request,
+)
+from em.channels.eastmoney.ashare_block_trade.block_trade_branch_rank.block_trade_branch_rank_em import (
+    block_trade_branch_rank_request,
+)
+from em.channels.eastmoney.ashare_block_trade.block_trade_detail.block_trade_detail_em import (
+    block_trade_detail_request,
+)
+from em.channels.eastmoney.ashare_block_trade.block_trade_market_daily.block_trade_market_daily_em import (
+    block_trade_market_daily_request,
+)
+from em.channels.eastmoney.ashare_block_trade.block_trade_stock_daily.block_trade_stock_daily_em import (
+    block_trade_stock_daily_request,
+)
+from em.channels.eastmoney.ashare_block_trade.block_trade_stock_stats.block_trade_stock_stats_em import (
+    block_trade_stock_stats_request,
+)
 from em.channels.eastmoney.ashare_boards.board_changes.board_changes_em import (
     board_changes_request,
 )
@@ -78,6 +96,12 @@ __all__ = [
     "billboard_stock_dates_request",
     "billboard_stock_request",
     "billboard_stock_stats_request",
+    "block_trade_branch_active_request",
+    "block_trade_branch_rank_request",
+    "block_trade_detail_request",
+    "block_trade_market_daily_request",
+    "block_trade_stock_daily_request",
+    "block_trade_stock_stats_request",
     "board_changes_request",
     "board_constituent_request",
     "board_fund_flow_request",

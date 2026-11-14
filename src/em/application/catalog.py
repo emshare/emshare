@@ -445,6 +445,126 @@ _BILLBOARD_STOCK_FIELDS = (
     ("turnover", "float | None", "元", "总成交额（该上榜原因统计区间内）"),
 )
 
+_BLOCK_TRADE_MARKET_DAILY_FIELDS = (
+    ("trade_date", "str", "—", "交易日期 YYYY-MM-DD"),
+    ("sh_index", "float | None", "点", "上证指数收盘点位"),
+    ("sh_index_change_pct", "float | None", "%", "上证指数涨跌幅"),
+    ("amount", "float | None", "元", "大宗交易成交总额（只含 A 股）"),
+    ("premium_amount", "float | None", "元", "溢价成交总额"),
+    ("premium_ratio", "float | None", "%", "溢价成交总额占比"),
+    ("discount_amount", "float | None", "元", "折价成交总额"),
+    ("discount_ratio", "float | None", "%", "折价成交总额占比"),
+)
+
+_BLOCK_TRADE_DETAIL_FIELDS = (
+    ("code", "str", "—", "证券代码"),
+    ("name", "str", "—", "证券简称"),
+    _MARKET_FIELD,
+    ("trade_date", "str | None", "—", "交易日期 YYYY-MM-DD"),
+    ("change_pct", "float | None", "%", "当日涨跌幅"),
+    ("close", "float | None", "元", "当日收盘价"),
+    ("price", "float | None", "元", "成交价"),
+    ("premium_rate", "float | None", "%", "折溢率 = 成交价 / 收盘价 - 1（上游比例，已换算）"),
+    (
+        "volume",
+        "float | None",
+        "股 / 份 / 手",
+        "成交量，上游原值：A 股、B 股为股，基金为份，债券 2015 年以来为手（1 手 = 10 张）",
+    ),
+    ("amount", "float | None", "元", "成交额（B 股为交易币种）"),
+    ("float_market_cap_ratio", "float | None", "%", "成交额 / 流通市值（仅 A 股有）"),
+    ("buyer_code", "str | None", "—", '买方营业部代码（机构专用为 "0"）'),
+    ("buyer_name", "str | None", "—", "买方营业部"),
+    ("seller_code", "str | None", "—", '卖方营业部代码（机构专用为 "0"）'),
+    ("seller_name", "str | None", "—", "卖方营业部"),
+    ("change_after_1d", "float | None", "%", "1 日后涨跌幅（仅 A 股有；未到期为 None）"),
+    ("change_after_5d", "float | None", "%", "5 日后涨跌幅"),
+    ("change_after_10d", "float | None", "%", "10 日后涨跌幅"),
+    ("change_after_20d", "float | None", "%", "20 日后涨跌幅"),
+)
+
+_BLOCK_TRADE_STOCK_DAILY_FIELDS = (
+    ("code", "str", "—", "股票代码"),
+    ("name", "str", "—", "股票简称"),
+    _MARKET_FIELD,
+    ("trade_date", "str | None", "—", "交易日期 YYYY-MM-DD"),
+    ("change_pct", "float | None", "%", "当日涨跌幅"),
+    ("close", "float | None", "元", "当日收盘价"),
+    ("avg_price", "float | None", "元", "成交均价（各笔成交价按成交量加权）"),
+    ("premium_rate", "float | None", "%", "折溢率 = 成交均价 / 收盘价 - 1（上游比例，已换算）"),
+    ("deal_times", "int | None", "笔", "成交笔数"),
+    ("premium_times", "int | None", "笔", "其中溢价成交的笔数"),
+    ("discount_times", "int | None", "笔", "其中折价成交的笔数"),
+    ("volume", "float | None", "股", "成交总量（上游万股，已换算）"),
+    ("amount", "float | None", "元", "成交总额（上游万元，已换算）"),
+    ("float_market_cap_ratio", "float | None", "%", "成交总额 / 流通市值"),
+    ("change_after_1d", "float | None", "%", "1 日后涨跌幅（未到期为 None）"),
+    ("change_after_5d", "float | None", "%", "5 日后涨跌幅"),
+    ("change_after_10d", "float | None", "%", "10 日后涨跌幅"),
+    ("change_after_20d", "float | None", "%", "20 日后涨跌幅"),
+)
+
+_BLOCK_TRADE_STOCK_STATS_FIELDS = (
+    ("code", "str", "—", "股票代码"),
+    ("name", "str", "—", "股票简称"),
+    _MARKET_FIELD,
+    ("close", "float | None", "元", "最近上榜日的收盘价"),
+    ("change_pct", "float | None", "%", "最近上榜日的涨跌幅"),
+    ("latest_date", "str | None", "—", "最近上榜日 YYYY-MM-DD（周期内最后一次有大宗交易的交易日）"),
+    ("deal_times", "int | None", "笔", "成交笔数（东财页面叫“上榜次数”）"),
+    ("premium_times", "int | None", "笔", "其中溢价成交的笔数"),
+    ("discount_times", "int | None", "笔", "其中折价成交的笔数"),
+    ("amount", "float | None", "元", "总成交额（上游万元，已换算）"),
+    (
+        "premium_rate",
+        "float | None",
+        "%",
+        "折溢率 = 总成交额 / Σ(成交量 × 当日收盘价) - 1（上游比例，已换算）",
+    ),
+    ("float_market_cap_ratio", "float | None", "%", "成交总额 / 流通市值（各笔之和）"),
+    *(
+        (
+            f"avg_change_after_{days}d",
+            "float | None",
+            "%",
+            f"上榜日后 {days} 日平均涨跌幅（已到期各笔之和 ÷ 全部笔数）",
+        )
+        for days in (1, 5, 10, 20)
+    ),
+)
+
+_BLOCK_TRADE_BRANCH_ACTIVE_FIELDS = (
+    ("branch_code", "str", "—", '营业部代码（机构专用为 "0"）'),
+    ("branch_name", "str", "—", "营业部名称"),
+    ("latest_date", "str | None", "—", "最近上榜日 YYYY-MM-DD（周期内最后一次买入或卖出的交易日）"),
+    ("buy_times", "int | None", "笔", "买入笔数"),
+    ("sell_times", "int | None", "笔", "卖出笔数"),
+    ("buy", "float | None", "元", "买入金额（上游万元，已换算）"),
+    ("sell", "float | None", "元", "卖出金额（上游万元，已换算）"),
+    ("net_buy", "float | None", "元", "净买入额 = 买入 - 卖出"),
+    ("buy_stocks", "str | None", "—", "买入股票的简称，空格分隔；只卖出的营业部为 None"),
+    ("buy_stock_codes", "tuple[str, ...]", "—", "买入股票的代码，与 buy_stocks 一一对应"),
+)
+
+_BLOCK_TRADE_BRANCH_RANK_FIELDS = (
+    ("branch_code", "str", "—", '营业部代码（机构专用为 "0"）'),
+    ("branch_name", "str", "—", "营业部名称"),
+    *(
+        field
+        for days in (1, 5, 10, 20)
+        for field in (
+            (
+                f"buy_times_{days}d",
+                "int | None",
+                "次",
+                f"上榜后 {days} 天：买入次数（只算已到期的买入；该档没有时为 None）",
+            ),
+            (f"avg_change_{days}d", "float | None", "%", f"上榜后 {days} 天：平均涨幅"),
+            (f"rise_prob_{days}d", "float | None", "%", f"上榜后 {days} 天：上涨概率"),
+        )
+    ),
+)
+
 
 @dataclass(frozen=True)
 class Param:
@@ -1148,6 +1268,149 @@ _INTERFACES: tuple[Interface, ...] = (
             "    print(s.reason, s.branch_name, s.buy, s.sell, s.net_buy)"
         ),
         dataframe_variant="df_billboard_stock_em",
+    ),
+    Interface(
+        name="block_trade_market_daily_em",
+        category="block_trade",
+        desc="大宗交易市场统计（一个交易日一行：沪深京 A 股大宗交易的成交总额、溢价与折价成交额及占比、上证指数）",
+        documented=True,
+        inputs=(
+            Param(
+                "start_date",
+                "str | None",
+                False,
+                "None",
+                "起始日期 YYYYMMDD；起止都留空取全部历史（2000-08-29 起），只给起始取到今天",
+            ),
+            _DATE_RANGE_PARAMS[1],
+        ),
+        outputs=tuple(Field(*f) for f in _BLOCK_TRADE_MARKET_DAILY_FIELDS),
+        example=(
+            "from em import block_trade_market_daily_em\n"
+            "from em.domain.queries import BlockTradeMarketDailyQuery\n"
+            "\n"
+            'page = block_trade_market_daily_em(BlockTradeMarketDailyQuery("20261101", "20261113"))\n'
+            "print(page.total)\n"
+            "for d in page.items[:5]:\n"
+            "    print(d.trade_date, d.amount, d.premium_ratio, d.discount_ratio)"
+        ),
+        dataframe_variant="df_block_trade_market_daily_em",
+    ),
+    Interface(
+        name="block_trade_detail_em",
+        category="block_trade",
+        desc="大宗交易每日明细（按证券类型和交易日期区间取全部成交：成交价、折溢率、成交量、成交额、买卖方营业部）",
+        documented=True,
+        inputs=(
+            *_DATE_RANGE_PARAMS,
+            Param(
+                "security_type",
+                "str",
+                False,
+                '"ashare"',
+                "证券类型：ashare A 股 / bshare B 股 / fund 基金 / bond 债券，未知回退 ashare",
+            ),
+        ),
+        outputs=tuple(Field(*f) for f in _BLOCK_TRADE_DETAIL_FIELDS),
+        example=(
+            "from em import block_trade_detail_em\n"
+            "from em.domain.queries import BlockTradeDetailQuery\n"
+            "\n"
+            'page = block_trade_detail_em(BlockTradeDetailQuery("20261112", "20261112"))\n'
+            "print(page.total)\n"
+            "for t in page.items[:5]:\n"
+            "    print(t.code, t.name, t.price, t.premium_rate, t.amount, t.buyer_name, t.seller_name)"
+        ),
+        dataframe_variant="df_block_trade_detail_em",
+    ),
+    Interface(
+        name="block_trade_stock_daily_em",
+        category="block_trade",
+        desc="大宗交易每日统计（按交易日期区间取各 A 股当天的大宗交易汇总：成交笔数、成交总量、成交总额、成交均价、折溢率）",
+        documented=True,
+        inputs=_DATE_RANGE_PARAMS,
+        outputs=tuple(Field(*f) for f in _BLOCK_TRADE_STOCK_DAILY_FIELDS),
+        example=(
+            "from em import block_trade_stock_daily_em\n"
+            "from em.domain.queries import BlockTradeStockDailyQuery\n"
+            "\n"
+            'page = block_trade_stock_daily_em(BlockTradeStockDailyQuery("20261112", "20261112"))\n'
+            "print(page.total)\n"
+            "for s in page.items[:5]:\n"
+            "    print(s.code, s.name, s.deal_times, s.amount, s.premium_rate)"
+        ),
+        dataframe_variant="df_block_trade_stock_daily_em",
+    ),
+    Interface(
+        name="block_trade_stock_stats_em",
+        category="block_trade",
+        desc="大宗交易活跃 A 股统计（统计周期内各股的成交笔数、总成交额、折溢率与上榜日后平均涨跌幅）",
+        documented=True,
+        inputs=_PERIOD_PARAMS,
+        outputs=tuple(Field(*f) for f in _BLOCK_TRADE_STOCK_STATS_FIELDS),
+        example=(
+            "from em import block_trade_stock_stats_em\n"
+            "from em.domain.queries import BlockTradeStockStatsQuery\n"
+            "\n"
+            'page = block_trade_stock_stats_em(BlockTradeStockStatsQuery(period="3mo"))\n'
+            "print(page.total)\n"
+            "for s in page.items[:5]:\n"
+            "    print(s.code, s.name, s.deal_times, s.amount, s.premium_rate)"
+        ),
+        dataframe_variant="df_block_trade_stock_stats_em",
+    ),
+    Interface(
+        name="block_trade_branch_active_em",
+        category="block_trade",
+        desc="大宗交易活跃营业部统计（最近 N 个交易日各营业部的买卖笔数、买卖金额、净买入额与买入的股票）",
+        documented=True,
+        inputs=(
+            Param(
+                "period",
+                "str",
+                False,
+                '"1d"',
+                "最近 N 个交易日：1d 最近一个交易日 / 3d / 5d / 10d / 30d，未知回退 1d",
+            ),
+        ),
+        outputs=tuple(Field(*f) for f in _BLOCK_TRADE_BRANCH_ACTIVE_FIELDS),
+        example=(
+            "from em import block_trade_branch_active_em\n"
+            "from em.domain.queries import BlockTradeBranchActiveQuery\n"
+            "\n"
+            'page = block_trade_branch_active_em(BlockTradeBranchActiveQuery(period="5d"))\n'
+            "print(page.total)\n"
+            "for b in page.items[:5]:\n"
+            "    print(b.branch_code, b.branch_name, b.buy_times, b.net_buy, b.buy_stock_codes[:5])"
+        ),
+        dataframe_variant="df_block_trade_branch_active_em",
+    ),
+    Interface(
+        name="block_trade_branch_rank_em",
+        category="block_trade",
+        desc="大宗交易营业部排行（最近 N 个交易日各营业部买入后 1 / 5 / 10 / 20 天的买入次数、平均涨幅与上涨概率）",
+        documented=True,
+        inputs=(
+            Param(
+                "period",
+                "str",
+                False,
+                '"30d"',
+                "最近 N 个交易日：30d / 90d / 180d / 360d"
+                "（东财页面叫近一月 / 近三月 / 近六月 / 近一年），未知回退 30d",
+            ),
+        ),
+        outputs=tuple(Field(*f) for f in _BLOCK_TRADE_BRANCH_RANK_FIELDS),
+        example=(
+            "from em import block_trade_branch_rank_em\n"
+            "from em.domain.queries import BlockTradeBranchRankQuery\n"
+            "\n"
+            'page = block_trade_branch_rank_em(BlockTradeBranchRankQuery(period="90d"))\n'
+            "print(page.total)\n"
+            "for b in page.items[:5]:\n"
+            "    print(b.branch_code, b.branch_name, b.buy_times_5d, b.avg_change_5d, b.rise_prob_5d)"
+        ),
+        dataframe_variant="df_block_trade_branch_rank_em",
     ),
 )
 

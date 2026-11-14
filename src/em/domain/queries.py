@@ -253,3 +253,62 @@ class BillboardStockQuery:
     code: str
     date: str | None = None
     side: str = "buy"
+
+
+@dataclass(frozen=True)
+class BlockTradeMarketDailyQuery:
+    """大宗交易市场统计（数据中心），按交易日期区间，一个交易日一行。
+
+    日期为 ``YYYYMMDD``：都留空取全部历史（2000-08-29 起）；只给 ``start_date`` 时取到今天
+    （北京时间）；只给 ``end_date`` 时只取那一天。
+    """
+
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+@dataclass(frozen=True)
+class BlockTradeDetailQuery:
+    """大宗交易每日明细（数据中心），按证券类型和交易日期区间取全部成交。
+
+    日期为 ``YYYYMMDD``：都留空取最近一个有这类证券大宗交易的交易日；只给 ``start_date`` 时取到今天
+    （北京时间）；只给 ``end_date`` 时只取那一天。``security_type``：ashare A 股 / bshare B 股 /
+    fund 基金 / bond 债券，未知回退 ashare。
+    """
+
+    start_date: str | None = None
+    end_date: str | None = None
+    security_type: str = "ashare"
+
+
+@dataclass(frozen=True)
+class BlockTradeStockDailyQuery:
+    """大宗交易每日统计（数据中心），按交易日期区间，只有 A 股。
+
+    日期为 ``YYYYMMDD``：都留空取最近一个有大宗交易的交易日；只给 ``start_date`` 时取到今天
+    （北京时间）；只给 ``end_date`` 时只取那一天。
+    """
+
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+@dataclass(frozen=True)
+class BlockTradeStockStatsQuery:
+    """大宗交易活跃 A 股统计（数据中心）。``period`` 统计周期（自然月）：1mo / 3mo / 6mo / 1y，未知回退 1mo。"""
+
+    period: str = "1mo"
+
+
+@dataclass(frozen=True)
+class BlockTradeBranchActiveQuery:
+    """大宗交易活跃营业部统计（数据中心）。``period`` 最近 N 个交易日：1d / 3d / 5d / 10d / 30d，未知回退 1d。"""
+
+    period: str = "1d"
+
+
+@dataclass(frozen=True)
+class BlockTradeBranchRankQuery:
+    """大宗交易营业部排行（数据中心）。``period`` 最近 N 个交易日：30d / 90d / 180d / 360d，未知回退 30d。"""
+
+    period: str = "30d"

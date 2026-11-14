@@ -1,6 +1,6 @@
 # eastmoney 渠道接口
 
-本页描述 `em` 包对外公共面的二十六个取数接口：板块成分股资金流、板块列表、沪深京 A 股全市场列表、指数列表、港股列表、场内基金列表、历史 K 线、分时行情、个股历史资金流、板块（行业 / 概念 / 地域）历史资金流、板块历史 K 线、涨跌停股池、个股基本信息、五档盘口、盘口异动、板块异动、龙虎榜详情，以及龙虎榜的另外 9 张报表（个股上榜统计、机构买卖每日统计、机构席位追踪、每日活跃营业部、营业部排行、营业部统计、营业部详情、个股上榜日期、个股龙虎榜详情）。列表类六者走东方财富 `clist` 接口，历史类五者走 `kline` / `trends2` / `fflow` 接口（个股与板块 K 线共用 `kline/get`，个股与板块资金流共用 `fflow/daykline`），涨跌停股池、盘口异动与板块异动走 `push2ex` 主机，个股信息与五档盘口走 `stock/get`，龙虎榜等报表走数据中心 `datacenter-web`（自动翻页），均经动态代理自动换 IP 重试，返回领域模型（`QuotePage` / `BoardListPage` / `IndexListPage` / `HkStockListPage` / `FundListPage` / `LimitPoolPage` / `StockInfo` / `StockBidAsk` / `StockChangesPage` / `BoardChangesPage` / `ReportPage` / `KlineSeries` / `TrendSeries` / `FundFlowSeries` / `BoardFundFlowSeries`）；另提供 `df_*_em` 便捷函数直接返回 pandas DataFrame（akshare 风格中文列名）。
+本页描述 `em` 包对外公共面的三十二个取数接口：板块成分股资金流、板块列表、沪深京 A 股全市场列表、指数列表、港股列表、场内基金列表、历史 K 线、分时行情、个股历史资金流、板块（行业 / 概念 / 地域）历史资金流、板块历史 K 线、涨跌停股池、个股基本信息、五档盘口、盘口异动、板块异动、龙虎榜详情，以及龙虎榜的另外 9 张报表（个股上榜统计、机构买卖每日统计、机构席位追踪、每日活跃营业部、营业部排行、营业部统计、营业部详情、个股上榜日期、个股龙虎榜详情），和大宗交易的 6 张报表（市场统计、每日明细、每日统计、活跃 A 股统计、活跃营业部统计、营业部排行）。列表类六者走东方财富 `clist` 接口，历史类五者走 `kline` / `trends2` / `fflow` 接口（个股与板块 K 线共用 `kline/get`，个股与板块资金流共用 `fflow/daykline`），涨跌停股池、盘口异动与板块异动走 `push2ex` 主机，个股信息与五档盘口走 `stock/get`，龙虎榜、大宗交易等报表走数据中心 `datacenter-web`（自动翻页），均经动态代理自动换 IP 重试，返回领域模型（`QuotePage` / `BoardListPage` / `IndexListPage` / `HkStockListPage` / `FundListPage` / `LimitPoolPage` / `StockInfo` / `StockBidAsk` / `StockChangesPage` / `BoardChangesPage` / `ReportPage` / `KlineSeries` / `TrendSeries` / `FundFlowSeries` / `BoardFundFlowSeries`）；另提供 `df_*_em` 便捷函数直接返回 pandas DataFrame（akshare 风格中文列名）。
 
 公共面统一从 `em` 顶层导出：
 
@@ -32,6 +32,12 @@ from em import (
     billboard_branch_trades_em,
     billboard_stock_dates_em,
     billboard_stock_em,
+    block_trade_market_daily_em,
+    block_trade_detail_em,
+    block_trade_stock_daily_em,
+    block_trade_stock_stats_em,
+    block_trade_branch_active_em,
+    block_trade_branch_rank_em,
     df_board_constituent_em,
     df_stock_list_em,
     df_stock_kline_em,
@@ -58,6 +64,12 @@ from em import (
     df_billboard_branch_trades_em,
     df_billboard_stock_dates_em,
     df_billboard_stock_em,
+    df_block_trade_market_daily_em,
+    df_block_trade_detail_em,
+    df_block_trade_stock_daily_em,
+    df_block_trade_stock_stats_em,
+    df_block_trade_branch_active_em,
+    df_block_trade_branch_rank_em,
     to_dataframe,
     to_kline_dataframe,
     to_trend_dataframe,
@@ -82,6 +94,12 @@ from em import (
     to_billboard_branch_trades_dataframe,
     to_billboard_stock_dates_dataframe,
     to_billboard_stock_dataframe,
+    to_block_trade_market_daily_dataframe,
+    to_block_trade_detail_dataframe,
+    to_block_trade_stock_daily_dataframe,
+    to_block_trade_stock_stats_dataframe,
+    to_block_trade_branch_active_dataframe,
+    to_block_trade_branch_rank_dataframe,
     search,
     search_df,
     interface_info,
@@ -91,7 +109,7 @@ from em import (
 )
 ```
 
-`board_constituent_em` / `stock_list_em` 返回 `QuotePage`，`stock_kline_em` / `board_kline_em` 返回 `KlineSeries`，`stock_trends_em` 返回 `TrendSeries`，`stock_fund_flow_em` 返回 `FundFlowSeries`，`board_fund_flow_em` 返回 `BoardFundFlowSeries`，`board_industry_list_em` 返回 `BoardListPage`，`index_list_em` 返回 `IndexListPage`，`hk_stock_list_em` 返回 `HkStockListPage`，`fund_list_em` 返回 `FundListPage`，`stock_limit_pool_em` 返回 `LimitPoolPage`，`stock_info_em` 返回 `StockInfo`，`stock_bid_ask_em` 返回 `StockBidAsk`，`stock_changes_em` 返回 `StockChangesPage`，`board_changes_em` 返回 `BoardChangesPage`，`billboard_detail_em` 返回 `ReportPage[BillboardEntry]`，其余 9 个龙虎榜报表接口同样返回 `ReportPage`（元素类型见各接口文档），`df_*_em` 返回 `pd.DataFrame`（需 `pip install pandas`）。`to_dataframe` / `to_kline_dataframe` / `to_trend_dataframe` / `to_fund_flow_dataframe` / `to_board_fund_flow_dataframe` / `to_board_list_dataframe` / `to_index_list_dataframe` / `to_hk_stock_list_dataframe` / `to_fund_list_dataframe` / `to_limit_pool_dataframe` / `to_stock_info_dataframe` / `to_stock_bid_ask_dataframe` / `to_stock_changes_dataframe` / `to_board_changes_dataframe` / `to_billboard_detail_dataframe` 及其余 9 个 `to_billboard_*_dataframe` 把对应领域模型转为 DataFrame，均默认中文列名，传 `columns` 可覆盖。
+`board_constituent_em` / `stock_list_em` 返回 `QuotePage`，`stock_kline_em` / `board_kline_em` 返回 `KlineSeries`，`stock_trends_em` 返回 `TrendSeries`，`stock_fund_flow_em` 返回 `FundFlowSeries`，`board_fund_flow_em` 返回 `BoardFundFlowSeries`，`board_industry_list_em` 返回 `BoardListPage`，`index_list_em` 返回 `IndexListPage`，`hk_stock_list_em` 返回 `HkStockListPage`，`fund_list_em` 返回 `FundListPage`，`stock_limit_pool_em` 返回 `LimitPoolPage`，`stock_info_em` 返回 `StockInfo`，`stock_bid_ask_em` 返回 `StockBidAsk`，`stock_changes_em` 返回 `StockChangesPage`，`board_changes_em` 返回 `BoardChangesPage`，`billboard_detail_em` 返回 `ReportPage[BillboardEntry]`，其余 9 个龙虎榜报表接口与 6 个大宗交易接口同样返回 `ReportPage`（元素类型见各接口文档），`df_*_em` 返回 `pd.DataFrame`（需 `pip install pandas`）。`to_dataframe` / `to_kline_dataframe` / `to_trend_dataframe` / `to_fund_flow_dataframe` / `to_board_fund_flow_dataframe` / `to_board_list_dataframe` / `to_index_list_dataframe` / `to_hk_stock_list_dataframe` / `to_fund_list_dataframe` / `to_limit_pool_dataframe` / `to_stock_info_dataframe` / `to_stock_bid_ask_dataframe` / `to_stock_changes_dataframe` / `to_board_changes_dataframe` / `to_billboard_detail_dataframe` 及其余 9 个 `to_billboard_*_dataframe`、6 个 `to_block_trade_*_dataframe` 把对应领域模型转为 DataFrame，均默认中文列名，传 `columns` 可覆盖。
 
 ## 功能
 
@@ -123,6 +141,12 @@ from em import (
 | 营业部详情 | [billboard_branch_trades_em.md](./ashare_billboard/billboard_branch_trades_em.md) | `channels/eastmoney/ashare_billboard/billboard_branch_trades/billboard_branch_trades_em.py` | `billboard_branch_trades_em` / `df_billboard_branch_trades_em` |
 | 个股上榜日期 | [billboard_stock_dates_em.md](./ashare_billboard/billboard_stock_dates_em.md) | `channels/eastmoney/ashare_billboard/billboard_stock_dates/billboard_stock_dates_em.py` | `billboard_stock_dates_em` / `df_billboard_stock_dates_em` |
 | 个股龙虎榜详情 | [billboard_stock_em.md](./ashare_billboard/billboard_stock_em.md) | `channels/eastmoney/ashare_billboard/billboard_stock/billboard_stock_em.py` | `billboard_stock_em` / `df_billboard_stock_em` |
+| 大宗交易市场统计 | [block_trade_market_daily_em.md](./ashare_block_trade/block_trade_market_daily_em.md) | `channels/eastmoney/ashare_block_trade/block_trade_market_daily/block_trade_market_daily_em.py` | `block_trade_market_daily_em` / `df_block_trade_market_daily_em` |
+| 大宗交易每日明细 | [block_trade_detail_em.md](./ashare_block_trade/block_trade_detail_em.md) | `channels/eastmoney/ashare_block_trade/block_trade_detail/block_trade_detail_em.py` | `block_trade_detail_em` / `df_block_trade_detail_em` |
+| 大宗交易每日统计 | [block_trade_stock_daily_em.md](./ashare_block_trade/block_trade_stock_daily_em.md) | `channels/eastmoney/ashare_block_trade/block_trade_stock_daily/block_trade_stock_daily_em.py` | `block_trade_stock_daily_em` / `df_block_trade_stock_daily_em` |
+| 大宗交易活跃 A 股统计 | [block_trade_stock_stats_em.md](./ashare_block_trade/block_trade_stock_stats_em.md) | `channels/eastmoney/ashare_block_trade/block_trade_stock_stats/block_trade_stock_stats_em.py` | `block_trade_stock_stats_em` / `df_block_trade_stock_stats_em` |
+| 大宗交易活跃营业部统计 | [block_trade_branch_active_em.md](./ashare_block_trade/block_trade_branch_active_em.md) | `channels/eastmoney/ashare_block_trade/block_trade_branch_active/block_trade_branch_active_em.py` | `block_trade_branch_active_em` / `df_block_trade_branch_active_em` |
+| 大宗交易营业部排行 | [block_trade_branch_rank_em.md](./ashare_block_trade/block_trade_branch_rank_em.md) | `channels/eastmoney/ashare_block_trade/block_trade_branch_rank/block_trade_branch_rank_em.py` | `block_trade_branch_rank_em` / `df_block_trade_branch_rank_em` |
 
 ## 接口检索
 
@@ -142,7 +166,7 @@ print(em.interface_info("board_constituent_em"))
 
 # 列出全部类目及其接口数量
 print(em.list_categories())
-# [{'类目': 'billboard', '接口数': 10}, {'类目': 'board', '接口数': 2}, {'类目': 'changes', '接口数': 2}, {'类目': 'fund', '接口数': 1}, {'类目': 'fund_flow', '接口数': 2}, {'类目': 'hk', '接口数': 1}, {'类目': 'index', '接口数': 1}, {'类目': 'kline', '接口数': 2}, {'类目': 'market', '接口数': 1}, {'类目': 'pool', '接口数': 1}, {'类目': 'stock', '接口数': 2}, {'类目': 'trends', '接口数': 1}]
+# [{'类目': 'billboard', '接口数': 10}, {'类目': 'block_trade', '接口数': 6}, {'类目': 'board', '接口数': 2}, {'类目': 'changes', '接口数': 2}, {'类目': 'fund', '接口数': 1}, {'类目': 'fund_flow', '接口数': 2}, {'类目': 'hk', '接口数': 1}, {'类目': 'index', '接口数': 1}, {'类目': 'kline', '接口数': 2}, {'类目': 'market', '接口数': 1}, {'类目': 'pool', '接口数': 1}, {'类目': 'stock', '接口数': 2}, {'类目': 'trends', '接口数': 1}]
 ```
 
 DataFrame 版（需 pandas，对齐 akshare `print(ak.search(...))` 体验）：
@@ -154,19 +178,20 @@ print(em.search_df("板块 资金流"))
 # 1  stock_list_em  market  沪深京 A 股全市场列表...        True  10.0
 
 print(em.list_categories_df())
-#            类目  接口数
-# 0   billboard   10
-# 1       board    2
-# 2     changes    2
-# 3        fund    1
-# 4   fund_flow    2
-# 5          hk    1
-# 6       index    1
-# 7       kline    2
-# 8      market    1
-# 9        pool    1
-# 10      stock    2
-# 11     trends    1
+#              类目  接口数
+# 0     billboard   10
+# 1   block_trade    6
+# 2         board    2
+# 3       changes    2
+# 4          fund    1
+# 5     fund_flow    2
+# 6            hk    1
+# 7         index    1
+# 8         kline    2
+# 9        market    1
+# 10         pool    1
+# 11        stock    2
+# 12       trends    1
 ```
 
 `interface_info_df(name)` 返回 ``{"inputs": 参数表, "outputs": 字段表}``，中文列名对齐文档参数表：

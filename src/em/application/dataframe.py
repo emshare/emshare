@@ -19,6 +19,12 @@ from em.domain.models import (
     BillboardSeat,
     BillboardStockDate,
     BillboardStockStats,
+    BlockTrade,
+    BlockTradeBranchActive,
+    BlockTradeBranchRank,
+    BlockTradeMarketDaily,
+    BlockTradeStockDaily,
+    BlockTradeStockStats,
     BoardChangesPage,
     BoardFundFlowSeries,
     BoardListPage,
@@ -948,3 +954,169 @@ def to_billboard_stock_dataframe(
     """把个股龙虎榜详情转为 ``DataFrame``，列顺序同 akshare。"""
     naming = columns or BILLBOARD_STOCK_COLUMNS_ZH
     return _records_frame(page.items, naming, tuple(BILLBOARD_STOCK_COLUMNS_ZH))
+
+
+# 大宗交易市场统计字段 -> 默认中文列名（对齐 akshare stock_dzjy_sctj）
+BLOCK_TRADE_MARKET_DAILY_COLUMNS_ZH: dict[str, str] = {
+    "trade_date": "交易日期",
+    "sh_index": "上证指数",
+    "sh_index_change_pct": "上证指数涨跌幅",
+    "amount": "大宗交易成交总额",
+    "premium_amount": "溢价成交总额",
+    "premium_ratio": "溢价成交总额占比",
+    "discount_amount": "折价成交总额",
+    "discount_ratio": "折价成交总额占比",
+}
+
+
+def to_block_trade_market_daily_dataframe(
+    page: ReportPage[BlockTradeMarketDaily], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把大宗交易市场统计转为 ``DataFrame``，列顺序同 akshare。"""
+    naming = columns or BLOCK_TRADE_MARKET_DAILY_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(BLOCK_TRADE_MARKET_DAILY_COLUMNS_ZH))
+
+
+# 大宗交易每日明细字段 -> 默认中文列名（对齐 akshare stock_dzjy_mrmx 的 A 股列，另在证券简称后加“市场”，
+# 末尾加买卖方营业部代码与 1 / 5 / 10 / 20 日后涨跌幅）
+BLOCK_TRADE_DETAIL_COLUMNS_ZH: dict[str, str] = {
+    "trade_date": "交易日期",
+    "code": "证券代码",
+    "name": "证券简称",
+    "market": "市场",
+    "change_pct": "涨跌幅",
+    "close": "收盘价",
+    "price": "成交价",
+    "premium_rate": "折溢率",
+    "volume": "成交量",
+    "amount": "成交额",
+    "float_market_cap_ratio": "成交额/流通市值",
+    "buyer_name": "买方营业部",
+    "seller_name": "卖方营业部",
+    "buyer_code": "买方营业部代码",
+    "seller_code": "卖方营业部代码",
+    "change_after_1d": "1日后涨跌幅",
+    "change_after_5d": "5日后涨跌幅",
+    "change_after_10d": "10日后涨跌幅",
+    "change_after_20d": "20日后涨跌幅",
+}
+
+
+def to_block_trade_detail_dataframe(
+    page: ReportPage[BlockTrade], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把大宗交易每日明细转为 ``DataFrame``，列顺序同 akshare。"""
+    naming = columns or BLOCK_TRADE_DETAIL_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(BLOCK_TRADE_DETAIL_COLUMNS_ZH))
+
+
+# 大宗交易每日统计字段 -> 默认中文列名（对齐 akshare stock_dzjy_mrtj，另在证券简称后加“市场”，
+# 末尾加溢价 / 折价笔数与 1 / 5 / 10 / 20 日后涨跌幅）。“成交价”是 akshare 的列名，实际是成交均价
+BLOCK_TRADE_STOCK_DAILY_COLUMNS_ZH: dict[str, str] = {
+    "trade_date": "交易日期",
+    "code": "证券代码",
+    "name": "证券简称",
+    "market": "市场",
+    "change_pct": "涨跌幅",
+    "close": "收盘价",
+    "avg_price": "成交价",
+    "premium_rate": "折溢率",
+    "deal_times": "成交笔数",
+    "volume": "成交总量",
+    "amount": "成交总额",
+    "float_market_cap_ratio": "成交总额/流通市值",
+    "premium_times": "溢价笔数",
+    "discount_times": "折价笔数",
+    "change_after_1d": "1日后涨跌幅",
+    "change_after_5d": "5日后涨跌幅",
+    "change_after_10d": "10日后涨跌幅",
+    "change_after_20d": "20日后涨跌幅",
+}
+
+
+def to_block_trade_stock_daily_dataframe(
+    page: ReportPage[BlockTradeStockDaily], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把大宗交易每日统计转为 ``DataFrame``，列顺序同 akshare。"""
+    naming = columns or BLOCK_TRADE_STOCK_DAILY_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(BLOCK_TRADE_STOCK_DAILY_COLUMNS_ZH))
+
+
+# 活跃 A 股统计字段 -> 默认中文列名（对齐 akshare stock_dzjy_hygtj，另在证券简称后加“市场”）。
+# “最新价”“上榜次数”是 akshare 的列名，实际是最近上榜日的收盘价与成交笔数
+BLOCK_TRADE_STOCK_STATS_COLUMNS_ZH: dict[str, str] = {
+    "code": "证券代码",
+    "name": "证券简称",
+    "market": "市场",
+    "close": "最新价",
+    "change_pct": "涨跌幅",
+    "latest_date": "最近上榜日",
+    "deal_times": "上榜次数-总计",
+    "premium_times": "上榜次数-溢价",
+    "discount_times": "上榜次数-折价",
+    "amount": "总成交额",
+    "premium_rate": "折溢率",
+    "float_market_cap_ratio": "成交总额/流通市值",
+    "avg_change_after_1d": "上榜日后平均涨跌幅-1日",
+    "avg_change_after_5d": "上榜日后平均涨跌幅-5日",
+    "avg_change_after_10d": "上榜日后平均涨跌幅-10日",
+    "avg_change_after_20d": "上榜日后平均涨跌幅-20日",
+}
+
+
+def to_block_trade_stock_stats_dataframe(
+    page: ReportPage[BlockTradeStockStats], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把活跃 A 股统计转为 ``DataFrame``，列顺序同 akshare。"""
+    naming = columns or BLOCK_TRADE_STOCK_STATS_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(BLOCK_TRADE_STOCK_STATS_COLUMNS_ZH))
+
+
+# 活跃营业部统计字段 -> 默认中文列名（对齐 akshare stock_dzjy_hyyybtj，末尾加“营业部代码”“买入股票代码”）
+BLOCK_TRADE_BRANCH_ACTIVE_COLUMNS_ZH: dict[str, str] = {
+    "latest_date": "最近上榜日",
+    "branch_name": "营业部名称",
+    "buy_times": "次数总计-买入",
+    "sell_times": "次数总计-卖出",
+    "buy": "成交金额统计-买入",
+    "sell": "成交金额统计-卖出",
+    "net_buy": "成交金额统计-净买入额",
+    "buy_stocks": "买入的股票",
+    "branch_code": "营业部代码",
+    "buy_stock_codes": "买入股票代码",
+}
+
+
+def to_block_trade_branch_active_dataframe(
+    page: ReportPage[BlockTradeBranchActive], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把活跃营业部统计转为 ``DataFrame``，列顺序同 akshare。"""
+    naming = columns or BLOCK_TRADE_BRANCH_ACTIVE_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(BLOCK_TRADE_BRANCH_ACTIVE_COLUMNS_ZH))
+
+
+# 大宗交易营业部排行字段 -> 默认中文列名（对齐 akshare stock_dzjy_yybph，末尾加“营业部代码”）
+BLOCK_TRADE_BRANCH_RANK_COLUMNS_ZH: dict[str, str] = {
+    "branch_name": "营业部名称",
+    "buy_times_1d": "上榜后1天-买入次数",
+    "avg_change_1d": "上榜后1天-平均涨幅",
+    "rise_prob_1d": "上榜后1天-上涨概率",
+    "buy_times_5d": "上榜后5天-买入次数",
+    "avg_change_5d": "上榜后5天-平均涨幅",
+    "rise_prob_5d": "上榜后5天-上涨概率",
+    "buy_times_10d": "上榜后10天-买入次数",
+    "avg_change_10d": "上榜后10天-平均涨幅",
+    "rise_prob_10d": "上榜后10天-上涨概率",
+    "buy_times_20d": "上榜后20天-买入次数",
+    "avg_change_20d": "上榜后20天-平均涨幅",
+    "rise_prob_20d": "上榜后20天-上涨概率",
+    "branch_code": "营业部代码",
+}
+
+
+def to_block_trade_branch_rank_dataframe(
+    page: ReportPage[BlockTradeBranchRank], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把大宗交易营业部排行转为 ``DataFrame``，列顺序同 akshare。"""
+    naming = columns or BLOCK_TRADE_BRANCH_RANK_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(BLOCK_TRADE_BRANCH_RANK_COLUMNS_ZH))
