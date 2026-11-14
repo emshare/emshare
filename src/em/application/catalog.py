@@ -566,6 +566,258 @@ _BLOCK_TRADE_BRANCH_RANK_FIELDS = (
 )
 
 
+_EARNINGS_REPORT_FIELDS = (
+    ("code", "str", "—", "股票代码"),
+    ("name", "str", "—", "股票简称"),
+    ("market", "str | None", "—", "市场：sh / sz / bj，可连同 code 传给 stock_kline_em"),
+    ("report_date", "str | None", "—", "报告期 YYYY-MM-DD"),
+    ("eps", "float | None", "元", "基本每股收益"),
+    ("deducted_eps", "float | None", "元", "扣非每股收益（年报才有，其余报告期多为 None）"),
+    ("revenue", "float | None", "元", "营业总收入"),
+    ("revenue_yoy", "float | None", "%", "营业总收入同比增长"),
+    ("revenue_qoq", "float | None", "%", "营业总收入季度环比增长"),
+    ("net_profit", "float | None", "元", "归属于母公司股东的净利润"),
+    ("net_profit_yoy", "float | None", "%", "净利润同比增长"),
+    ("net_profit_qoq", "float | None", "%", "净利润季度环比增长"),
+    ("bps", "float | None", "元", "每股净资产"),
+    ("roe", "float | None", "%", "加权平均净资产收益率"),
+    ("cash_flow_per_share", "float | None", "元", "每股经营现金流量"),
+    ("gross_margin", "float | None", "%", "销售毛利率"),
+    (
+        "dividend_plan",
+        "str | None",
+        "—",
+        "利润分配方案，如“10派3.60元(含税,扣税后3.24元)”（年报、中报才有）",
+    ),
+    ("dividend_yield", "float | None", "%", "股息率（有现金分红方案时才有）"),
+    ("industry", "str | None", "—", "所处行业"),
+    ("notice_date", "str | None", "—", "首次公告日期 YYYY-MM-DD"),
+    ("update_date", "str | None", "—", "最新公告日期 YYYY-MM-DD（有更正公告时晚于首次公告日期）"),
+)
+
+_EARNINGS_EXPRESS_FIELDS = (
+    ("code", "str", "—", "股票代码"),
+    ("name", "str", "—", "股票简称"),
+    ("market", "str | None", "—", "市场：sh / sz / bj，可连同 code 传给 stock_kline_em"),
+    ("report_date", "str | None", "—", "报告期 YYYY-MM-DD"),
+    ("eps", "float | None", "元", "基本每股收益"),
+    ("revenue", "float | None", "元", "营业收入"),
+    ("revenue_prev_year", "float | None", "元", "去年同期营业收入"),
+    ("revenue_yoy", "float | None", "%", "营业收入同比增长"),
+    ("revenue_qoq", "float | None", "%", "营业收入季度环比增长"),
+    ("net_profit", "float | None", "元", "归属于母公司股东的净利润"),
+    ("net_profit_prev_year", "float | None", "元", "去年同期净利润"),
+    ("net_profit_yoy", "float | None", "%", "净利润同比增长"),
+    ("net_profit_qoq", "float | None", "%", "净利润季度环比增长"),
+    ("bps", "float | None", "元", "每股净资产"),
+    ("roe", "float | None", "%", "加权平均净资产收益率"),
+    ("industry", "str | None", "—", "所处行业"),
+    ("notice_date", "str | None", "—", "公告日期 YYYY-MM-DD"),
+    ("update_date", "str | None", "—", "最新公告日期 YYYY-MM-DD"),
+)
+
+_EARNINGS_FORECAST_FIELDS = (
+    ("code", "str", "—", "股票代码"),
+    ("name", "str", "—", "股票简称"),
+    ("market", "str | None", "—", "市场：sh / sz / bj，可连同 code 传给 stock_kline_em"),
+    ("report_date", "str | None", "—", "报告期 YYYY-MM-DD"),
+    ("notice_date", "str | None", "—", "公告日期 YYYY-MM-DD"),
+    (
+        "indicator",
+        "str | None",
+        "—",
+        "预测指标，如“归属于上市公司股东的净利润”“每股收益”（一家公司每项指标一行）",
+    ),
+    ("summary", "str | None", "—", "业绩变动的文字说明"),
+    (
+        "forecast_value",
+        "float | None",
+        "元",
+        "预测数值：上下限的均值（指标为每股收益时单位是元 / 股）",
+    ),
+    ("lower", "float | None", "元", "预测下限"),
+    ("upper", "float | None", "元", "预测上限"),
+    ("change_pct", "float | None", "%", "业绩变动幅度：同比变动上下限的均值"),
+    ("change_pct_lower", "float | None", "%", "同比变动幅度下限"),
+    ("change_pct_upper", "float | None", "%", "同比变动幅度上限"),
+    ("reason", "str | None", "—", "业绩变动原因"),
+    (
+        "forecast_type",
+        "str | None",
+        "—",
+        "预告类型：预增 / 预减 / 略增 / 略减 / 扭亏 / 首亏 / 续亏 / 续盈 / 减亏 / 增亏 / 不确定",
+    ),
+    ("prev_year", "float | None", "元", "上年同期值"),
+)
+
+_EARNINGS_SCHEDULE_FIELDS = (
+    ("code", "str", "—", "股票代码"),
+    ("name", "str", "—", "股票简称"),
+    ("market", "str | None", "—", "市场：sh / sz / bj，可连同 code 传给 stock_kline_em"),
+    ("report_date", "str | None", "—", "报告期 YYYY-MM-DD"),
+    ("first_appoint_date", "str | None", "—", "首次预约披露日期 YYYY-MM-DD"),
+    ("first_change_date", "str | None", "—", "第一次变更后的预约日期（没有变更为 None）"),
+    ("second_change_date", "str | None", "—", "第二次变更后的预约日期"),
+    ("third_change_date", "str | None", "—", "第三次变更后的预约日期"),
+    ("appoint_date", "str | None", "—", "当前生效的预约披露日期（最后一次变更后的日期）"),
+    ("actual_date", "str | None", "—", "实际披露日期（尚未披露为 None）"),
+)
+
+_BALANCE_SHEET_FIELDS = (
+    ("code", "str", "—", "股票代码"),
+    ("name", "str", "—", "股票简称"),
+    ("market", "str | None", "—", "市场：sh / sz / bj，可连同 code 传给 stock_kline_em"),
+    ("industry", "str | None", "—", "所处行业"),
+    ("report_date", "str | None", "—", "报告期 YYYY-MM-DD"),
+    ("notice_date", "str | None", "—", "公告日期 YYYY-MM-DD"),
+    ("cash", "float | None", "元", "货币资金"),
+    ("cash_yoy", "float | None", "%", "货币资金同比"),
+    ("accounts_receivable", "float | None", "元", "应收账款"),
+    ("accounts_receivable_yoy", "float | None", "%", "应收账款同比"),
+    ("inventory", "float | None", "元", "存货"),
+    ("inventory_yoy", "float | None", "%", "存货同比"),
+    ("fixed_assets", "float | None", "元", "固定资产"),
+    ("total_assets", "float | None", "元", "总资产"),
+    ("total_assets_yoy", "float | None", "%", "总资产同比"),
+    ("accounts_payable", "float | None", "元", "应付账款"),
+    ("accounts_payable_yoy", "float | None", "%", "应付账款同比"),
+    ("advance_receipts", "float | None", "元", "预收账款"),
+    ("advance_receipts_yoy", "float | None", "%", "预收账款同比"),
+    ("total_liabilities", "float | None", "元", "总负债"),
+    ("total_liabilities_yoy", "float | None", "%", "总负债同比"),
+    ("debt_asset_ratio", "float | None", "%", "资产负债率 = 总负债 / 总资产"),
+    ("current_ratio", "float | None", "%", "流动比率（以 % 表示，180 即 1.8 倍；金融类为 None）"),
+    ("total_equity", "float | None", "元", "股东权益合计"),
+    ("total_equity_yoy", "float | None", "%", "股东权益同比"),
+    ("cash_deposit_pbc", "float | None", "元", "现金及存放中央银行款项（银行）"),
+    ("cash_deposit_pbc_yoy", "float | None", "%", "现金及存放中央银行款项同比"),
+    ("loans_advances", "float | None", "元", "发放贷款及垫款（银行）"),
+    ("loans_advances_yoy", "float | None", "%", "发放贷款及垫款同比"),
+    (
+        "available_for_sale_assets",
+        "float | None",
+        "元",
+        "可供出售金融资产（新金融工具准则后多为 None）",
+    ),
+    ("available_for_sale_assets_yoy", "float | None", "%", "可供出售金融资产同比"),
+    ("borrowings_from_pbc", "float | None", "元", "向中央银行借款（银行）"),
+    ("borrowings_from_pbc_yoy", "float | None", "%", "向中央银行借款同比"),
+    ("deposits", "float | None", "元", "吸收存款（银行）"),
+    ("deposits_yoy", "float | None", "%", "吸收存款同比"),
+    ("repo_sold", "float | None", "元", "卖出回购金融资产款（银行、保险、券商）"),
+    ("repo_sold_yoy", "float | None", "%", "卖出回购金融资产款同比"),
+    ("settlement_reserves", "float | None", "元", "结算备付金（券商）"),
+    ("settlement_reserves_yoy", "float | None", "%", "结算备付金同比"),
+    ("interbank_borrowings", "float | None", "元", "拆入资金（券商）"),
+    ("interbank_borrowings_yoy", "float | None", "%", "拆入资金同比"),
+    ("customer_brokerage_deposits", "float | None", "元", "代理买卖证券款（券商）"),
+    ("customer_brokerage_deposits_yoy", "float | None", "%", "代理买卖证券款同比"),
+    ("premiums_receivable", "float | None", "元", "应收保费（保险）"),
+    ("premiums_receivable_yoy", "float | None", "%", "应收保费同比"),
+    ("short_term_loans", "float | None", "元", "短期借款（保险）"),
+    ("short_term_loans_yoy", "float | None", "%", "短期借款同比"),
+    ("advance_premiums", "float | None", "元", "预收保费（保险）"),
+    ("advance_premiums_yoy", "float | None", "%", "预收保费同比"),
+)
+
+_INCOME_STATEMENT_FIELDS = (
+    ("code", "str", "—", "股票代码"),
+    ("name", "str", "—", "股票简称"),
+    ("market", "str | None", "—", "市场：sh / sz / bj，可连同 code 传给 stock_kline_em"),
+    ("industry", "str | None", "—", "所处行业"),
+    ("report_date", "str | None", "—", "报告期 YYYY-MM-DD"),
+    ("notice_date", "str | None", "—", "公告日期 YYYY-MM-DD"),
+    ("net_profit", "float | None", "元", "归属于母公司股东的净利润"),
+    ("net_profit_yoy", "float | None", "%", "净利润同比"),
+    ("deducted_net_profit", "float | None", "元", "扣除非经常性损益后的净利润"),
+    ("deducted_net_profit_yoy", "float | None", "%", "扣非净利润同比"),
+    ("revenue", "float | None", "元", "营业总收入"),
+    ("revenue_yoy", "float | None", "%", "营业总收入同比"),
+    (
+        "operating_expense",
+        "float | None",
+        "元",
+        "营业支出：一般公司等于营业成本，银行、保险为营业支出",
+    ),
+    ("operating_expense_yoy", "float | None", "%", "营业支出同比"),
+    ("operating_cost", "float | None", "元", "营业成本（金融类为 None）"),
+    ("selling_expense", "float | None", "元", "销售费用"),
+    ("admin_expense", "float | None", "元", "管理费用（银行、券商为业务及管理费）"),
+    ("finance_expense", "float | None", "元", "财务费用"),
+    ("taxes_and_surcharges", "float | None", "元", "税金及附加"),
+    ("total_operating_cost", "float | None", "元", "营业总支出"),
+    ("total_operating_cost_yoy", "float | None", "%", "营业总支出同比"),
+    ("operating_profit", "float | None", "元", "营业利润"),
+    ("operating_profit_yoy", "float | None", "%", "营业利润同比"),
+    ("total_profit", "float | None", "元", "利润总额"),
+    ("income_tax", "float | None", "元", "所得税费用"),
+    ("operating_income", "float | None", "元", "营业收入（只有银行、保险有，等于营业总收入）"),
+    ("net_interest_income", "float | None", "元", "利息净收入"),
+    ("net_interest_income_yoy", "float | None", "%", "利息净收入同比（银行）"),
+    ("net_fee_income", "float | None", "元", "手续费及佣金净收入"),
+    ("net_fee_income_yoy", "float | None", "%", "手续费及佣金净收入同比"),
+    ("business_admin_expense", "float | None", "元", "业务及管理费（银行，等于 admin_expense）"),
+    ("earned_premiums", "float | None", "元", "已赚保费（保险）"),
+    ("earned_premiums_yoy", "float | None", "%", "已赚保费同比"),
+    ("investment_income", "float | None", "元", "投资收益（保险）"),
+    ("surrenders", "float | None", "元", "退保金（保险）"),
+    ("claims_expense", "float | None", "元", "赔付支出（保险）"),
+)
+
+_CASH_FLOW_STATEMENT_FIELDS = (
+    ("code", "str", "—", "股票代码"),
+    ("name", "str", "—", "股票简称"),
+    ("market", "str | None", "—", "市场：sh / sz / bj，可连同 code 传给 stock_kline_em"),
+    ("industry", "str | None", "—", "所处行业"),
+    ("report_date", "str | None", "—", "报告期 YYYY-MM-DD"),
+    ("notice_date", "str | None", "—", "公告日期 YYYY-MM-DD"),
+    ("net_cash_flow", "float | None", "元", "现金及现金等价物净增加额"),
+    ("net_cash_flow_yoy", "float | None", "%", "净现金流同比增长"),
+    ("operating_net", "float | None", "元", "经营活动产生的现金流量净额"),
+    ("operating_net_share", "float | None", "%", "经营活动现金流量净额的净现金流占比"),
+    ("sales_cash", "float | None", "元", "销售商品、提供劳务收到的现金"),
+    ("sales_cash_share", "float | None", "%", "销售商品、提供劳务收到的现金的净现金流占比"),
+    ("staff_cash_paid", "float | None", "元", "支付给职工以及为职工支付的现金"),
+    ("staff_cash_paid_share", "float | None", "%", "支付给职工的现金的净现金流占比"),
+    ("investing_net", "float | None", "元", "投资活动产生的现金流量净额"),
+    ("investing_net_share", "float | None", "%", "投资活动现金流量净额的净现金流占比"),
+    ("investment_income_cash", "float | None", "元", "取得投资收益收到的现金"),
+    ("investment_income_cash_share", "float | None", "%", "取得投资收益收到的现金的净现金流占比"),
+    ("capex", "float | None", "元", "购建固定资产、无形资产和其他长期资产支付的现金"),
+    ("capex_share", "float | None", "%", "购建长期资产支付的现金的净现金流占比"),
+    ("financing_net", "float | None", "元", "筹资活动产生的现金流量净额"),
+    ("financing_net_share", "float | None", "%", "筹资活动现金流量净额的净现金流占比"),
+    ("customer_deposits_increase", "float | None", "元", "客户存款和同业存放款项净增加额（银行）"),
+    ("customer_deposits_increase_share", "float | None", "%", "客户存款净增加额的净现金流占比"),
+    (
+        "interbank_deposits_increase",
+        "float | None",
+        "元",
+        "同业及其他金融机构存放款净增加额（银行）",
+    ),
+    ("interbank_deposits_increase_share", "float | None", "%", "同业存放款净增加额的净现金流占比"),
+    ("loans_increase", "float | None", "元", "客户贷款及垫款净增加额（银行）"),
+    ("loans_increase_share", "float | None", "%", "客户贷款及垫款净增加额的净现金流占比"),
+    ("interest_commission_cash", "float | None", "元", "收取利息、手续费及佣金的现金（券商）"),
+    (
+        "interest_commission_cash_share",
+        "float | None",
+        "%",
+        "收取利息、手续费及佣金的现金的净现金流占比",
+    ),
+    ("investment_cash_paid", "float | None", "元", "投资支付的现金（保险、券商）"),
+    ("investment_cash_paid_share", "float | None", "%", "投资支付的现金的净现金流占比"),
+    ("begin_cash", "float | None", "元", "期初现金及现金等价物余额（券商）"),
+    ("begin_cash_share", "float | None", "%", "期初现金及现金等价物余额的净现金流占比"),
+    ("end_cash", "float | None", "元", "期末现金及现金等价物余额（券商）"),
+    ("end_cash_share", "float | None", "%", "期末现金及现金等价物余额的净现金流占比"),
+    ("premiums_cash", "float | None", "元", "收到原保险合同保费取得的现金（保险）"),
+    ("premiums_cash_share", "float | None", "%", "收到原保险合同保费取得的现金的净现金流占比"),
+    ("claims_cash_paid", "float | None", "元", "支付原保险合同赔付款项的现金（保险）"),
+    ("claims_cash_paid_share", "float | None", "%", "支付原保险合同赔付款项的现金的净现金流占比"),
+)
+
+
 @dataclass(frozen=True)
 class Param:
     name: str
@@ -613,6 +865,23 @@ _PERIOD_PARAMS = (
         False,
         '"1mo"',
         "统计周期：1mo 近一月 / 3mo 近三月 / 6mo 近六月 / 1y 近一年，未知回退 1mo",
+    ),
+)
+
+_REPORT_PERIOD_PARAMS = (
+    Param(
+        "report_date",
+        "str | None",
+        False,
+        "None",
+        "报告期 YYYYMMDD，必须是季末（0331 / 0630 / 0930 / 1231）；留空取今天之前最近的季末",
+    ),
+    Param(
+        "scope",
+        "str",
+        False,
+        '"all"',
+        "市场范围：all / sh / sz / bj / kc 科创板 / cy 创业板 / st 风险警示，未知回退 all",
     ),
 )
 
@@ -1411,6 +1680,132 @@ _INTERFACES: tuple[Interface, ...] = (
             "    print(b.branch_code, b.branch_name, b.buy_times_5d, b.avg_change_5d, b.rise_prob_5d)"
         ),
         dataframe_variant="df_block_trade_branch_rank_em",
+    ),
+    Interface(
+        name="earnings_report_em",
+        category="earnings",
+        desc="业绩报告（按报告期取各公司的每股收益、营业总收入、净利润及同比环比、净资产收益率、销售毛利率）",
+        documented=True,
+        inputs=_REPORT_PERIOD_PARAMS,
+        outputs=tuple(Field(*f) for f in _EARNINGS_REPORT_FIELDS),
+        example=(
+            "from em import earnings_report_em\n"
+            "from em.domain.queries import EarningsReportQuery\n"
+            "\n"
+            'page = earnings_report_em(EarningsReportQuery("20260930"))\n'
+            "print(page.total)\n"
+            "for r in page.items[:5]:\n"
+            "    print(r.code, r.name, r.eps, r.revenue, r.net_profit, r.net_profit_yoy)"
+        ),
+        dataframe_variant="df_earnings_report_em",
+    ),
+    Interface(
+        name="earnings_express_em",
+        category="earnings",
+        desc="业绩快报（按报告期取发布了快报的公司的营业收入、净利润及去年同期、同比环比、每股净资产）",
+        documented=True,
+        inputs=_REPORT_PERIOD_PARAMS,
+        outputs=tuple(Field(*f) for f in _EARNINGS_EXPRESS_FIELDS),
+        example=(
+            "from em import earnings_express_em\n"
+            "from em.domain.queries import EarningsExpressQuery\n"
+            "\n"
+            'page = earnings_express_em(EarningsExpressQuery("20260930"))\n'
+            "print(page.total)\n"
+            "for r in page.items[:5]:\n"
+            "    print(r.code, r.name, r.revenue, r.net_profit, r.net_profit_yoy, r.notice_date)"
+        ),
+        dataframe_variant="df_earnings_express_em",
+    ),
+    Interface(
+        name="earnings_forecast_em",
+        category="earnings",
+        desc="业绩预告（按报告期取各公司的预测指标、预测数值上下限、业绩变动幅度、预告类型与变动原因）",
+        documented=True,
+        inputs=_REPORT_PERIOD_PARAMS,
+        outputs=tuple(Field(*f) for f in _EARNINGS_FORECAST_FIELDS),
+        example=(
+            "from em import earnings_forecast_em\n"
+            "from em.domain.queries import EarningsForecastQuery\n"
+            "\n"
+            'page = earnings_forecast_em(EarningsForecastQuery("20260930"))\n'
+            "print(page.total)\n"
+            "for r in page.items[:5]:\n"
+            "    print(r.code, r.name, r.indicator, r.forecast_type, r.lower, r.upper)"
+        ),
+        dataframe_variant="df_earnings_forecast_em",
+    ),
+    Interface(
+        name="earnings_schedule_em",
+        category="earnings",
+        desc="预约披露时间（按报告期取各公司定期报告的首次预约、历次变更与实际披露日期）",
+        documented=True,
+        inputs=_REPORT_PERIOD_PARAMS,
+        outputs=tuple(Field(*f) for f in _EARNINGS_SCHEDULE_FIELDS),
+        example=(
+            "from em import earnings_schedule_em\n"
+            "from em.domain.queries import EarningsScheduleQuery\n"
+            "\n"
+            'page = earnings_schedule_em(EarningsScheduleQuery("20260930"))\n'
+            "print(page.total)\n"
+            "for r in page.items[:5]:\n"
+            "    print(r.code, r.name, r.first_appoint_date, r.appoint_date, r.actual_date)"
+        ),
+        dataframe_variant="df_earnings_schedule_em",
+    ),
+    Interface(
+        name="balance_sheet_em",
+        category="financial_statements",
+        desc="资产负债表（按报告期取各公司的货币资金、应收账款、存货、总资产、总负债、股东权益及同比、资产负债率）",
+        documented=True,
+        inputs=_REPORT_PERIOD_PARAMS,
+        outputs=tuple(Field(*f) for f in _BALANCE_SHEET_FIELDS),
+        example=(
+            "from em import balance_sheet_em\n"
+            "from em.domain.queries import BalanceSheetQuery\n"
+            "\n"
+            'page = balance_sheet_em(BalanceSheetQuery("20260930"))\n'
+            "print(page.total)\n"
+            "for r in page.items[:5]:\n"
+            "    print(r.code, r.name, r.total_assets, r.total_liabilities, r.debt_asset_ratio)"
+        ),
+        dataframe_variant="df_balance_sheet_em",
+    ),
+    Interface(
+        name="income_statement_em",
+        category="financial_statements",
+        desc="利润表（按报告期取各公司的营业总收入、营业总支出及各项费用、营业利润、利润总额、净利润、扣非净利润及同比）",
+        documented=True,
+        inputs=_REPORT_PERIOD_PARAMS,
+        outputs=tuple(Field(*f) for f in _INCOME_STATEMENT_FIELDS),
+        example=(
+            "from em import income_statement_em\n"
+            "from em.domain.queries import IncomeStatementQuery\n"
+            "\n"
+            'page = income_statement_em(IncomeStatementQuery("20260930"))\n'
+            "print(page.total)\n"
+            "for r in page.items[:5]:\n"
+            "    print(r.code, r.name, r.revenue, r.operating_profit, r.net_profit, r.net_profit_yoy)"
+        ),
+        dataframe_variant="df_income_statement_em",
+    ),
+    Interface(
+        name="cash_flow_statement_em",
+        category="financial_statements",
+        desc="现金流量表（按报告期取各公司的经营、投资、筹资活动现金流量净额及其净现金流占比、净现金流及同比）",
+        documented=True,
+        inputs=_REPORT_PERIOD_PARAMS,
+        outputs=tuple(Field(*f) for f in _CASH_FLOW_STATEMENT_FIELDS),
+        example=(
+            "from em import cash_flow_statement_em\n"
+            "from em.domain.queries import CashFlowStatementQuery\n"
+            "\n"
+            'page = cash_flow_statement_em(CashFlowStatementQuery("20260930"))\n'
+            "print(page.total)\n"
+            "for r in page.items[:5]:\n"
+            "    print(r.code, r.name, r.net_cash_flow, r.operating_net, r.investing_net, r.financing_net)"
+        ),
+        dataframe_variant="df_cash_flow_statement_em",
     ),
 )
 

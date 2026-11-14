@@ -65,6 +65,27 @@ from em.channels.eastmoney.ashare_boards.board_industry_list.board_industry_list
     board_industry_list_request,
 )
 from em.channels.eastmoney.ashare_boards.board_kline.board_kline_em import board_kline_request
+from em.channels.eastmoney.ashare_earnings.earnings_express.earnings_express_em import (
+    earnings_express_request,
+)
+from em.channels.eastmoney.ashare_earnings.earnings_forecast.earnings_forecast_em import (
+    earnings_forecast_request,
+)
+from em.channels.eastmoney.ashare_earnings.earnings_report.earnings_report_em import (
+    earnings_report_request,
+)
+from em.channels.eastmoney.ashare_earnings.earnings_schedule.earnings_schedule_em import (
+    earnings_schedule_request,
+)
+from em.channels.eastmoney.ashare_financial_statements.balance_sheet.balance_sheet_em import (
+    balance_sheet_request,
+)
+from em.channels.eastmoney.ashare_financial_statements.cash_flow_statement.cash_flow_statement_em import (
+    cash_flow_statement_request,
+)
+from em.channels.eastmoney.ashare_financial_statements.income_statement.income_statement_em import (
+    income_statement_request,
+)
 from em.channels.eastmoney.ashare_indices.index_list.index_list_em import index_list_request
 from em.channels.eastmoney.ashare_stocks.stock_bid_ask.stock_bid_ask_em import (
     stock_bid_ask_request,
@@ -86,6 +107,7 @@ from em.channels.eastmoney.source import EastMoneySource
 
 __all__ = [
     "EastMoneySource",
+    "balance_sheet_request",
     "billboard_branch_active_request",
     "billboard_branch_rank_request",
     "billboard_branch_stats_request",
@@ -107,10 +129,16 @@ __all__ = [
     "board_fund_flow_request",
     "board_industry_list_request",
     "board_kline_request",
+    "cash_flow_statement_request",
+    "earnings_express_request",
+    "earnings_forecast_request",
+    "earnings_report_request",
+    "earnings_schedule_request",
     "flow_field",
     "fund_flow_request",
     "fund_list_request",
     "hk_stock_list_request",
+    "income_statement_request",
     "index_list_request",
     "kline_request",
     "stock_bid_ask_request",

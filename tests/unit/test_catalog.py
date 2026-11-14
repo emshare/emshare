@@ -154,6 +154,8 @@ def test_list_categories() -> None:
         {"类目": "block_trade", "接口数": 6},
         {"类目": "board", "接口数": 2},
         {"类目": "changes", "接口数": 2},
+        {"类目": "earnings", "接口数": 4},
+        {"类目": "financial_statements", "接口数": 3},
         {"类目": "fund", "接口数": 1},
         {"类目": "fund_flow", "接口数": 2},
         {"类目": "hk", "接口数": 1},
@@ -497,6 +499,57 @@ def test_search_block_trade_family() -> None:
     assert search("大宗交易 营业部排行")[0]["接口名"] == "block_trade_branch_rank_em"
 
 
+_FINANCIAL_REPORTS = [
+    # 接口, 类目, 模型, 检索词
+    ("earnings_report_em", "earnings", "EarningsReport", "业绩报告"),
+    ("earnings_express_em", "earnings", "EarningsExpress", "业绩快报"),
+    ("earnings_forecast_em", "earnings", "EarningsForecast", "业绩预告"),
+    ("earnings_schedule_em", "earnings", "EarningsSchedule", "预约披露时间"),
+    ("balance_sheet_em", "financial_statements", "BalanceSheet", "资产负债表"),
+    ("income_statement_em", "financial_statements", "IncomeStatement", "利润表"),
+    ("cash_flow_statement_em", "financial_statements", "CashFlowStatement", "现金流量表"),
+]
+
+
+@pytest.mark.parametrize(
+    "name,category,model,keyword", _FINANCIAL_REPORTS, ids=[r[0] for r in _FINANCIAL_REPORTS]
+)
+def test_interface_info_financials_cover_model_fields(
+    name: str, category: str, model: str, keyword: str
+) -> None:
+    from dataclasses import fields
+
+    import em
+    from em.domain import models, queries
+
+    info = interface_info(name)
+    assert info["category"] == category and info["documented"] is True
+    assert info["dataframe_variant"] == f"df_{name}"
+    assert callable(getattr(em, name)) and callable(getattr(em, f"df_{name}"))
+    # 入参与查询对象一一对应，默认值一致，都不必填
+    query = getattr(queries, f"{model}Query")
+    assert [p["name"] for p in info["inputs"]] == [f.name for f in fields(query)]
+    assert [p["name"] for p in info["inputs"]] == ["report_date", "scope"]
+    assert [p["default"] for p in info["inputs"]] == ["None", '"all"']
+    assert not any(p["required"] for p in info["inputs"])
+    # 出参与模型字段一一对应，金额为元、比率为 %
+    assert [f["name"] for f in info["outputs"]] == [f.name for f in fields(getattr(models, model))]
+    assert all(f["unit"] in ("元", "%", "—") and f["desc"] for f in info["outputs"])
+    assert f"{name}(" in info["example"]
+    assert search(keyword)[0]["接口名"] == name
+
+
+def test_financials_scope_param_lists_every_value() -> None:
+    from em.channels.eastmoney import config
+
+    scope = interface_info("balance_sheet_em")["inputs"][1]
+    assert all(value in scope["desc"] for value in config.DATACENTER_SCOPE_FILTERS)
+    units = {f["name"]: f["unit"] for f in interface_info("cash_flow_statement_em")["outputs"]}
+    assert units["operating_net"] == "元" and units["operating_net_share"] == "%"
+    assert len(search("earnings", category="earnings")) == 4
+    assert len(search("statement", category="financial_statements")) == 3  # 类目名也参与匹配
+
+
 def test_search_board_kline_by_keyword() -> None:
     rows = search("板块 K线")
     assert rows and rows[0]["接口名"] == "board_kline_em"
@@ -536,7 +589,7 @@ def test_list_categories_df_returns_dataframe() -> None:
     df = list_categories_df()
     assert isinstance(df, pd.DataFrame)
     assert list(df.columns) == ["类目", "接口数"]
-    assert len(df) == 13
+    assert len(df) == 15
 
 
 def test_interface_info_df_returns_param_and_field_tables() -> None:

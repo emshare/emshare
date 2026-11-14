@@ -268,6 +268,15 @@ def normalize_scope(scope: str) -> str:
     return scope if scope in config.DATACENTER_SCOPE_FILTERS else "all"
 
 
+def report_period_filter(column: str, report_date: str | None, scope: str) -> str:
+    """业绩与财报类报表的公共过滤：A 股与存托凭证 + 市场范围 + 报告期（各报表的报告期列名不同）。"""
+    return (
+        config.DATACENTER_A_SHARE_FILTER
+        + scope_filter(scope)
+        + on(column, report_period(report_date))
+    )
+
+
 def normalize_period(period: str) -> str:
     """龙虎榜统计周期；未知回退 1mo。"""
     return period if period in config.BILLBOARD_PERIODS else "1mo"

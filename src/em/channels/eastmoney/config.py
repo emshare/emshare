@@ -175,6 +175,9 @@ DATACENTER_SCOPE_FILTERS = {
     "cy": '(TRADE_MARKET_CODE="069001002002")',
     "st": '(TRADE_MARKET_CODE in ("069001001003","069001002005"))',
 }
+# 业绩与财报类报表只取 A 股与存托凭证（上游同表里还有 B 股、新三板：实测 2026 三季报业绩报告
+# 5797 行里 B 股 77、三板股 140）
+DATACENTER_A_SHARE_FILTER = '(SECURITY_TYPE_CODE in ("058001001","058001008"))'
 # 统计周期 -> 上游取值（用户定 1mo / 3mo / 6mo / 1y，避免与 K 线分钟周期 5m 混淆）
 # 龙虎榜个股统计 / 机构席位追踪 / 营业部排行与统计（STATISTICS_CYCLE / STATISTICSCYCLE）
 BILLBOARD_PERIODS = {"1mo": "01", "3mo": "02", "6mo": "03", "1y": "04"}

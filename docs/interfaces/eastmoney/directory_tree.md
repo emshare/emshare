@@ -39,6 +39,15 @@ src/em/channels/eastmoney/                 docs/interfaces/eastmoney/
 │   ├── block_trade_stock_stats/# 活跃A股统计   │   ├── block_trade_stock_stats_em.md
 │   ├── block_trade_branch_active/# 活跃营业部    │   ├── block_trade_branch_active_em.md
 │   └── block_trade_branch_rank/# 营业部排行    │   └── block_trade_branch_rank_em.md
+├── ashare_earnings/            # 业绩          ├── ashare_earnings/
+│   ├── earnings_report/        # 业绩报告      │   ├── earnings_report_em.md
+│   ├── earnings_express/       # 业绩快报      │   ├── earnings_express_em.md
+│   ├── earnings_forecast/      # 业绩预告      │   ├── earnings_forecast_em.md
+│   └── earnings_schedule/      # 预约披露      │   └── earnings_schedule_em.md
+├── ashare_financial_statements/# 三大报表      ├── ashare_financial_statements/
+│   ├── balance_sheet/          # 资产负债表    │   ├── balance_sheet_em.md
+│   ├── income_statement/       # 利润表        │   ├── income_statement_em.md
+│   └── cash_flow_statement/    # 现金流量表    │   └── cash_flow_statement_em.md
 ├── ashare_indices/              # 沪深京指数    ├── ashare_indices/
 │   └── index_list/             # 指数列表      │   └── index_list_em.md
 ├── hk_market/                  # 港股市场      ├── hk_market/
@@ -62,4 +71,4 @@ src/em/channels/eastmoney/                 docs/interfaces/eastmoney/
 └── __init__.py
 ```
 
-> 除 `ashare_boards/`、`ashare_stocks/`、`ashare_billboard/`、`ashare_block_trade/`、`ashare_indices/`、`hk_market/`、`fund_market/` 外，其余市场目录暂为空占位，待对应功能实现后填充。
+> 除 `ashare_boards/`、`ashare_stocks/`、`ashare_billboard/`、`ashare_block_trade/`、`ashare_earnings/`、`ashare_financial_statements/`、`ashare_indices/`、`hk_market/`、`fund_market/` 外，其余市场目录暂为空占位，待对应功能实现后填充。

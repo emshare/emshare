@@ -14,6 +14,7 @@ import requests
 
 from em.application import registry
 from em.application.dataframe import (
+    to_balance_sheet_dataframe,
     to_billboard_branch_active_dataframe,
     to_billboard_branch_rank_dataframe,
     to_billboard_branch_stats_dataframe,
@@ -33,10 +34,16 @@ from em.application.dataframe import (
     to_board_changes_dataframe,
     to_board_fund_flow_dataframe,
     to_board_list_dataframe,
+    to_cash_flow_statement_dataframe,
     to_dataframe,
+    to_earnings_express_dataframe,
+    to_earnings_forecast_dataframe,
+    to_earnings_report_dataframe,
+    to_earnings_schedule_dataframe,
     to_fund_flow_dataframe,
     to_fund_list_dataframe,
     to_hk_stock_list_dataframe,
+    to_income_statement_dataframe,
     to_index_list_dataframe,
     to_kline_dataframe,
     to_limit_pool_dataframe,
@@ -54,6 +61,7 @@ from em.core.resilience import RetryPolicy
 from em.core.settings import Settings
 from em.core.transport import HttpClient
 from em.domain.models import (
+    BalanceSheet,
     BillboardBranchActive,
     BillboardBranchRank,
     BillboardBranchStats,
@@ -73,9 +81,15 @@ from em.domain.models import (
     BoardChangesPage,
     BoardFundFlowSeries,
     BoardListPage,
+    CashFlowStatement,
+    EarningsExpress,
+    EarningsForecast,
+    EarningsReport,
+    EarningsSchedule,
     FundFlowSeries,
     FundListPage,
     HkStockListPage,
+    IncomeStatement,
     IndexListPage,
     KlineSeries,
     LimitPoolPage,
@@ -88,6 +102,7 @@ from em.domain.models import (
     TrendSeries,
 )
 from em.domain.queries import (
+    BalanceSheetQuery,
     BillboardBranchActiveQuery,
     BillboardBranchRankQuery,
     BillboardBranchStatsQuery,
@@ -109,9 +124,15 @@ from em.domain.queries import (
     BoardKlineQuery,
     BoardListQuery,
     BoardQuery,
+    CashFlowStatementQuery,
+    EarningsExpressQuery,
+    EarningsForecastQuery,
+    EarningsReportQuery,
+    EarningsScheduleQuery,
     FundFlowQuery,
     FundListQuery,
     HkStockListQuery,
+    IncomeStatementQuery,
     IndexListQuery,
     KlineQuery,
     LimitPoolQuery,
@@ -1100,3 +1121,129 @@ def df_block_trade_branch_rank_em(
     return to_block_trade_branch_rank_dataframe(
         block_trade_branch_rank_em(query, settings), columns
     )
+
+
+def earnings_report_em(
+    query: EarningsReportQuery | None = None, settings: Settings | None = None
+) -> ReportPage[EarningsReport]:
+    """抓取业绩报告（按报告期，留空取最近的季末；``scope`` 筛市场范围），自动翻完全部页。"""
+    query = query or EarningsReportQuery()
+    request = registry.earnings_report_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_earnings_report_em(
+    query: EarningsReportQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``earnings_report_em`` 的 DataFrame 版（中文列名）。"""
+    return to_earnings_report_dataframe(earnings_report_em(query, settings), columns)
+
+
+def earnings_express_em(
+    query: EarningsExpressQuery | None = None, settings: Settings | None = None
+) -> ReportPage[EarningsExpress]:
+    """抓取业绩快报（按报告期，留空取最近的季末；``scope`` 筛市场范围），自动翻完全部页。"""
+    query = query or EarningsExpressQuery()
+    request = registry.earnings_express_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_earnings_express_em(
+    query: EarningsExpressQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``earnings_express_em`` 的 DataFrame 版（中文列名）。"""
+    return to_earnings_express_dataframe(earnings_express_em(query, settings), columns)
+
+
+def earnings_forecast_em(
+    query: EarningsForecastQuery | None = None, settings: Settings | None = None
+) -> ReportPage[EarningsForecast]:
+    """抓取业绩预告（按报告期，留空取最近的季末；``scope`` 筛市场范围），自动翻完全部页。"""
+    query = query or EarningsForecastQuery()
+    request = registry.earnings_forecast_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_earnings_forecast_em(
+    query: EarningsForecastQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``earnings_forecast_em`` 的 DataFrame 版（中文列名）。"""
+    return to_earnings_forecast_dataframe(earnings_forecast_em(query, settings), columns)
+
+
+def earnings_schedule_em(
+    query: EarningsScheduleQuery | None = None, settings: Settings | None = None
+) -> ReportPage[EarningsSchedule]:
+    """抓取预约披露时间（按报告期，留空取最近的季末；``scope`` 筛市场范围），自动翻完全部页。"""
+    query = query or EarningsScheduleQuery()
+    request = registry.earnings_schedule_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_earnings_schedule_em(
+    query: EarningsScheduleQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``earnings_schedule_em`` 的 DataFrame 版（中文列名）。"""
+    return to_earnings_schedule_dataframe(earnings_schedule_em(query, settings), columns)
+
+
+def balance_sheet_em(
+    query: BalanceSheetQuery | None = None, settings: Settings | None = None
+) -> ReportPage[BalanceSheet]:
+    """抓取资产负债表（按报告期，留空取最近的季末；``scope`` 筛市场范围），自动翻完全部页。"""
+    query = query or BalanceSheetQuery()
+    request = registry.balance_sheet_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_balance_sheet_em(
+    query: BalanceSheetQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``balance_sheet_em`` 的 DataFrame 版（中文列名）。"""
+    return to_balance_sheet_dataframe(balance_sheet_em(query, settings), columns)
+
+
+def income_statement_em(
+    query: IncomeStatementQuery | None = None, settings: Settings | None = None
+) -> ReportPage[IncomeStatement]:
+    """抓取利润表（按报告期，留空取最近的季末；``scope`` 筛市场范围），自动翻完全部页。"""
+    query = query or IncomeStatementQuery()
+    request = registry.income_statement_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_income_statement_em(
+    query: IncomeStatementQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``income_statement_em`` 的 DataFrame 版（中文列名）。"""
+    return to_income_statement_dataframe(income_statement_em(query, settings), columns)
+
+
+def cash_flow_statement_em(
+    query: CashFlowStatementQuery | None = None, settings: Settings | None = None
+) -> ReportPage[CashFlowStatement]:
+    """抓取现金流量表（按报告期，留空取最近的季末；``scope`` 筛市场范围），自动翻完全部页。"""
+    query = query or CashFlowStatementQuery()
+    request = registry.cash_flow_statement_request(query)
+    return fetch_report(_build_client(settings or Settings.from_env()), request)
+
+
+def df_cash_flow_statement_em(
+    query: CashFlowStatementQuery | None = None,
+    settings: Settings | None = None,
+    columns: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """``cash_flow_statement_em`` 的 DataFrame 版（中文列名）。"""
+    return to_cash_flow_statement_dataframe(cash_flow_statement_em(query, settings), columns)

@@ -812,3 +812,251 @@ class BlockTradeBranchRank:
     buy_times_20d: int | None = None
     avg_change_20d: Pct = None
     rise_prob_20d: Pct = None
+
+
+@dataclass(frozen=True)
+class EarningsReport:
+    """业绩报告：一家公司一个报告期的主要业绩指标。金额单位元，比率单位 %。"""
+
+    code: str
+    name: str
+    market: str | None = None  # 市场：sh / sz / bj，可连同 code 传给 stock_kline_em
+    report_date: str | None = None  # 报告期 YYYY-MM-DD
+    eps: Yuan = None  # 基本每股收益
+    deducted_eps: Yuan = None  # 扣非每股收益（年报才有，其余报告期多为 None）
+    revenue: Yuan = None  # 营业总收入
+    revenue_yoy: Pct = None  # 营业总收入同比增长
+    revenue_qoq: Pct = None  # 营业总收入季度环比增长
+    net_profit: Yuan = None  # 归属于母公司股东的净利润
+    net_profit_yoy: Pct = None  # 净利润同比增长
+    net_profit_qoq: Pct = None  # 净利润季度环比增长
+    bps: Yuan = None  # 每股净资产
+    roe: Pct = None  # 加权平均净资产收益率
+    cash_flow_per_share: Yuan = None  # 每股经营现金流量
+    gross_margin: Pct = None  # 销售毛利率
+    # 利润分配方案，如“10派3.60元(含税,扣税后3.24元)”（年报、中报才有）
+    dividend_plan: str | None = None
+    dividend_yield: Pct = None  # 股息率（有现金分红方案时才有）
+    industry: str | None = None  # 所处行业
+    notice_date: str | None = None  # 首次公告日期 YYYY-MM-DD
+    update_date: str | None = None  # 最新公告日期 YYYY-MM-DD（有更正公告时晚于首次公告日期）
+
+
+@dataclass(frozen=True)
+class EarningsExpress:
+    """业绩快报：一家公司一个报告期的快报数据。金额单位元，比率单位 %。只有部分公司发布快报，年报期最多。"""
+
+    code: str
+    name: str
+    market: str | None = None  # 市场：sh / sz / bj，可连同 code 传给 stock_kline_em
+    report_date: str | None = None  # 报告期 YYYY-MM-DD
+    eps: Yuan = None  # 基本每股收益
+    revenue: Yuan = None  # 营业收入
+    revenue_prev_year: Yuan = None  # 去年同期营业收入
+    revenue_yoy: Pct = None  # 营业收入同比增长
+    revenue_qoq: Pct = None  # 营业收入季度环比增长
+    net_profit: Yuan = None  # 归属于母公司股东的净利润
+    net_profit_prev_year: Yuan = None  # 去年同期净利润
+    net_profit_yoy: Pct = None  # 净利润同比增长
+    net_profit_qoq: Pct = None  # 净利润季度环比增长
+    bps: Yuan = None  # 每股净资产
+    roe: Pct = None  # 加权平均净资产收益率
+    industry: str | None = None  # 所处行业
+    notice_date: str | None = None  # 公告日期 YYYY-MM-DD
+    update_date: str | None = None  # 最新公告日期 YYYY-MM-DD
+
+
+@dataclass(frozen=True)
+class EarningsForecast:
+    """业绩预告的一项预测指标。金额单位元（指标为每股收益时是元 / 股），幅度单位 %。
+
+    一家公司每项预测指标一行（净利润、扣非净利润、营业收入、每股收益等），不能按行数统计公司数。
+    """
+
+    code: str
+    name: str
+    market: str | None = None  # 市场：sh / sz / bj，可连同 code 传给 stock_kline_em
+    report_date: str | None = None  # 报告期 YYYY-MM-DD
+    notice_date: str | None = None  # 公告日期 YYYY-MM-DD
+    # 预测指标，如“归属于上市公司股东的净利润”“每股收益”（一家公司每项指标一行）
+    indicator: str | None = None
+    summary: str | None = None  # 业绩变动的文字说明
+    forecast_value: Yuan = None  # 预测数值：上下限的均值（指标为每股收益时单位是元 / 股）
+    lower: Yuan = None  # 预测下限
+    upper: Yuan = None  # 预测上限
+    change_pct: Pct = None  # 业绩变动幅度：同比变动上下限的均值
+    change_pct_lower: Pct = None  # 同比变动幅度下限
+    change_pct_upper: Pct = None  # 同比变动幅度上限
+    reason: str | None = None  # 业绩变动原因
+    # 预告类型：预增 / 预减 / 略增 / 略减 / 扭亏 / 首亏 / 续亏 / 续盈 / 减亏 / 增亏 / 不确定
+    forecast_type: str | None = None
+    prev_year: Yuan = None  # 上年同期值
+
+
+@dataclass(frozen=True)
+class EarningsSchedule:
+    """定期报告预约披露时间：一家公司一个报告期的预约、变更与实际披露日期。"""
+
+    code: str
+    name: str
+    market: str | None = None  # 市场：sh / sz / bj，可连同 code 传给 stock_kline_em
+    report_date: str | None = None  # 报告期 YYYY-MM-DD
+    first_appoint_date: str | None = None  # 首次预约披露日期 YYYY-MM-DD
+    first_change_date: str | None = None  # 第一次变更后的预约日期（没有变更为 None）
+    second_change_date: str | None = None  # 第二次变更后的预约日期
+    third_change_date: str | None = None  # 第三次变更后的预约日期
+    appoint_date: str | None = None  # 当前生效的预约披露日期（最后一次变更后的日期）
+    actual_date: str | None = None  # 实际披露日期（尚未披露为 None）
+
+
+@dataclass(frozen=True)
+class BalanceSheet:
+    """资产负债表：一家公司一个报告期的主要科目。金额单位元，同比与比率单位 %。
+
+    银行、券商、保险专用科目只有对应行业有值，一般公司为 None；反之存货、应收账款等金融类为 None。
+    """
+
+    code: str
+    name: str
+    market: str | None = None  # 市场：sh / sz / bj，可连同 code 传给 stock_kline_em
+    industry: str | None = None  # 所处行业
+    report_date: str | None = None  # 报告期 YYYY-MM-DD
+    notice_date: str | None = None  # 公告日期 YYYY-MM-DD
+    cash: Yuan = None  # 货币资金
+    cash_yoy: Pct = None  # 货币资金同比
+    accounts_receivable: Yuan = None  # 应收账款
+    accounts_receivable_yoy: Pct = None  # 应收账款同比
+    inventory: Yuan = None  # 存货
+    inventory_yoy: Pct = None  # 存货同比
+    fixed_assets: Yuan = None  # 固定资产
+    total_assets: Yuan = None  # 总资产
+    total_assets_yoy: Pct = None  # 总资产同比
+    accounts_payable: Yuan = None  # 应付账款
+    accounts_payable_yoy: Pct = None  # 应付账款同比
+    advance_receipts: Yuan = None  # 预收账款
+    advance_receipts_yoy: Pct = None  # 预收账款同比
+    total_liabilities: Yuan = None  # 总负债
+    total_liabilities_yoy: Pct = None  # 总负债同比
+    debt_asset_ratio: Pct = None  # 资产负债率 = 总负债 / 总资产
+    current_ratio: Pct = None  # 流动比率（以 % 表示，180 即 1.8 倍；金融类为 None）
+    total_equity: Yuan = None  # 股东权益合计
+    total_equity_yoy: Pct = None  # 股东权益同比
+    cash_deposit_pbc: Yuan = None  # 现金及存放中央银行款项（银行）
+    cash_deposit_pbc_yoy: Pct = None  # 现金及存放中央银行款项同比
+    loans_advances: Yuan = None  # 发放贷款及垫款（银行）
+    loans_advances_yoy: Pct = None  # 发放贷款及垫款同比
+    available_for_sale_assets: Yuan = None  # 可供出售金融资产（新金融工具准则后多为 None）
+    available_for_sale_assets_yoy: Pct = None  # 可供出售金融资产同比
+    borrowings_from_pbc: Yuan = None  # 向中央银行借款（银行）
+    borrowings_from_pbc_yoy: Pct = None  # 向中央银行借款同比
+    deposits: Yuan = None  # 吸收存款（银行）
+    deposits_yoy: Pct = None  # 吸收存款同比
+    repo_sold: Yuan = None  # 卖出回购金融资产款（银行、保险、券商）
+    repo_sold_yoy: Pct = None  # 卖出回购金融资产款同比
+    settlement_reserves: Yuan = None  # 结算备付金（券商）
+    settlement_reserves_yoy: Pct = None  # 结算备付金同比
+    interbank_borrowings: Yuan = None  # 拆入资金（券商）
+    interbank_borrowings_yoy: Pct = None  # 拆入资金同比
+    customer_brokerage_deposits: Yuan = None  # 代理买卖证券款（券商）
+    customer_brokerage_deposits_yoy: Pct = None  # 代理买卖证券款同比
+    premiums_receivable: Yuan = None  # 应收保费（保险）
+    premiums_receivable_yoy: Pct = None  # 应收保费同比
+    short_term_loans: Yuan = None  # 短期借款（保险）
+    short_term_loans_yoy: Pct = None  # 短期借款同比
+    advance_premiums: Yuan = None  # 预收保费（保险）
+    advance_premiums_yoy: Pct = None  # 预收保费同比
+
+
+@dataclass(frozen=True)
+class IncomeStatement:
+    """利润表：一家公司一个报告期的主要科目（年初至报告期末累计）。金额单位元，同比单位 %。
+
+    银行、券商、保险专用科目只有对应行业有值，一般公司为 None。
+    """
+
+    code: str
+    name: str
+    market: str | None = None  # 市场：sh / sz / bj，可连同 code 传给 stock_kline_em
+    industry: str | None = None  # 所处行业
+    report_date: str | None = None  # 报告期 YYYY-MM-DD
+    notice_date: str | None = None  # 公告日期 YYYY-MM-DD
+    net_profit: Yuan = None  # 归属于母公司股东的净利润
+    net_profit_yoy: Pct = None  # 净利润同比
+    deducted_net_profit: Yuan = None  # 扣除非经常性损益后的净利润
+    deducted_net_profit_yoy: Pct = None  # 扣非净利润同比
+    revenue: Yuan = None  # 营业总收入
+    revenue_yoy: Pct = None  # 营业总收入同比
+    operating_expense: Yuan = None  # 营业支出：一般公司等于营业成本，银行、保险为营业支出
+    operating_expense_yoy: Pct = None  # 营业支出同比
+    operating_cost: Yuan = None  # 营业成本（金融类为 None）
+    selling_expense: Yuan = None  # 销售费用
+    admin_expense: Yuan = None  # 管理费用（银行、券商为业务及管理费）
+    finance_expense: Yuan = None  # 财务费用
+    taxes_and_surcharges: Yuan = None  # 税金及附加
+    total_operating_cost: Yuan = None  # 营业总支出
+    total_operating_cost_yoy: Pct = None  # 营业总支出同比
+    operating_profit: Yuan = None  # 营业利润
+    operating_profit_yoy: Pct = None  # 营业利润同比
+    total_profit: Yuan = None  # 利润总额
+    income_tax: Yuan = None  # 所得税费用
+    operating_income: Yuan = None  # 营业收入（只有银行、保险有，等于营业总收入）
+    net_interest_income: Yuan = None  # 利息净收入
+    net_interest_income_yoy: Pct = None  # 利息净收入同比（银行）
+    net_fee_income: Yuan = None  # 手续费及佣金净收入
+    net_fee_income_yoy: Pct = None  # 手续费及佣金净收入同比
+    business_admin_expense: Yuan = None  # 业务及管理费（银行，等于 admin_expense）
+    earned_premiums: Yuan = None  # 已赚保费（保险）
+    earned_premiums_yoy: Pct = None  # 已赚保费同比
+    investment_income: Yuan = None  # 投资收益（保险）
+    surrenders: Yuan = None  # 退保金（保险）
+    claims_expense: Yuan = None  # 赔付支出（保险）
+
+
+@dataclass(frozen=True)
+class CashFlowStatement:
+    """现金流量表：一家公司一个报告期的主要科目（年初至报告期末累计）。金额单位元，比率单位 %。
+
+    ``*_share`` 是该科目 ÷ 净现金流（现金及现金等价物净增加额）的绝对值 × 100，可以远大于 100 或为负；
+    只有 ``net_cash_flow_yoy`` 是同比。银行、券商、保险专用科目只有对应行业有值。
+    """
+
+    code: str
+    name: str
+    market: str | None = None  # 市场：sh / sz / bj，可连同 code 传给 stock_kline_em
+    industry: str | None = None  # 所处行业
+    report_date: str | None = None  # 报告期 YYYY-MM-DD
+    notice_date: str | None = None  # 公告日期 YYYY-MM-DD
+    net_cash_flow: Yuan = None  # 现金及现金等价物净增加额
+    net_cash_flow_yoy: Pct = None  # 净现金流同比增长
+    operating_net: Yuan = None  # 经营活动产生的现金流量净额
+    operating_net_share: Pct = None  # 经营活动现金流量净额的净现金流占比
+    sales_cash: Yuan = None  # 销售商品、提供劳务收到的现金
+    sales_cash_share: Pct = None  # 销售商品、提供劳务收到的现金的净现金流占比
+    staff_cash_paid: Yuan = None  # 支付给职工以及为职工支付的现金
+    staff_cash_paid_share: Pct = None  # 支付给职工的现金的净现金流占比
+    investing_net: Yuan = None  # 投资活动产生的现金流量净额
+    investing_net_share: Pct = None  # 投资活动现金流量净额的净现金流占比
+    investment_income_cash: Yuan = None  # 取得投资收益收到的现金
+    investment_income_cash_share: Pct = None  # 取得投资收益收到的现金的净现金流占比
+    capex: Yuan = None  # 购建固定资产、无形资产和其他长期资产支付的现金
+    capex_share: Pct = None  # 购建长期资产支付的现金的净现金流占比
+    financing_net: Yuan = None  # 筹资活动产生的现金流量净额
+    financing_net_share: Pct = None  # 筹资活动现金流量净额的净现金流占比
+    customer_deposits_increase: Yuan = None  # 客户存款和同业存放款项净增加额（银行）
+    customer_deposits_increase_share: Pct = None  # 客户存款净增加额的净现金流占比
+    interbank_deposits_increase: Yuan = None  # 同业及其他金融机构存放款净增加额（银行）
+    interbank_deposits_increase_share: Pct = None  # 同业存放款净增加额的净现金流占比
+    loans_increase: Yuan = None  # 客户贷款及垫款净增加额（银行）
+    loans_increase_share: Pct = None  # 客户贷款及垫款净增加额的净现金流占比
+    interest_commission_cash: Yuan = None  # 收取利息、手续费及佣金的现金（券商）
+    interest_commission_cash_share: Pct = None  # 收取利息、手续费及佣金的现金的净现金流占比
+    investment_cash_paid: Yuan = None  # 投资支付的现金（保险、券商）
+    investment_cash_paid_share: Pct = None  # 投资支付的现金的净现金流占比
+    begin_cash: Yuan = None  # 期初现金及现金等价物余额（券商）
+    begin_cash_share: Pct = None  # 期初现金及现金等价物余额的净现金流占比
+    end_cash: Yuan = None  # 期末现金及现金等价物余额（券商）
+    end_cash_share: Pct = None  # 期末现金及现金等价物余额的净现金流占比
+    premiums_cash: Yuan = None  # 收到原保险合同保费取得的现金（保险）
+    premiums_cash_share: Pct = None  # 收到原保险合同保费取得的现金的净现金流占比
+    claims_cash_paid: Yuan = None  # 支付原保险合同赔付款项的现金（保险）
+    claims_cash_paid_share: Pct = None  # 支付原保险合同赔付款项的现金的净现金流占比

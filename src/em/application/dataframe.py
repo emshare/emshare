@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from em.domain.models import (
+    BalanceSheet,
     BillboardBranchActive,
     BillboardBranchRank,
     BillboardBranchStats,
@@ -28,9 +29,15 @@ from em.domain.models import (
     BoardChangesPage,
     BoardFundFlowSeries,
     BoardListPage,
+    CashFlowStatement,
+    EarningsExpress,
+    EarningsForecast,
+    EarningsReport,
+    EarningsSchedule,
     FundFlowSeries,
     FundListPage,
     HkStockListPage,
+    IncomeStatement,
     IndexListPage,
     KlineSeries,
     LimitPoolPage,
@@ -1120,3 +1127,284 @@ def to_block_trade_branch_rank_dataframe(
     """把大宗交易营业部排行转为 ``DataFrame``，列顺序同 akshare。"""
     naming = columns or BLOCK_TRADE_BRANCH_RANK_COLUMNS_ZH
     return _records_frame(page.items, naming, tuple(BLOCK_TRADE_BRANCH_RANK_COLUMNS_ZH))
+
+
+# 业绩报告字段 -> 默认中文列名（akshare 有的列沿用其列名）
+EARNINGS_REPORT_COLUMNS_ZH: dict[str, str] = {
+    "code": "股票代码",
+    "name": "股票简称",
+    "market": "市场",
+    "report_date": "报告期",
+    "eps": "每股收益",
+    "deducted_eps": "扣非每股收益",
+    "revenue": "营业总收入-营业总收入",
+    "revenue_yoy": "营业总收入-同比增长",
+    "revenue_qoq": "营业总收入-季度环比增长",
+    "net_profit": "净利润-净利润",
+    "net_profit_yoy": "净利润-同比增长",
+    "net_profit_qoq": "净利润-季度环比增长",
+    "bps": "每股净资产",
+    "roe": "净资产收益率",
+    "cash_flow_per_share": "每股经营现金流量",
+    "gross_margin": "销售毛利率",
+    "dividend_plan": "利润分配",
+    "dividend_yield": "股息率",
+    "industry": "所处行业",
+    "notice_date": "首次公告日期",
+    "update_date": "最新公告日期",
+}
+
+
+def to_earnings_report_dataframe(
+    page: ReportPage[EarningsReport], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把业绩报告转为 ``DataFrame``（中文列名）。"""
+    naming = columns or EARNINGS_REPORT_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(EARNINGS_REPORT_COLUMNS_ZH))
+
+
+# 业绩快报字段 -> 默认中文列名（akshare 有的列沿用其列名）
+EARNINGS_EXPRESS_COLUMNS_ZH: dict[str, str] = {
+    "code": "股票代码",
+    "name": "股票简称",
+    "market": "市场",
+    "report_date": "报告期",
+    "eps": "每股收益",
+    "revenue": "营业收入-营业收入",
+    "revenue_prev_year": "营业收入-去年同期",
+    "revenue_yoy": "营业收入-同比增长",
+    "revenue_qoq": "营业收入-季度环比增长",
+    "net_profit": "净利润-净利润",
+    "net_profit_prev_year": "净利润-去年同期",
+    "net_profit_yoy": "净利润-同比增长",
+    "net_profit_qoq": "净利润-季度环比增长",
+    "bps": "每股净资产",
+    "roe": "净资产收益率",
+    "industry": "所处行业",
+    "notice_date": "公告日期",
+    "update_date": "最新公告日期",
+}
+
+
+def to_earnings_express_dataframe(
+    page: ReportPage[EarningsExpress], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把业绩快报转为 ``DataFrame``（中文列名）。"""
+    naming = columns or EARNINGS_EXPRESS_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(EARNINGS_EXPRESS_COLUMNS_ZH))
+
+
+# 业绩预告字段 -> 默认中文列名（akshare 有的列沿用其列名）
+EARNINGS_FORECAST_COLUMNS_ZH: dict[str, str] = {
+    "code": "股票代码",
+    "name": "股票简称",
+    "market": "市场",
+    "report_date": "报告期",
+    "notice_date": "公告日期",
+    "indicator": "预测指标",
+    "summary": "业绩变动",
+    "forecast_value": "预测数值",
+    "lower": "预测下限",
+    "upper": "预测上限",
+    "change_pct": "业绩变动幅度",
+    "change_pct_lower": "变动幅度下限",
+    "change_pct_upper": "变动幅度上限",
+    "reason": "业绩变动原因",
+    "forecast_type": "预告类型",
+    "prev_year": "上年同期值",
+}
+
+
+def to_earnings_forecast_dataframe(
+    page: ReportPage[EarningsForecast], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把业绩预告转为 ``DataFrame``（中文列名）。"""
+    naming = columns or EARNINGS_FORECAST_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(EARNINGS_FORECAST_COLUMNS_ZH))
+
+
+# 预约披露时间字段 -> 默认中文列名（akshare 有的列沿用其列名）
+EARNINGS_SCHEDULE_COLUMNS_ZH: dict[str, str] = {
+    "code": "股票代码",
+    "name": "股票简称",
+    "market": "市场",
+    "report_date": "报告期",
+    "first_appoint_date": "首次预约时间",
+    "first_change_date": "一次变更日期",
+    "second_change_date": "二次变更日期",
+    "third_change_date": "三次变更日期",
+    "appoint_date": "最新预约时间",
+    "actual_date": "实际披露时间",
+}
+
+
+def to_earnings_schedule_dataframe(
+    page: ReportPage[EarningsSchedule], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把预约披露时间转为 ``DataFrame``（中文列名）。"""
+    naming = columns or EARNINGS_SCHEDULE_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(EARNINGS_SCHEDULE_COLUMNS_ZH))
+
+
+# 资产负债表字段 -> 默认中文列名（akshare 有的列沿用其列名）
+BALANCE_SHEET_COLUMNS_ZH: dict[str, str] = {
+    "code": "股票代码",
+    "name": "股票简称",
+    "market": "市场",
+    "industry": "所处行业",
+    "report_date": "报告期",
+    "notice_date": "公告日期",
+    "cash": "资产-货币资金",
+    "cash_yoy": "资产-货币资金同比",
+    "accounts_receivable": "资产-应收账款",
+    "accounts_receivable_yoy": "资产-应收账款同比",
+    "inventory": "资产-存货",
+    "inventory_yoy": "资产-存货同比",
+    "fixed_assets": "资产-固定资产",
+    "total_assets": "资产-总资产",
+    "total_assets_yoy": "资产-总资产同比",
+    "accounts_payable": "负债-应付账款",
+    "accounts_payable_yoy": "负债-应付账款同比",
+    "advance_receipts": "负债-预收账款",
+    "advance_receipts_yoy": "负债-预收账款同比",
+    "total_liabilities": "负债-总负债",
+    "total_liabilities_yoy": "负债-总负债同比",
+    "debt_asset_ratio": "资产负债率",
+    "current_ratio": "流动比率",
+    "total_equity": "股东权益合计",
+    "total_equity_yoy": "股东权益同比",
+    "cash_deposit_pbc": "银行-现金及存放中央银行款项",
+    "cash_deposit_pbc_yoy": "银行-现金及存放中央银行款项同比",
+    "loans_advances": "银行-发放贷款及垫款",
+    "loans_advances_yoy": "银行-发放贷款及垫款同比",
+    "available_for_sale_assets": "银行-可供出售金融资产",
+    "available_for_sale_assets_yoy": "银行-可供出售金融资产同比",
+    "borrowings_from_pbc": "银行-向中央银行借款",
+    "borrowings_from_pbc_yoy": "银行-向中央银行借款同比",
+    "deposits": "银行-吸收存款",
+    "deposits_yoy": "银行-吸收存款同比",
+    "repo_sold": "金融-卖出回购金融资产款",
+    "repo_sold_yoy": "金融-卖出回购金融资产款同比",
+    "settlement_reserves": "券商-结算备付金",
+    "settlement_reserves_yoy": "券商-结算备付金同比",
+    "interbank_borrowings": "券商-拆入资金",
+    "interbank_borrowings_yoy": "券商-拆入资金同比",
+    "customer_brokerage_deposits": "券商-代理买卖证券款",
+    "customer_brokerage_deposits_yoy": "券商-代理买卖证券款同比",
+    "premiums_receivable": "保险-应收保费",
+    "premiums_receivable_yoy": "保险-应收保费同比",
+    "short_term_loans": "保险-短期借款",
+    "short_term_loans_yoy": "保险-短期借款同比",
+    "advance_premiums": "保险-预收保费",
+    "advance_premiums_yoy": "保险-预收保费同比",
+}
+
+
+def to_balance_sheet_dataframe(
+    page: ReportPage[BalanceSheet], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把资产负债表转为 ``DataFrame``（中文列名）。"""
+    naming = columns or BALANCE_SHEET_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(BALANCE_SHEET_COLUMNS_ZH))
+
+
+# 利润表字段 -> 默认中文列名（akshare 有的列沿用其列名）
+INCOME_STATEMENT_COLUMNS_ZH: dict[str, str] = {
+    "code": "股票代码",
+    "name": "股票简称",
+    "market": "市场",
+    "industry": "所处行业",
+    "report_date": "报告期",
+    "notice_date": "公告日期",
+    "net_profit": "净利润",
+    "net_profit_yoy": "净利润同比",
+    "deducted_net_profit": "扣非净利润",
+    "deducted_net_profit_yoy": "扣非净利润同比",
+    "revenue": "营业总收入",
+    "revenue_yoy": "营业总收入同比",
+    "operating_expense": "营业总支出-营业支出",
+    "operating_expense_yoy": "营业总支出-营业支出同比",
+    "operating_cost": "营业总支出-营业成本",
+    "selling_expense": "营业总支出-销售费用",
+    "admin_expense": "营业总支出-管理费用",
+    "finance_expense": "营业总支出-财务费用",
+    "taxes_and_surcharges": "营业总支出-税金及附加",
+    "total_operating_cost": "营业总支出-营业总支出",
+    "total_operating_cost_yoy": "营业总支出-营业总支出同比",
+    "operating_profit": "营业利润",
+    "operating_profit_yoy": "营业利润同比",
+    "total_profit": "利润总额",
+    "income_tax": "所得税",
+    "operating_income": "金融-营业收入",
+    "net_interest_income": "金融-利息净收入",
+    "net_interest_income_yoy": "金融-利息净收入同比",
+    "net_fee_income": "金融-手续费及佣金净收入",
+    "net_fee_income_yoy": "金融-手续费及佣金净收入同比",
+    "business_admin_expense": "银行-业务及管理费",
+    "earned_premiums": "保险-已赚保费",
+    "earned_premiums_yoy": "保险-已赚保费同比",
+    "investment_income": "保险-投资收益",
+    "surrenders": "保险-退保金",
+    "claims_expense": "保险-赔付支出",
+}
+
+
+def to_income_statement_dataframe(
+    page: ReportPage[IncomeStatement], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把利润表转为 ``DataFrame``（中文列名）。"""
+    naming = columns or INCOME_STATEMENT_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(INCOME_STATEMENT_COLUMNS_ZH))
+
+
+# 现金流量表字段 -> 默认中文列名（akshare 有的列沿用其列名）
+CASH_FLOW_STATEMENT_COLUMNS_ZH: dict[str, str] = {
+    "code": "股票代码",
+    "name": "股票简称",
+    "market": "市场",
+    "industry": "所处行业",
+    "report_date": "报告期",
+    "notice_date": "公告日期",
+    "net_cash_flow": "净现金流-净现金流",
+    "net_cash_flow_yoy": "净现金流-同比增长",
+    "operating_net": "经营性现金流-现金流量净额",
+    "operating_net_share": "经营性现金流-净现金流占比",
+    "sales_cash": "经营性现金流-销售商品收到的现金",
+    "sales_cash_share": "经营性现金流-销售商品收到的现金占比",
+    "staff_cash_paid": "经营性现金流-支付给职工的现金",
+    "staff_cash_paid_share": "经营性现金流-支付给职工的现金占比",
+    "investing_net": "投资性现金流-现金流量净额",
+    "investing_net_share": "投资性现金流-净现金流占比",
+    "investment_income_cash": "投资性现金流-取得投资收益收到的现金",
+    "investment_income_cash_share": "投资性现金流-取得投资收益收到的现金占比",
+    "capex": "投资性现金流-购建长期资产支付的现金",
+    "capex_share": "投资性现金流-购建长期资产支付的现金占比",
+    "financing_net": "融资性现金流-现金流量净额",
+    "financing_net_share": "融资性现金流-净现金流占比",
+    "customer_deposits_increase": "银行-客户存款净增加额",
+    "customer_deposits_increase_share": "银行-客户存款净增加额占比",
+    "interbank_deposits_increase": "银行-同业及其他金融机构存放款净增加额",
+    "interbank_deposits_increase_share": "银行-同业及其他金融机构存放款净增加额占比",
+    "loans_increase": "银行-客户贷款及垫款净增加额",
+    "loans_increase_share": "银行-客户贷款及垫款净增加额占比",
+    "interest_commission_cash": "券商-收取利息手续费及佣金的现金",
+    "interest_commission_cash_share": "券商-收取利息手续费及佣金的现金占比",
+    "investment_cash_paid": "金融-投资支付的现金",
+    "investment_cash_paid_share": "金融-投资支付的现金占比",
+    "begin_cash": "券商-期初现金及现金等价物余额",
+    "begin_cash_share": "券商-期初现金及现金等价物余额占比",
+    "end_cash": "券商-期末现金及现金等价物余额",
+    "end_cash_share": "券商-期末现金及现金等价物余额占比",
+    "premiums_cash": "保险-收到原保险合同保费取得的现金",
+    "premiums_cash_share": "保险-收到原保险合同保费取得的现金占比",
+    "claims_cash_paid": "保险-支付原保险合同赔付款项的现金",
+    "claims_cash_paid_share": "保险-支付原保险合同赔付款项的现金占比",
+}
+
+
+def to_cash_flow_statement_dataframe(
+    page: ReportPage[CashFlowStatement], columns: dict[str, str] | None = None
+) -> pd.DataFrame:
+    """把现金流量表转为 ``DataFrame``（中文列名）。"""
+    naming = columns or CASH_FLOW_STATEMENT_COLUMNS_ZH
+    return _records_frame(page.items, naming, tuple(CASH_FLOW_STATEMENT_COLUMNS_ZH))

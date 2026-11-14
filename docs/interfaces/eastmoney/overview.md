@@ -252,6 +252,62 @@
 - 源码：`src/em/channels/eastmoney/ashare_block_trade/block_trade_branch_rank/block_trade_branch_rank_em.py`
 
 
+### `业绩报告`
+接口：`earnings_report_em`, `df_earnings_report_em`->（DataFrame版）
+描述：业绩报告（数据中心，按报告期取各公司的每股收益、营业总收入、净利润及同比环比、净资产收益率、销售毛利率）。报告期 `report_date` 留空取最近的季末，`scope` 筛市场范围；只取 A 股与存托凭证。
+
+- 详情：[earnings_report_em.md](./ashare_earnings/earnings_report_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_earnings/earnings_report/earnings_report_em.py`
+
+
+### `业绩快报`
+接口：`earnings_express_em`, `df_earnings_express_em`->（DataFrame版）
+描述：业绩快报（数据中心，按报告期取发布了快报的公司的营业收入、净利润及去年同期、同比环比、每股净资产）。报告期 `report_date` 留空取最近的季末，`scope` 筛市场范围；只取 A 股与存托凭证。各期数量相差很大，年报期最多。
+
+- 详情：[earnings_express_em.md](./ashare_earnings/earnings_express_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_earnings/earnings_express/earnings_express_em.py`
+
+
+### `业绩预告`
+接口：`earnings_forecast_em`, `df_earnings_forecast_em`->（DataFrame版）
+描述：业绩预告（数据中心，按报告期取各公司的预测指标、预测数值上下限、业绩变动幅度、预告类型与变动原因）。报告期 `report_date` 留空取最近的季末，`scope` 筛市场范围；只取 A 股与存托凭证。一家公司每项预测指标一行。
+
+- 详情：[earnings_forecast_em.md](./ashare_earnings/earnings_forecast_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_earnings/earnings_forecast/earnings_forecast_em.py`
+
+
+### `预约披露时间`
+接口：`earnings_schedule_em`, `df_earnings_schedule_em`->（DataFrame版）
+描述：预约披露时间（数据中心，按报告期取各公司定期报告的首次预约、历次变更与实际披露日期）。报告期 `report_date` 留空取最近的季末，`scope` 筛市场范围；只取 A 股与存托凭证。
+
+- 详情：[earnings_schedule_em.md](./ashare_earnings/earnings_schedule_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_earnings/earnings_schedule/earnings_schedule_em.py`
+
+
+### `资产负债表`
+接口：`balance_sheet_em`, `df_balance_sheet_em`->（DataFrame版）
+描述：资产负债表（数据中心，按报告期取各公司的货币资金、应收账款、存货、总资产、总负债、股东权益及同比、资产负债率）。报告期 `report_date` 留空取最近的季末，`scope` 筛市场范围；只取 A 股与存托凭证。
+
+- 详情：[balance_sheet_em.md](./ashare_financial_statements/balance_sheet_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_financial_statements/balance_sheet/balance_sheet_em.py`
+
+
+### `利润表`
+接口：`income_statement_em`, `df_income_statement_em`->（DataFrame版）
+描述：利润表（数据中心，按报告期取各公司的营业总收入、营业总支出及各项费用、营业利润、利润总额、净利润、扣非净利润及同比）。报告期 `report_date` 留空取最近的季末，`scope` 筛市场范围；只取 A 股与存托凭证。
+
+- 详情：[income_statement_em.md](./ashare_financial_statements/income_statement_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_financial_statements/income_statement/income_statement_em.py`
+
+
+### `现金流量表`
+接口：`cash_flow_statement_em`, `df_cash_flow_statement_em`->（DataFrame版）
+描述：现金流量表（数据中心，按报告期取各公司的经营、投资、筹资活动现金流量净额及其净现金流占比、净现金流及同比）。报告期 `report_date` 留空取最近的季末，`scope` 筛市场范围；只取 A 股与存托凭证。`*_share` 是科目 ÷ 净现金流绝对值，不是同比。
+
+- 详情：[cash_flow_statement_em.md](./ashare_financial_statements/cash_flow_statement_em.md)
+- 源码：`src/em/channels/eastmoney/ashare_financial_statements/cash_flow_statement/cash_flow_statement_em.py`
+
+
 ### `通用转换`
 接口：`to_dataframe`
 描述：任意 `QuotePage` → `DataFrame`，默认中文列名，可传 `columns` 覆盖。

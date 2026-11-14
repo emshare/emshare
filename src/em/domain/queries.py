@@ -312,3 +312,87 @@ class BlockTradeBranchRankQuery:
     """大宗交易营业部排行（数据中心）。``period`` 最近 N 个交易日：30d / 90d / 180d / 360d，未知回退 30d。"""
 
     period: str = "30d"
+
+
+@dataclass(frozen=True)
+class EarningsReportQuery:
+    """业绩报告（数据中心），按报告期取。
+
+    ``report_date`` 为 ``YYYYMMDD`` 且必须是季末（0331 / 0630 / 0930 / 1231），留空取今天（北京时间）
+    之前最近的季末。``scope``：all / sh / sz / bj / kc 科创板 / cy 创业板 / st 风险警示，未知回退 all。
+    """
+
+    report_date: str | None = None
+    scope: str = "all"
+
+
+@dataclass(frozen=True)
+class EarningsExpressQuery:
+    """业绩快报（数据中心），按报告期取。
+
+    ``report_date`` 为 ``YYYYMMDD`` 且必须是季末（0331 / 0630 / 0930 / 1231），留空取今天（北京时间）
+    之前最近的季末。``scope``：all / sh / sz / bj / kc 科创板 / cy 创业板 / st 风险警示，未知回退 all。
+    """
+
+    report_date: str | None = None
+    scope: str = "all"
+
+
+@dataclass(frozen=True)
+class EarningsForecastQuery:
+    """业绩预告（数据中心），按报告期取。
+
+    ``report_date`` 为 ``YYYYMMDD`` 且必须是季末（0331 / 0630 / 0930 / 1231），留空取今天（北京时间）
+    之前最近的季末。``scope``：all / sh / sz / bj / kc 科创板 / cy 创业板 / st 风险警示，未知回退 all。
+    """
+
+    report_date: str | None = None
+    scope: str = "all"
+
+
+@dataclass(frozen=True)
+class EarningsScheduleQuery:
+    """预约披露时间（数据中心），按报告期取。
+
+    ``report_date`` 为 ``YYYYMMDD`` 且必须是季末（0331 / 0630 / 0930 / 1231），留空取今天（北京时间）
+    之前最近的季末。``scope``：all / sh / sz / bj / kc 科创板 / cy 创业板 / st 风险警示，未知回退 all。
+    """
+
+    report_date: str | None = None
+    scope: str = "all"
+
+
+@dataclass(frozen=True)
+class BalanceSheetQuery:
+    """资产负债表（数据中心），按报告期取。
+
+    ``report_date`` 为 ``YYYYMMDD`` 且必须是季末（0331 / 0630 / 0930 / 1231），留空取今天（北京时间）
+    之前最近的季末。``scope``：all / sh / sz / bj / kc 科创板 / cy 创业板 / st 风险警示，未知回退 all。
+    """
+
+    report_date: str | None = None
+    scope: str = "all"
+
+
+@dataclass(frozen=True)
+class IncomeStatementQuery:
+    """利润表（数据中心），按报告期取。
+
+    ``report_date`` 为 ``YYYYMMDD`` 且必须是季末（0331 / 0630 / 0930 / 1231），留空取今天（北京时间）
+    之前最近的季末。``scope``：all / sh / sz / bj / kc 科创板 / cy 创业板 / st 风险警示，未知回退 all。
+    """
+
+    report_date: str | None = None
+    scope: str = "all"
+
+
+@dataclass(frozen=True)
+class CashFlowStatementQuery:
+    """现金流量表（数据中心），按报告期取。
+
+    ``report_date`` 为 ``YYYYMMDD`` 且必须是季末（0331 / 0630 / 0930 / 1231），留空取今天（北京时间）
+    之前最近的季末。``scope``：all / sh / sz / bj / kc 科创板 / cy 创业板 / st 风险警示，未知回退 all。
+    """
+
+    report_date: str | None = None
+    scope: str = "all"
