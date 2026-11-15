@@ -5,13 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "emshare"
 version = "0.1.0"
-description = "东方财富行情抓取（领域模型在最内层 + 动态代理 + 可选 pandas DataFrame 返回）"
-readme = "README.md"
+description = "行情数据接口：A 股 / 港股 / 指数 / 基金的行情、K 线、资金流、龙虎榜、财报，可选 pandas DataFrame"
+# PyPI 项目页显示的是面向使用者的 README.pypi.md；README.md 是开发文档，不上项目页
+readme = "README.pypi.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
 authors = [{ name = "emshare contributors" }]
-keywords = ["eastmoney", "quote", "stock", "akshare", "行情"]
+keywords = ["quote", "stock", "akshare", "行情"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

@@ -137,7 +137,8 @@ em/                                          # 东方财富行情抓取
 ├── em_fetch.py                              # 抓取入口脚本（CLI 薄封装）
 ├── pyproject.toml                           # 项目配置（ruff / pytest / mypy）
 ├── uv.lock                                  # 依赖锁
-├── README.md                                # 用法与目录说明
+├── README.md                                # 开发文档：用法、目录、代理机制、发布流程
+├── README.pypi.md                           # PyPI 项目页的说明（面向使用者，pyproject 的 readme 指向它）
 └── .env                                     # 环境变量（不入库，含代理 API 凭证；模板在 src/em/env.example）
 ```
 
