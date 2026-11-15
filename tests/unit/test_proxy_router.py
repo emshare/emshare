@@ -2,7 +2,10 @@
 
 from unittest.mock import MagicMock
 
-from em.core.proxy import ProxyRouter, ProxySettings
+import pytest
+import requests
+
+from em.core.proxy import ProxyPool, ProxyRouter, ProxySettings
 
 
 def _settings(
@@ -305,3 +308,23 @@ def test_abandon_noop_without_live_probe():
     router.report_result("h", None, success=True)  # 建立 direct 态
     router.abandon("h", None)
     assert router.host_state("h").mode == "direct"
+
+
+# --- can_rotate：失败后有没有 IP 可换（决定重试日志说不说"换 IP"）---
+
+
+@pytest.mark.parametrize(
+    ("api", "enabled", "mode", "expected"),
+    [
+        ("http://x", True, "auto", True),
+        ("http://x", True, "always", True),
+        ("http://x", True, "never", False),
+        ("http://x", False, "auto", False),
+        ("", True, "auto", False),  # 全新安装：代理开着但没有源
+        (" , ", True, "always", False),
+    ],
+)
+def test_can_rotate(api: str, enabled: bool, mode: str, expected: bool) -> None:
+    ps = ProxySettings(api=api, enabled=enabled, mode=mode)  # type: ignore[arg-type]
+    router = ProxyRouter(ProxyPool(ps, MagicMock(spec=requests.Session)), ps)
+    assert router.can_rotate is expected

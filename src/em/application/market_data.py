@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 import requests
 
-from em.application import registry
+from em.application import hints, registry
 from em.application.dataframe import (
     to_balance_sheet_dataframe,
     to_billboard_branch_active_dataframe,
@@ -257,6 +257,8 @@ def _build_client(settings: Settings) -> HttpClient:
         timeout_sec=settings.request_timeout_sec,
         connect_timeout_sec=settings.request_connect_timeout_sec,
         dynamic_timeout=settings.request_dynamic_timeout,
+        # 重试耗尽时：若是出口类失败且代理用不上，把"该配什么"挂到异常上，库调用也能看到
+        exhausted_hint=lambda host, exc: hints.egress_hint(exc, settings, host),
     )
 
 

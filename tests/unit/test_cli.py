@@ -2,10 +2,10 @@
 
 import pytest
 
+from em.application.hints import is_egress_failure
 from em.cli import (
     _fmt_amount,
     _hint_ip_blocked,
-    _is_network_failure,
     _render_board_fund_flow,
     _render_fund_flow,
     _render_quotes,
@@ -319,14 +319,14 @@ class _FakeSettings:
         self.proxy_api = proxy_api
 
 
-def test_is_network_failure_classifies_correctly() -> None:
-    assert _is_network_failure(NetworkError("conn")) is True
-    assert _is_network_failure(EmptyResponseError("empty")) is True
-    assert _is_network_failure(HttpStatusError(403)) is True
-    assert _is_network_failure(HttpStatusError(429)) is True
-    assert _is_network_failure(HttpStatusError(500)) is False
-    assert _is_network_failure(HttpStatusError(404)) is False
-    assert _is_network_failure(ConfigError("bad")) is False
+def test_is_egress_failure_classifies_correctly() -> None:
+    assert is_egress_failure(NetworkError("conn")) is True
+    assert is_egress_failure(EmptyResponseError("empty")) is True
+    assert is_egress_failure(HttpStatusError(403)) is True
+    assert is_egress_failure(HttpStatusError(429)) is True
+    assert is_egress_failure(HttpStatusError(500)) is False
+    assert is_egress_failure(HttpStatusError(404)) is False
+    assert is_egress_failure(ConfigError("bad")) is False
 
 
 def test_hint_ip_blocked_no_proxy(monkeypatch) -> None:
@@ -335,7 +335,8 @@ def test_hint_ip_blocked_no_proxy(monkeypatch) -> None:
     assert hint is not None
     assert "封禁" in hint
     assert "EM_PROXY_API" in hint
-    assert ".env.example" in hint
+    assert "EM_PROXY_ENABLED" in hint  # 说明代理是关着的
+    assert ".env.example" not in hint  # 装完包后拿不到的文件不该出现在提示里
 
 
 def test_hint_ip_blocked_with_proxy_returns_none(monkeypatch) -> None:
@@ -351,14 +352,18 @@ def test_hint_proxy_api_placeholder(monkeypatch) -> None:
     hint = _hint_ip_blocked(NetworkError("连接断开"))
     assert hint is not None
     assert "EM_PROXY_API" in hint
-    assert "未正确配置" in hint
+    assert "占位符" in hint
 
 
 def test_hint_proxy_api_empty(monkeypatch) -> None:
     monkeypatch.setattr("em.cli.Settings.from_env", lambda: _FakeSettings(True, "auto", ""))
     hint = _hint_ip_blocked(NetworkError("连接断开"))
     assert hint is not None
-    assert "未正确配置" in hint
+    # 全新安装就是这个状态：必须说到封禁、最少配置项与生成模板的命令
+    assert "封禁" in hint
+    assert "EM_PROXY_API" in hint
+    assert "EM_PROXY_NUM" in hint
+    assert "--init-env" in hint
 
 
 def test_hint_ip_blocked_non_network_error_returns_none(monkeypatch) -> None:
@@ -496,3 +501,96 @@ def test_main_billboard_rejects_bad_dates(capsys) -> None:
         main(["--preset", "billboard", "--start-date", "20261106", "--end-date", "20261101"])
     assert exc.value.code == 2
     assert "晚于" in capsys.readouterr().err
+
+
+# --- 库抛出的异常自带建议时：命令行只打印一遍 ---
+
+
+def test_main_prints_library_hint_once(monkeypatch, capsys) -> None:
+    def boom(_query):
+        exc = NetworkError("连接被断开")
+        exc.hint = "💡 来自库的建议"
+        raise exc
+
+    monkeypatch.setattr("em.cli.stock_kline_em", boom)
+    # 配置看起来没问题：若命令行另算一遍就不会有建议，以此确认用的是异常自带的那条
+    monkeypatch.setattr("em.cli.Settings.from_env", lambda: _FakeSettings(True, "auto"))
+    assert main(["--preset", "kline", "--code", "000001"]) == 1
+    err = capsys.readouterr().err
+    assert "❌ 抓取失败：连接被断开\n" in err
+    assert err.count("💡 来自库的建议") == 1
+
+
+# --- --init-env：生成 .env 模板 ---
+
+
+@pytest.fixture
+def empty_cwd(tmp_path, monkeypatch, clean_em_env):
+    from em.core import env
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(env, "_checkout_root", lambda: None)
+    return tmp_path
+
+
+def test_init_env_writes_the_packaged_template(empty_cwd, capsys) -> None:
+    from em.core import env
+
+    assert main(["--init-env"]) == 0
+    target = empty_cwd / ".env"
+    assert target.read_text(encoding="utf-8") == env.template_text()
+    out = capsys.readouterr().out
+    assert str(target) in out
+    assert "EM_PROXY_API" in out
+    assert "EM_PROXY_NUM" in out
+
+
+@pytest.mark.skipif(not hasattr(__import__("os"), "getuid"), reason="POSIX 权限位")
+def test_init_env_file_is_private_to_the_user(empty_cwd) -> None:
+    # 文件里要填代理凭证：不给同机其他用户读
+    assert main(["--init-env"]) == 0
+    assert (empty_cwd / ".env").stat().st_mode & 0o077 == 0
+
+
+def test_init_env_never_overwrites(empty_cwd, capsys) -> None:
+    target = empty_cwd / ".env"
+    target.write_text("EM_PROXY_API=http://real/credentials\n", encoding="utf-8")
+    assert main(["--init-env"]) == 1
+    assert target.read_text(encoding="utf-8") == "EM_PROXY_API=http://real/credentials\n"
+    assert "已存在" in capsys.readouterr().err
+
+
+def test_init_env_does_not_fetch_anything(empty_cwd, monkeypatch) -> None:
+    def boom(*_a, **_k):
+        raise AssertionError("--init-env 不应发起取数")
+
+    monkeypatch.setattr("em.cli.board_constituent_em", boom)
+    assert main(["--init-env"]) == 0
+
+
+def test_init_env_honours_env_file_location(empty_cwd, monkeypatch) -> None:
+    # 指定了 EM_ENV_FILE：模板写到自动加载会去读的那个位置，而不是运行目录
+    target = empty_cwd / "conf.env"
+    monkeypatch.setenv("EM_ENV_FILE", str(target))
+    assert main(["--init-env"]) == 0
+    assert target.is_file()
+    assert not (empty_cwd / ".env").exists()
+
+
+def test_init_env_warns_when_autoload_is_off(empty_cwd, monkeypatch, capsys) -> None:
+    monkeypatch.setenv("EM_ENV_FILE", "none")
+    assert main(["--init-env"]) == 0
+    assert (empty_cwd / ".env").is_file()
+    assert "不会被读取" in capsys.readouterr().err
+
+
+def test_generated_env_is_loaded_by_the_next_run(empty_cwd) -> None:
+    # 生成 → 下一次进程启动时自动加载：两头用的是同一个位置
+    from em.core import env
+    from em.core.settings import Settings
+
+    assert main(["--init-env"]) == 0
+    assert env.autoload() == empty_cwd / ".env"
+    s = Settings.from_env()
+    assert "YOUR_UID" in s.proxy_api
+    assert s.proxy_num == 5

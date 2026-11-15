@@ -11,6 +11,8 @@
 ``resolve_code`` / ``resolve_board`` 提供中文名→代码解析（东财搜索接口，单请求）；
 ``*_by_name`` 为面向自然语言的便捷层（先 resolve 再调 ``*_em``，供 LLM/Agent 场景）。
 PyPI 发行名为 ``emshare``，导入名保持 ``em``（``pip install emshare`` → ``import em``）。
+导入时自动读取运行目录下的 ``.env``（只取 ``EM_`` 开头的变量，已设置的环境变量优先），
+库调用与命令行因此用同一份配置；``EM_ENV_FILE`` 可改路径，设为 ``none`` 则不读。
 """
 
 from importlib.metadata import PackageNotFoundError, version
@@ -158,6 +160,11 @@ from em.application.resolve import (
     resolve_board,
     resolve_code,
 )
+from em.core.env import autoload as _autoload_env
+
+# 配置在取数时才读（Settings.from_env），所以放在导入之后也来得及；
+# 命令行同样先经过这里，不需要再单独加载一遍。
+_autoload_env()
 
 try:
     __version__ = version("emshare")

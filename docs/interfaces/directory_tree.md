@@ -16,7 +16,7 @@ em/                                          # 东方财富行情抓取
 │   │   ├── resilience.py                    # RetryPolicy 退避重试
 │   │   ├── proxy.py                         # ProxyPool + ProxyRouter（预筛 / 连败熔断 / TTL 续期 / 按 host 路由）
 │   │   ├── transport.py                     # HttpClient（重试 + 代理 + 异常归类）
-│   │   ├── env.py                           # .env 安全加载（含 & 不被 bash 截断）
+│   │   ├── env.py                           # .env 加载：import em 时自动读取（只取 EM_ 变量；含 & 不被 bash 截断）
 │   │   ├── defaults.py                      # 默认值常量
 │   │   └── __init__.py
 │   ├── channels/eastmoney/                  # 东财渠道适配
@@ -89,10 +89,12 @@ em/                                          # 东方财富行情抓取
 │   │   ├── reports.py                       # 数据中心报表翻页（并发取页、条数校验、取最近一天）
 │   │   ├── dataframe.py                     # 领域模型 -> DataFrame（中文列名）
 │   │   ├── catalog.py                       # 接口检索：search/interface_info/list_categories
+│   │   ├── hints.py                         # 出口被封且代理用不上时的配置指引（库异常与命令行共用）
 │   │   └── __init__.py
 │   ├── cli.py                               # 命令行入口
 │   ├── __main__.py                          # python -m em
 │   ├── py.typed                             # PEP 561 类型标记
+│   ├── env.example                          # 随包分发的 .env 模板（emshare --init-env 写出）
 │   └── __init__.py                          # 公共面：*_em / df_*_em / search / interface_info
 ├── tests/                                   # 测试
 │   ├── unit/                                # 单元测试（不触网，固定报文）
@@ -117,7 +119,8 @@ em/                                          # 东方财富行情抓取
 │   │   ├── test_dataframe.py                # QuotePage DataFrame
 │   │   ├── test_mapping.py                  # 报文映射
 │   │   ├── test_catalog.py                  # 接口检索
-│   │   ├── test_cli.py                      # CLI 渲染 + IP 封禁提示
+│   │   ├── test_cli.py                      # CLI 渲染 + IP 封禁提示 + --init-env
+│   │   ├── test_hints.py                    # 出口失败提示：何时给、内容、库异常是否携带
 │   │   ├── test_proxy_pool.py / test_proxy_router.py
 │   │   ├── test_transport.py / test_resilience.py
 │   │   ├── test_settings.py / test_env.py
@@ -125,7 +128,7 @@ em/                                          # 东方财富行情抓取
 │   ├── guards/                              # 架构 / 文档守卫
 │   │   ├── test_layering.py                 # 分层依赖方向守卫
 │   │   ├── test_docs_sync.py                # 文档与源码同步守卫
-│   │   ├── test_env_example.py              # .env.example 完整性守卫
+│   │   ├── test_env_example.py              # .env 模板（src/em/env.example）完整性守卫
 │   │   └── __init__.py
 │   ├── fixtures/eastmoney/                  # 固定报文（kline/trends/fund_flow/board_fund_flow/board_kline/clist_board/clist_board_industry/clist_index/clist_hk_stock/clist_fund/push2ex_limit_pool/stock_get/push2ex_changes/datacenter_billboard/datacenter_billboard_reports/datacenter_block_trade/datacenter_financials）
 │   ├── conftest.py
@@ -135,8 +138,7 @@ em/                                          # 东方财富行情抓取
 ├── pyproject.toml                           # 项目配置（ruff / pytest / mypy）
 ├── uv.lock                                  # 依赖锁
 ├── README.md                                # 用法与目录说明
-├── .env.example                             # 环境变量示例（入库）
-└── .env                                     # 环境变量（不入库，含代理 API 凭证）
+└── .env                                     # 环境变量（不入库，含代理 API 凭证；模板在 src/em/env.example）
 ```
 
 > - 除 `ashare_boards/`、`ashare_stocks/`、`ashare_billboard/`、`ashare_block_trade/`、`ashare_earnings/`、`ashare_financial_statements/`、`ashare_indices/`、`hk_market/`、`fund_market/` 外，其余市场目录暂为空占位，待对应功能实现后填充。

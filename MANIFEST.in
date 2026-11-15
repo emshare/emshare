@@ -1,11 +1,12 @@
 # sdist 清单：wheel 由 [tool.setuptools.packages.find] 决定，这里只管源码分发。
-include LICENSE README.md pyproject.toml CHANGELOG.md .env.example
+include LICENSE README.md pyproject.toml CHANGELOG.md
 
-recursive-include src/em *.py py.typed
+# env.example 是随包分发的 .env 模板（emshare --init-env 写出的就是它），只含占位符。
+recursive-include src/em *.py py.typed env.example
 recursive-include tests *.py *.json
 recursive-include docs *.md
 
-# 精确写 .env.example，切勿用 include .env*：.env 含真实凭证。
+# 切勿用 include .env* 之类的通配：.env 含真实凭证。
 exclude .env .em_ledger.jsonl 123.txt uv.lock
 prune .venv
 prune .git

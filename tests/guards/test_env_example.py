@@ -1,21 +1,19 @@
-"""配置文件守卫：.env.example 必须能被 load_dotenv 正确解析为合法 Settings。"""
+"""配置模板守卫：随包分发的 env.example 必须能被 load_dotenv 正确解析为合法 Settings。"""
 
-import os
 from pathlib import Path
 
-from em.core.env import load_dotenv, reset_for_test
+from em.application.hints import egress_hint
+from em.core import env
+from em.core.env import load_dotenv
+from em.core.errors import NetworkError
 from em.core.settings import Settings
 
 ROOT = Path(__file__).resolve().parents[2]
+TEMPLATE = ROOT / "src" / "em" / "env.example"
 
 
-def test_env_example_parses_to_valid_settings(monkeypatch) -> None:
-    # 清空所有 EM_ 环境变量，确保只测 .env.example 本身
-    for k in list(os.environ):
-        if k.startswith("EM_"):
-            monkeypatch.delenv(k, raising=False)
-    reset_for_test()
-    load_dotenv(ROOT / ".env.example")
+def test_env_example_parses_to_valid_settings(clean_em_env) -> None:
+    load_dotenv(TEMPLATE)
     # 不应抛 ConfigError（如 "10# 退避" 这种粘连会导致 int 解析失败）
     s = Settings.from_env()
     assert s.max_retries == 4
@@ -32,3 +30,27 @@ def test_env_example_parses_to_valid_settings(monkeypatch) -> None:
     assert s.proxy_cooldown_sec == 300
     assert s.proxy_prefilter_sources == 1  # 收费备用源默认不预筛
     assert s.proxy_degraded_mode == "lenient"  # 全死后改用 1.5s 快筛，不再放行未验证 IP
+
+
+def test_packaged_template_is_the_tracked_file() -> None:
+    # emshare --init-env 写出的内容来自包资源；它必须就是仓库里维护的这一份
+    assert env.template_text() == TEMPLATE.read_text(encoding="utf-8")
+
+
+def test_only_keys_with_em_prefix(clean_em_env) -> None:
+    # 自动加载只取 EM_ 开头的键：模板里若混进别的键，生成的 .env 里那一行会被悄悄忽略
+    keys = [
+        line.split("=", 1)[0].lstrip("# ").strip()
+        for line in TEMPLATE.read_text(encoding="utf-8").splitlines()
+        if "=" in line and line.lstrip("# ").startswith(("EM_", "export "))
+    ]
+    assert keys
+    assert all(k.startswith("EM_") for k in keys)
+
+
+def test_unedited_template_is_reported_as_placeholder(clean_em_env) -> None:
+    # 生成 .env 后没改就去用：提示必须点明"还是占位符"，而不是当成已配置好而沉默
+    load_dotenv(TEMPLATE, prefix="EM_")
+    hint = egress_hint(NetworkError("连接断开"), Settings.from_env())
+    assert hint is not None
+    assert "占位符" in hint

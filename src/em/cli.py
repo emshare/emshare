@@ -2,10 +2,12 @@
 
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import TypeVar
 
+from em.application import hints
 from em.application.dataframe import CHANGE_TYPE_LABELS_ZH
 from em.application.market_data import (
     billboard_detail_em,
@@ -44,8 +46,8 @@ from em.channels.eastmoney.config import (
 from em.channels.eastmoney.datacenter import date_span
 from em.channels.eastmoney.fund_market.fund_list import FUND_TYPE_FS
 from em.channels.eastmoney.hk_market.hk_stock_list import HK_SCOPE_FS
-from em.core.env import load_dotenv
-from em.core.errors import EmError, EmptyResponseError, HttpStatusError, NetworkError
+from em.core import env
+from em.core.errors import EmError
 from em.core.settings import Settings
 from em.domain.models import (
     BoardChangesPage,
@@ -608,6 +610,11 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         help="展示末 N 条（kline/boardkline/fundflow/market-all 预设，0=全部，可与 --head 同时使用）",
     )
     ap.add_argument("--pn", type=int, default=1, help="页码")
+    ap.add_argument(
+        "--init-env",
+        action="store_true",
+        help="在当前目录生成带注释的 .env 配置模板后退出（已存在则不覆盖）",
+    )
     ap.add_argument("--pz", type=int, default=None, help="每页条数")
     args = ap.parse_args(argv)
     # 分时 / 资金流 / 个股信息 / 盘口的 secid 映射只认沪深京：放行 csi / hk 会被静默当成深市代码去查
@@ -625,44 +632,48 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     return args
 
 
-def _is_network_failure(exc: EmError) -> bool:
-    """判断是否为网络/封禁类错误（连接断开、空响应、403/429）。"""
-    if isinstance(exc, (NetworkError, EmptyResponseError)):
-        return True
-    return isinstance(exc, HttpStatusError) and exc.status_code in (403, 429)
-
-
 def _hint_ip_blocked(exc: EmError) -> str | None:
-    """网络/封禁错误时，根据代理配置状态返回友好提示。"""
-    if not _is_network_failure(exc):
-        return None
-    s = Settings.from_env()
-    if not s.proxy_enabled or s.proxy_mode == "never":
-        return (
-            "💡 本机 IP 可能被东方财富封禁。建议在 .env 中配置动态代理解决：\n"
-            "   EM_PROXY_API=<代理API地址>\n"
-            "   配置示例见 .env.example"
+    """出口类失败且代理用不上时的处置建议；库抛出的异常已自带建议时直接沿用。"""
+    return exc.hint or hints.egress_hint(exc, Settings.from_env())
+
+
+def _init_env() -> int:
+    """把随包模板写成 .env（自动加载会去读的那个位置）；已存在则不动，避免盖掉填好的凭证。"""
+    paths = env.search_paths()
+    target = paths[0] if paths else Path(".env").absolute()
+    try:
+        # O_EXCL：已存在即失败，不覆盖；0600：里面要填代理凭证，不给同机其他用户读
+        fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        print(f"❌ {target} 已存在，未做改动。", file=sys.stderr)
+        return 1
+    except OSError as exc:
+        print(f"❌ 无法创建 {target}：{exc}", file=sys.stderr)
+        return 1
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(env.template_text())
+    print(f"已生成 {target}")
+    print("至少要改两项（文件里有逐项说明）：")
+    print(
+        "  EM_PROXY_API  代理提取接口地址：把 YOUR_UID / YOUR_VKEY 换成真实值，或整行换成你的接口"
+    )
+    print("                （接口需返回纯文本，每行一个 ip:port）")
+    print("  EM_PROXY_NUM  与该接口每次返回的 IP 数一致")
+    print("import em 与 emshare 命令都会自动读取它；直连正常时不走代理，被封后才自动切换。")
+    if not paths:
+        print(
+            f"注意：{env.ENV_FILE_VAR} 当前关闭了 .env 自动加载，这个文件不会被读取。",
+            file=sys.stderr,
         )
-    api = s.proxy_api or ""
-    if not api or "YOUR_" in api:
-        return (
-            "💡 代理已启用但 EM_PROXY_API 未正确配置。\n"
-            "   请在 .env 中填入真实的代理 API 地址，配置示例见 .env.example"
-        )
-    return None
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    # 只有 CLI 入口读 .env；库被 import 时不产生隐式环境副作用。
-    # 装到 site-packages 后不存在「项目根」，仅在源码检出（有 pyproject.toml）时回退。
-    candidates = [Path(".env")]
-    dev_root = Path(__file__).resolve().parents[2]
-    if (dev_root / "pyproject.toml").is_file():
-        candidates.append(dev_root / ".env")
-    for candidate in candidates:
-        load_dotenv(candidate)
+    # .env 在 import em 时已加载（em.core.env.autoload），库调用与命令行读的是同一份配置。
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     args = _parse_args(argv)
+    if args.init_env:
+        return _init_env()
     try:
         if args.preset == "market":
             page = stock_list_em(
@@ -750,7 +761,8 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         return 130
     except EmError as exc:
-        print(f"❌ 抓取失败：{exc}", file=sys.stderr)
+        # 库抛出的异常自带建议时 str(exc) 已含建议；这里拆开打印，避免同一段话出现两遍
+        print(f"❌ 抓取失败：{Exception.__str__(exc)}", file=sys.stderr)
         hint = _hint_ip_blocked(exc)
         if hint:
             print(hint, file=sys.stderr)

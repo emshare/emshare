@@ -15,4 +15,6 @@
 ### 说明
 
 - 采购账本默认写到 `$XDG_DATA_HOME/emshare/ledger.jsonl`，不再写入当前目录；`EM_LEDGER_PATH` 可改路径或设为 `none` 关闭。
-- `import em` 不再自动加载 `.env`；只有 CLI 入口会读取当前目录的 `.env`。
+- `import em` 与命令行都会自动读取运行目录下的 `.env`，只取 `EM_` 开头的变量，已设置的环境变量优先；`EM_ENV_FILE` 可指定路径或设为 `none` 关闭。装进 site-packages 后不再去包的上级目录找 `.env`。
+- `emshare --init-env` 在当前目录生成带注释的 `.env` 模板（模板随 wheel 分发，已存在则不覆盖）。
+- 没配代理源而直连全部失败时，异常信息与命令行输出会写明出口可能被封以及最少要配的 `EM_PROXY_API` / `EM_PROXY_NUM`。

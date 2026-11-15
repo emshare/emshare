@@ -65,10 +65,14 @@ class HttpClient:
         timeout_sec: int = 15,
         connect_timeout_sec: int = 3,
         dynamic_timeout: bool = False,
+        exhausted_hint: Callable[[str, ChannelError], str | None] | None = None,
     ) -> None:
         self._session = session
         self._router = router
         self._policy = policy
+        # 重试耗尽时向调用方要一条处置建议（如"出口疑似被封且没配代理源"）挂到异常上。
+        # 入参是 (host, 最后一次异常)；文案由应用层给，传输层不认识具体的配置项
+        self._exhausted_hint = exhausted_hint
         # requests 的元组超时：(连接, 读取) 分别计时。
         # 坏代理多卡在连接阶段，短 connect 可快速判死，避免 connect+read 叠加到近两倍。
         self._timeout = (connect_timeout_sec, timeout_sec)
@@ -112,7 +116,7 @@ class HttpClient:
         它是"这个接口需要多久"的声明，与按历史耗时自适应的动态值不是一回事。
         """
         host = urlparse(url).hostname or ""
-        last_exc: Exception | None = None
+        last_exc: ChannelError | None = None
         proxy: str | None = None
         reuse = False  # 软失败（读超时）后沿用同一出口重试：省一次握手，也避免误判淘汰
         reuse_budget = 1  # 每个出口只复用一次，第二次软失败即换 IP
@@ -159,11 +163,13 @@ class HttpClient:
                 if soft and proxy is not None and reuse_budget > 0:
                     reuse_budget -= 1
                     reuse = True
+                # 没有代理源可换时只是原样重试，写"换 IP"会让没配代理的人以为代理在工作
+                how = "同 IP " if reuse else ("换 IP " if self._router.can_rotate else "")
                 log.warning(
                     "请求失败(%s): %s，%s重试 [%d/%d]",
                     type(exc).__name__,
                     str(exc)[:120],
-                    "同 IP " if reuse else "换 IP ",
+                    how,
                     attempt + 1,
                     self._policy.max_retries,
                 )
@@ -181,6 +187,8 @@ class HttpClient:
                     self._timing["backoff_sec"] += delay
         if last_exc is None:
             raise RuntimeError("未执行请求（max_retries < 0）")
+        if self._exhausted_hint is not None:
+            last_exc.hint = self._exhausted_hint(host, last_exc)
         raise last_exc
 
     def _record_timing(self, proxy: str | None, wait: float, elapsed: float, failed: bool) -> None:

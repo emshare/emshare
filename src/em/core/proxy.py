@@ -226,6 +226,11 @@ class ProxyPool:
     def enabled(self) -> bool:
         return self._settings.enabled
 
+    @property
+    def has_sources(self) -> bool:
+        """是否配置了至少一个代理源；没有的话开着也换不出 IP。"""
+        return bool(self._apis)
+
     def acquire(self) -> str | None:
         """取一个可用代理 'ip:port'；不可用或关闭时返回 None。
 
@@ -676,6 +681,11 @@ class ProxyRouter:
     @property
     def enabled(self) -> bool:
         return self._pool.enabled
+
+    @property
+    def can_rotate(self) -> bool:
+        """失败后是否有 IP 可换：代理开着、模式不是 never、且配置了代理源。"""
+        return self._effective_mode() != "never" and self._pool.has_sources
 
     def available(self, host: str) -> int:
         """该 host 当前可用的代理数；直连态为 0（上层据此保持原并发）。

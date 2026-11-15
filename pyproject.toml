@@ -46,7 +46,7 @@ where = ["src"]
 include = ["em*"]
 
 [tool.setuptools.package-data]
-em = ["py.typed"]
+em = ["py.typed", "env.example"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

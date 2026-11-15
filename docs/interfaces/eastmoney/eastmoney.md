@@ -251,13 +251,13 @@ print(tables["outputs"])
 
 ## 配置
 
-运行期配置从环境变量读取（见 `.env.example`），构造期 fail-fast 校验：
+运行期配置从环境变量读取，构造期 fail-fast 校验。`import em` 时会自动把运行目录下 `.env` 里 `EM_` 开头的变量读进环境（已设置的优先；`EM_ENV_FILE` 可指定路径或设为 `none` 关闭），`emshare --init-env` 可生成带逐项说明的模板：
 
 | 环境变量 | 类型 | 默认值 | 描述 |
 | --- | --- | --- | --- |
-| `EM_PROXY_API` | `str` | 内置代理 API | 动态代理取 IP 地址 |
+| `EM_PROXY_API` | `str` | 空（不配则只能直连） | 代理提取接口地址，需返回纯文本、每行一个 `ip:port`；`EM_PROXY_API_*` 为备用源 |
 | `EM_PROXY_ENABLED` | `bool` | `True` | 是否启用代理 |
-| `EM_PROXY_NUM` | `int` | `1` | 单次取 IP 数量 |
+| `EM_PROXY_NUM` | `int` | `1` | 单次取 IP 数量，须与提取接口每次返回的条数一致 |
 | `EM_PROXY_TTL_SEC` | `int` | `30` | 代理 IP 有效期（秒） |
 | `EM_PROXY_SAFETY_MARGIN_SEC` | `int` | `3` | 过期前安全余量（秒）；硬到期前 3s 起后台续期，旧 IP 用到硬到期 |
 | `EM_PROXY_MODE` | `str` | `auto` | `auto` / `always` / `never`，按 host 独立决策 |
@@ -277,3 +277,5 @@ print(tables["outputs"])
 | `QueryRejectedError` | 否 | 数据中心拒绝了查询（报表 / 列名写错、参数类型不对），换 IP 也一样，直接上抛 |
 | `HttpStatusError` | 5xx / 403 / 429 | 非预期状态码，按状态码判定 |
 | `PageDeadlineExceeded` | 否 | 单页超过时间预算，标记失败交给定向补漏，不阻塞整轮 |
+
+重试耗尽后抛出的是最后一次异常。若属于出口类失败（连接断开 / 超时 / 空响应 / 403 / 429）且代理用不上（没配代理源、仍是模板占位符、或被关闭），异常的 `hint` 属性带一段配置指引，`str(exc)` 会把它接在错误信息后面；`exc.args` 不变。

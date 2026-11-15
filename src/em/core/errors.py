@@ -2,7 +2,17 @@
 
 
 class EmError(Exception):
-    """em 库异常基类。"""
+    """em 库异常基类。
+
+    ``hint`` 是可选的处置建议（如"出口疑似被封，需要配置代理源"）：有则跟在错误信息后面
+    一并显示，``print(exc)`` 与回溯末尾都能看到；``args`` 保持不变。
+    """
+
+    hint: str | None = None
+
+    def __str__(self) -> str:
+        base = super().__str__()
+        return f"{base}\n{self.hint}" if self.hint else base
 
 
 class ConfigError(EmError):

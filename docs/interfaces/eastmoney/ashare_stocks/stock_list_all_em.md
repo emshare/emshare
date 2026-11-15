@@ -20,7 +20,7 @@
 - **输出按代码升序**：并发抓取的合并结果按 `code` 排序，保证调用方拿到稳定顺序。
 - **耗时统计日志**：结束时输出直连/代理分桶请求次数与耗时、代理获取等待、失败尝试数（INFO 级，logger `em.application.market_data`）。
 
-链路层能力（动态代理路由、最少在飞 IP 分发、P95 动态读超时、换 IP 重试）见 [overview](../overview.md) 与 `.env.example` 配置说明。
+链路层能力（动态代理路由、最少在飞 IP 分发、P95 动态读超时、换 IP 重试）见 [overview](../overview.md) 与 `.env` 模板（`emshare --init-env` 生成）里的配置说明。
 
 ## 限量
 
