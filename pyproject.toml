@@ -3,13 +3,33 @@ requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "em"
+name = "emshare"
 version = "0.1.0"
 description = "东方财富行情抓取（领域模型在最内层 + 动态代理 + 可选 pandas DataFrame 返回）"
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
+authors = [{ name = "emshare contributors" }]
+keywords = ["eastmoney", "quote", "stock", "akshare", "行情"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Typing :: Typed",
+]
 dependencies = ["requests>=2.31"]
+
+[project.optional-dependencies]
+pandas = ["pandas>=2.0"]
+
+[project.scripts]
+emshare = "em.cli:main"
 
 
 [dependency-groups]

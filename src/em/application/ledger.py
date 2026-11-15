@@ -5,6 +5,7 @@
 30%~90%），一次跑得好坏说明不了源的质量差距。
 
 写入失败只告警：账本是旁路观测，任何磁盘问题都不该影响取数。
+默认按 XDG 落到用户数据目录，不再写进调用方的当前工作目录。
 """
 
 from __future__ import annotations
@@ -18,9 +19,16 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
-DEFAULT_LEDGER_PATH = ".em_ledger.jsonl"
 _ENV = "EM_LEDGER_PATH"
 _DISABLED = ("", "none", "off", "0", "false")
+
+# 旧版默认写 CWD 的 .em_ledger.jsonl；升级后可用 EM_LEDGER_PATH 指回旧文件继续累积。
+_XDG_DATA_HOME = os.getenv("XDG_DATA_HOME")
+DEFAULT_LEDGER_PATH = (
+    (Path(_XDG_DATA_HOME) if _XDG_DATA_HOME else Path.home() / ".local" / "share")
+    / "emshare"
+    / "ledger.jsonl"
+)
 
 
 def ledger_path() -> Path | None:

@@ -1,6 +1,6 @@
 """DataFrame 适配：把领域模型 ``QuotePage`` 转为 pandas DataFrame。
 
-pandas 为可选依赖（``pip install em[pandas]``），此处延迟导入，缺失时给清晰错误。
+pandas 为可选依赖（``pip install emshare[pandas]``），此处延迟导入，缺失时给清晰错误。
 默认列名对齐 akshare 传统中文风格（代码 / 名称 / 最新价 / 涨跌幅 ...），传 ``columns`` 可覆盖。
 """
 
@@ -125,7 +125,9 @@ def to_dataframe(
     try:
         import pandas as pd
     except ImportError as exc:  # pragma: no cover - 环境依赖
-        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+        raise ImportError(
+            "pandas 未安装：pip install emshare[pandas] 或 pip install pandas"
+        ) from exc
 
     naming = columns or COLUMNS_ZH
     ordered_cols = [naming[f] for f in _FIELD_ORDER]
@@ -144,7 +146,9 @@ def to_kline_dataframe(
     try:
         import pandas as pd
     except ImportError as exc:  # pragma: no cover - 环境依赖
-        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+        raise ImportError(
+            "pandas 未安装：pip install emshare[pandas] 或 pip install pandas"
+        ) from exc
 
     naming = columns or KLINES_COLUMNS_ZH
     ordered_cols = [naming[f] for f in _KLINE_FIELD_ORDER]
@@ -163,7 +167,9 @@ def to_trend_dataframe(
     try:
         import pandas as pd
     except ImportError as exc:  # pragma: no cover - 环境依赖
-        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+        raise ImportError(
+            "pandas 未安装：pip install emshare[pandas] 或 pip install pandas"
+        ) from exc
 
     naming = columns or TRENDS_COLUMNS_ZH
     ordered_cols = [naming[f] for f in _TREND_FIELD_ORDER]
@@ -182,7 +188,9 @@ def to_fund_flow_dataframe(
     try:
         import pandas as pd
     except ImportError as exc:  # pragma: no cover - 环境依赖
-        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+        raise ImportError(
+            "pandas 未安装：pip install emshare[pandas] 或 pip install pandas"
+        ) from exc
 
     naming = columns or FUND_FLOW_COLUMNS_ZH
     ordered_cols = [naming[f] for f in _FUND_FLOW_FIELD_ORDER]
@@ -218,7 +226,9 @@ def to_board_fund_flow_dataframe(
     try:
         import pandas as pd
     except ImportError as exc:  # pragma: no cover - 环境依赖
-        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+        raise ImportError(
+            "pandas 未安装：pip install emshare[pandas] 或 pip install pandas"
+        ) from exc
 
     naming = columns or BOARD_FUND_FLOW_COLUMNS_ZH
     ordered_cols = [naming[f] for f in _BOARD_FUND_FLOW_FIELD_ORDER]
@@ -258,7 +268,9 @@ def to_board_list_dataframe(
     try:
         import pandas as pd
     except ImportError as exc:  # pragma: no cover - 环境依赖
-        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+        raise ImportError(
+            "pandas 未安装：pip install emshare[pandas] 或 pip install pandas"
+        ) from exc
 
     naming = columns or BOARD_LIST_COLUMNS_ZH
     ordered_cols = [naming[f] for f in _BOARD_LIST_FIELD_ORDER]
@@ -298,7 +310,9 @@ def to_index_list_dataframe(
     try:
         import pandas as pd
     except ImportError as exc:  # pragma: no cover - 环境依赖
-        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+        raise ImportError(
+            "pandas 未安装：pip install emshare[pandas] 或 pip install pandas"
+        ) from exc
 
     naming = columns or INDEX_LIST_COLUMNS_ZH
     ordered_cols = [naming[f] for f in _INDEX_LIST_FIELD_ORDER]
@@ -335,7 +349,9 @@ def to_hk_stock_list_dataframe(
     try:
         import pandas as pd
     except ImportError as exc:  # pragma: no cover - 环境依赖
-        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+        raise ImportError(
+            "pandas 未安装：pip install emshare[pandas] 或 pip install pandas"
+        ) from exc
 
     naming = columns or HK_STOCK_LIST_COLUMNS_ZH
     ordered_cols = [naming[f] for f in _HK_STOCK_LIST_FIELD_ORDER]
@@ -378,7 +394,9 @@ def to_fund_list_dataframe(
     try:
         import pandas as pd
     except ImportError as exc:  # pragma: no cover - 环境依赖
-        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+        raise ImportError(
+            "pandas 未安装：pip install emshare[pandas] 或 pip install pandas"
+        ) from exc
 
     naming = columns or FUND_LIST_COLUMNS_ZH
     ordered_cols = [naming[f] for f in _FUND_LIST_FIELD_ORDER]
@@ -473,7 +491,9 @@ def to_limit_pool_dataframe(
     try:
         import pandas as pd
     except ImportError as exc:  # pragma: no cover - 环境依赖
-        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+        raise ImportError(
+            "pandas 未安装：pip install emshare[pandas] 或 pip install pandas"
+        ) from exc
 
     fields = LIMIT_POOL_FIELDS_BY_TYPE.get(page.pool_type, LIMIT_POOL_FIELDS_BY_TYPE["limit_up"])
     naming = columns or {
@@ -490,7 +510,9 @@ def _item_value_frame(rows: list[tuple[str, object]]) -> pd.DataFrame:
     try:
         import pandas as pd
     except ImportError as exc:  # pragma: no cover - 环境依赖
-        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+        raise ImportError(
+            "pandas 未安装：pip install emshare[pandas] 或 pip install pandas"
+        ) from exc
     return pd.DataFrame(rows, columns=["item", "value"])  # type: ignore[no-any-return]
 
 
@@ -618,7 +640,9 @@ def to_stock_changes_dataframe(
     try:
         import pandas as pd
     except ImportError as exc:  # pragma: no cover - 环境依赖
-        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+        raise ImportError(
+            "pandas 未安装：pip install emshare[pandas] 或 pip install pandas"
+        ) from exc
 
     fields = stock_changes_fields(page.change_type)
     naming = columns or STOCK_CHANGES_COLUMNS_ZH
@@ -656,7 +680,9 @@ def to_board_changes_dataframe(
     try:
         import pandas as pd
     except ImportError as exc:  # pragma: no cover - 环境依赖
-        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+        raise ImportError(
+            "pandas 未安装：pip install emshare[pandas] 或 pip install pandas"
+        ) from exc
 
     naming = columns or BOARD_CHANGES_COLUMNS_ZH
     rows: list[dict[str, object]] = []
@@ -679,7 +705,9 @@ def _records_frame(
     try:
         import pandas as pd
     except ImportError as exc:  # pragma: no cover - 环境依赖
-        raise ImportError("pandas 未安装：pip install em[pandas] 或 pip install pandas") from exc
+        raise ImportError(
+            "pandas 未安装：pip install emshare[pandas] 或 pip install pandas"
+        ) from exc
     rows = [{naming[f]: getattr(item, f) for f in fields} for item in items]
     return pd.DataFrame(rows, columns=[naming[f] for f in fields])  # type: ignore[no-any-return]
 

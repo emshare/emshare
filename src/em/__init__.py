@@ -10,9 +10,10 @@
 ``search`` / ``interface_info`` / ``list_categories`` 提供离线接口检索（对齐 akshare）。
 ``resolve_code`` / ``resolve_board`` 提供中文名→代码解析（东财搜索接口，单请求）；
 ``*_by_name`` 为面向自然语言的便捷层（先 resolve 再调 ``*_em``，供 LLM/Agent 场景）。
+PyPI 发行名为 ``emshare``，导入名保持 ``em``（``pip install emshare`` → ``import em``）。
 """
 
-from pathlib import Path
+from importlib.metadata import PackageNotFoundError, version
 
 from em.application.catalog import (
     interface_info,
@@ -157,10 +158,11 @@ from em.application.resolve import (
     resolve_board,
     resolve_code,
 )
-from em.core.env import load_dotenv
 
-for _candidate in (Path(".env"), Path(__file__).resolve().parents[2] / ".env"):
-    load_dotenv(_candidate)
+try:
+    __version__ = version("emshare")
+except PackageNotFoundError:  # 源码检出且未安装分发时
+    __version__ = "0+unknown"
 
 __all__ = [
     "BoardRef",

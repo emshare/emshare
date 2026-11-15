@@ -653,9 +653,13 @@ def _hint_ip_blocked(exc: EmError) -> str | None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    # CWD/.env 优先，找不到则回退到项目根（src/em 的上两级），支持从任意目录调用
-    project_root = Path(__file__).resolve().parents[2]
-    for candidate in (Path(".env"), project_root / ".env"):
+    # 只有 CLI 入口读 .env；库被 import 时不产生隐式环境副作用。
+    # 装到 site-packages 后不存在「项目根」，仅在源码检出（有 pyproject.toml）时回退。
+    candidates = [Path(".env")]
+    dev_root = Path(__file__).resolve().parents[2]
+    if (dev_root / "pyproject.toml").is_file():
+        candidates.append(dev_root / ".env")
+    for candidate in candidates:
         load_dotenv(candidate)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     args = _parse_args(argv)

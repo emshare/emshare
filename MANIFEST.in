@@ -1,0 +1,20 @@
+# sdist 清单：wheel 由 [tool.setuptools.packages.find] 决定，这里只管源码分发。
+include LICENSE README.md pyproject.toml CHANGELOG.md .env.example
+
+recursive-include src/em *.py py.typed
+recursive-include tests *.py *.json
+recursive-include docs *.md
+
+# 精确写 .env.example，切勿用 include .env*：.env 含真实凭证。
+exclude .env .em_ledger.jsonl 123.txt uv.lock
+prune .venv
+prune .git
+prune .github
+prune .arts
+prune .codeartsdoer
+prune .mypy_cache
+prune .ruff_cache
+prune .pytest_cache
+prune dist
+prune build
+global-exclude *.py[cod] .DS_Store
