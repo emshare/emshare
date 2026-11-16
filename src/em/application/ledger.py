@@ -58,6 +58,7 @@ def build_row(
         "fetch_calls": int(pool.get("fetch_calls", 0) or 0),
         "ips_returned": int(pool.get("ips_returned", 0) or 0),
         "ips_unique": int(pool.get("ips_unique", 0) or 0),
+        "history_truncated": bool(pool.get("history_truncated", False)),
         "prefilter_rejected": int(pool.get("prefilter_rejected", 0) or 0),
         "ips_adopted": int(pool.get("ips_adopted", 0) or 0),
         "ips_served": int(pool.get("ips_served", 0) or 0),

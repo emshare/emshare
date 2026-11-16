@@ -10,13 +10,15 @@ import re
 import threading
 import time
 from collections.abc import Callable
+from contextvars import copy_context
 from dataclasses import dataclass
 from typing import Any, Literal
 from urllib.parse import urlparse
 
 import requests
 
-from em.core.errors import ConfigError
+from em.core import budget
+from em.core.errors import ConfigError, ProxyUnavailableError
 
 log = logging.getLogger(__name__)
 
@@ -61,6 +63,10 @@ class ProxySettings:
     degraded_mode: DegradedMode = "lenient"
 
     def __post_init__(self) -> None:
+        if self.timeout_sec <= 0:
+            raise ConfigError("timeout_sec 必须为正")
+        if self.safety_margin_sec < 0:
+            raise ConfigError("safety_margin_sec 不能为负")
         if self.num < 1:
             raise ConfigError("num 必须 >= 1")
         if self.ttl_sec <= self.safety_margin_sec:
@@ -91,7 +97,7 @@ def proxy_url(entry: str) -> str:
 def fetch_proxies(
     settings: ProxySettings, session: requests.Session, url: str | None = None
 ) -> list[str]:
-    """从代理源取一批 'ip:port'；失败返回空列表（退化直连，不抛异常）。
+    """从代理源取一批 'ip:port'；采购失败返回空列表，路由决定如何处理。
 
     ``url`` 缺省取 ``settings.api`` 首个源（多源逗号分隔，主源在前）。
     返回**解析出的全部行**，按 ``num`` 截断由调用方处理——厂商按返回条数计费，
@@ -100,14 +106,15 @@ def fetch_proxies(
     url = url or settings.api.split(",")[0].strip()
     try:
         text = session.get(
-            url, timeout=(_PROXY_API_CONNECT_TIMEOUT_SEC, settings.timeout_sec)
+            url, timeout=budget.timeouts(_PROXY_API_CONNECT_TIMEOUT_SEC, settings.timeout_sec)
         ).text.strip()
     except requests.RequestException as exc:
-        log.debug("获取代理失败: %s", exc)
+        log.debug("获取代理失败: %s", type(exc).__name__)
         return []
+    budget.remaining()
     lines = [ln.strip() for ln in text.splitlines() if _PROXY_RE.match(ln.strip())]
     if not lines and text:
-        log.warning("代理源返回非预期格式，退化直连: %s", text[:80])
+        log.warning("代理源返回非预期格式，本轮未获取代理")
     # 原样返回（不去重）：采购账本要按交付行数对账，重复行同样计费；
     # 去重只影响"可用名额"，在 _fetch_batch 截断前做
     return lines
@@ -147,6 +154,7 @@ class ProxyPool:
     _RENEW_LEAD_SEC = 3.0
     # 续期失败后的重试间隔：空返回已有 1s 负缓存，这里再退避一次避免每个 acquire 都起线程
     _RENEW_RETRY_SEC = 1.0
+    _HISTORY_LIMIT = 8192
 
     def __init__(
         self,
@@ -173,7 +181,11 @@ class ProxyPool:
         self._adopted_at: dict[str, float] = {}
         self._standby: list[str] = []
         self._renewing = False  # 后台续期在飞（单飞，避免每个 acquire 起一个线程）
+        self._renew_thread: threading.Thread | None = None
+        self._closed = False
         self._renew_after = 0.0  # 续期失败后的下次允许时刻
+        self._batch_started_at = 0.0
+        self._refill_blocked_until = 0.0
         self._failed_at: dict[str, float] = {}
         self._in_flight: dict[str, int] = {}  # 各 IP 当前在飞请求数（最少在飞优先分发依据）
         self._lock = threading.Lock()  # 仅保护上述内存状态，临界区内禁止网络调用
@@ -190,6 +202,7 @@ class ProxyPool:
         self._ips_unique: set[str] = set()
         self._ips_served: set[str] = set()  # 真正发出过业务请求的 IP
         self._ips_productive: set[str] = set()  # 至少成功过一次业务请求的 IP
+        self._history_truncated = False
         # 分源账本：主备顺序目前是静态配置，质量（淘汰率）只能靠分源统计判断
         self._source_labels = {
             url: f"src{i}:{urlparse(url).hostname or '?'}#{hashlib.sha1(url.encode()).hexdigest()[:6]}"
@@ -201,6 +214,9 @@ class ProxyPool:
         }
         # 健康指标（只读快照见 stats()）：回源调用/空返回/耗时、采纳 IP 数、失败上报次数
         self._stats = {
+            "lifetime_filtered": 0,
+            "lifetime_hold_rejected": 0,
+            "lifetime_refill_suppressed": 0,
             "fetch_calls": 0,
             "fetch_empty": 0,
             "ips_returned": 0,  # 厂商交付行数合计（计费口径）
@@ -231,23 +247,58 @@ class ProxyPool:
         """是否配置了至少一个代理源；没有的话开着也换不出 IP。"""
         return bool(self._apis)
 
-    def acquire(self) -> str | None:
+    def acquire(self, min_lifetime: float = 0.0) -> str | None:
         """取一个可用代理 'ip:port'；不可用或关闭时返回 None。
 
         快速路径（current/standby 命中）只瞬时持状态锁；需要回源时改用独立的
         ``_refill_lock`` 单飞——回源期间不阻塞其他线程的失败上报与状态读取，
         同样缺 IP 的线程在锁外等待同一批结果，避免并发打代理 API 浪费提取配额。
         """
-        if not self._settings.enabled:
+        if not self._settings.enabled or self._closed:
             return None
-        proxy = self._take_live()
+        proxy = self._take_live(min_lifetime)
         if proxy is not None:
             # 快路径命中后顺便触发后台续期：旧 IP 继续发放，业务线程不等回源
             self._maybe_renew()
             return proxy
-        with self._refill_lock:
+        with budget.acquire_lock(self._refill_lock):
             # double-check：等待回源期间可能已有其他线程填充
-            return self._take_live() or self._refill()
+            proxy = self._take_live(min_lifetime)
+            if proxy is not None:
+                return proxy
+            self._refill()
+            proxy = self._take_live(min_lifetime)
+            if proxy is None and min_lifetime > 0:
+                with self._lock:
+                    expiries = [
+                        adopted + self._settings.ttl_sec - self._settings.safety_margin_sec
+                        for entry, adopted in self._adopted_at.items()
+                        if self._is_live(entry)
+                    ]
+                    self._refill_blocked_until = max(
+                        self._refill_blocked_until,
+                        min(expiries)
+                        if expiries
+                        else time.monotonic() + _EMPTY_REFILL_COOLDOWN_SEC,
+                    )
+            return proxy
+
+    def lifetime_requirement(self, requested: float) -> float:
+        """准入最多预留半个租期；实际 I/O 超时另受剩余租期限制。"""
+        capacity = self._settings.ttl_sec - self._settings.safety_margin_sec
+        return min(max(requested, 0.0), capacity / 2)
+
+    def remaining_lifetime(self, proxy: str) -> float:
+        with self._lock:
+            return max(0.0, self._remaining_locked(proxy))
+
+    def _remaining_locked(self, proxy: str) -> float:
+        adopted = self._adopted_at.get(proxy)
+        if adopted is None:
+            return 0.0
+        return (
+            adopted + self._settings.ttl_sec - self._settings.safety_margin_sec - time.monotonic()
+        )
 
     def _maybe_renew(self) -> None:
         """临近过期时起一个后台线程续期（单飞）。
@@ -257,19 +308,38 @@ class ProxyPool:
         """
         now = time.monotonic()
         with self._lock:
-            if self._renewing or now < self._renew_after or not self._renew_due_locked(now):
+            if (
+                self._closed
+                or self._renewing
+                or now < self._renew_after
+                or not self._renew_due_locked(now)
+            ):
                 return
             self._renewing = True
             self._renew_after = now + self._RENEW_RETRY_SEC
-        threading.Thread(target=self._renew_worker, name="proxy-renew", daemon=True).start()
+            self._renew_thread = threading.Thread(
+                target=self._renew_worker, name="proxy-renew", daemon=True
+            )
+            self._renew_thread.start()
+
+    def close(self) -> None:
+        with self._lock:
+            self._closed = True
+            worker = self._renew_thread
+        if worker is not None:
+            worker.join()
 
     def _renew_due_locked(self, now: float) -> bool:
         """是否有在池 IP 已进入续期窗口（调用方持 ``_lock``）。"""
         lead = self._settings.ttl_sec - self._settings.safety_margin_sec - self._RENEW_LEAD_SEC
         if lead <= 0:
             return False  # TTL 太短，提前量覆盖不了回源成本：退回阻塞式换血，避免连环续期
-        pool = ([self._current] if self._current else []) + self._standby
-        return any(now >= self._adopted_at.get(ip, 0.0) + lead for ip in pool)
+        pool = [
+            entry
+            for entry in ([self._current] if self._current else []) + self._standby
+            if self._is_live(entry)
+        ]
+        return bool(pool) and all(now >= self._adopted_at[entry] + lead for entry in pool)
 
     def _renew_worker(self) -> None:
         try:
@@ -278,7 +348,7 @@ class ProxyPool:
                 if self._renew_due():
                     proxy = self._refill()
                     # 成功=已换血；失败=继续用旧批次到硬到期（不阻塞业务线程）
-                    log.info("代理池后台续期：%s", proxy or "失败，沿用旧批次")
+                    log.info("代理池后台续期：%s", "成功" if proxy else "失败，沿用旧批次")
         finally:
             with self._lock:
                 self._renewing = False
@@ -297,7 +367,7 @@ class ProxyPool:
             pool = ([self._current] if self._current else []) + self._standby
             return sum(1 for ip in pool if self._is_live(ip))
 
-    def _take_live(self) -> str | None:
+    def _take_live(self, min_lifetime: float = 0.0) -> str | None:
         """快速路径：在存活 IP 中选在飞请求数最少的分发，无可用返回 None。
 
         最少在飞优先（并列保序）：多 worker 并发不挤同一个 IP，
@@ -308,13 +378,20 @@ class ProxyPool:
                 self._current = None  # current 过期：同批 standby 一并过期
             self._standby = [p for p in self._standby if self._is_live(p)]
             pool_ips = ([self._current] if self._current else []) + self._standby
-            if not pool_ips:
+            eligible = [
+                entry
+                for entry in pool_ips
+                if self._remaining_locked(entry) > self.lifetime_requirement(min_lifetime)
+            ]
+            if len(eligible) != len(pool_ips):
+                self._stats["lifetime_filtered"] += 1
+            if not eligible:
                 return None
-            pick = min(pool_ips, key=lambda p: self._in_flight.get(p, 0))
+            pick = min(eligible, key=lambda entry: self._in_flight.get(entry, 0))
             self._current = pick
             self._standby = [p for p in pool_ips if p != pick]
             self._in_flight[pick] = self._in_flight.get(pick, 0) + 1
-            self._ips_served.add(pick)
+            self._remember(self._ips_served, pick)
             return pick
 
     def release(self, proxy: str | None) -> None:
@@ -325,6 +402,8 @@ class ProxyPool:
             count = self._in_flight.get(proxy, 0) - 1
             if count <= 0:
                 self._in_flight.pop(proxy, None)
+                if proxy != self._current and proxy not in self._standby:
+                    self._adopted_at.pop(proxy, None)
             else:
                 self._in_flight[proxy] = count
 
@@ -360,10 +439,10 @@ class ProxyPool:
         if proxy is None:
             return
         with self._lock:
-            self._ips_productive.add(proxy)
+            self._remember(self._ips_productive, proxy)
             self._strikes.pop(proxy, None)
 
-    def hold(self, proxy: str | None) -> bool:
+    def hold(self, proxy: str | None, min_lifetime: float = 0.0) -> bool:
         """软失败后继续占用同一 IP 重试（在飞计数 +1）；该 IP 已不可用返回 False。
 
         复用同一出口能省掉一次 TCP/TLS 握手（实测代理页均 0.87s 中握手占大头），
@@ -375,9 +454,18 @@ class ProxyPool:
             pool = ([self._current] if self._current else []) + self._standby
             if proxy not in pool or not self._is_live(proxy):
                 return False
+            if self._remaining_locked(proxy) <= self.lifetime_requirement(min_lifetime):
+                self._stats["lifetime_hold_rejected"] += 1
+                return False
             self._in_flight[proxy] = self._in_flight.get(proxy, 0) + 1
-            self._ips_served.add(proxy)
+            self._remember(self._ips_served, proxy)
             return True
+
+    def _remember(self, history: set[str], proxy: str) -> None:
+        if len(history) < self._HISTORY_LIMIT:
+            history.add(proxy)
+        elif proxy not in history:
+            self._history_truncated = True
 
     def stats(self) -> dict[str, Any]:
         """只读快照：健康指标 + 采购账本（五段 IP 漏斗与分源统计）。
@@ -390,6 +478,7 @@ class ProxyPool:
             out["ips_unique"] = len(self._ips_unique)
             out["ips_served"] = len(self._ips_served)
             out["ips_productive"] = len(self._ips_productive)
+            out["history_truncated"] = self._history_truncated
             out["source_stats"] = {k: dict(v) for k, v in self._source_stats.items()}
             # 哪些源参与预筛：未预筛的源"淘汰率恒为 0"是构造出来的，不能与预筛源比质量
             out["prefiltered"] = (
@@ -420,6 +509,8 @@ class ProxyPool:
         回源调用计数、耗时与交付量在此累计（多源重试的时间全部计入 refill_sec）。
         返回值第二项是该批的源，供分源账本归因预筛淘汰与进池数。
         """
+        if self._closed:
+            return [], None
         now = time.monotonic()
         # 单源配置必须忽略降级窗口，否则窗口内 urls 为空、整段时间一个 IP 都拿不到
         primary_off = self._has_backup and now < self._primary_off_until
@@ -440,6 +531,7 @@ class ProxyPool:
             log.debug("所有代理源处于熔断冷却期，本轮不回源")
             return [], None
         for url in urls:
+            budget.remaining()
             t0 = time.monotonic()
             lines = fetch_proxies(self._settings, self._session, url)
             # 计费按原始交付量算；去重只影响可用名额——同一 IP 重复返回不该占掉 num，
@@ -451,6 +543,7 @@ class ProxyPool:
                 self._stats["refill_sec"] += elapsed
                 self._record_purchase(url, lines)
             if ips:
+                self._batch_started_at = t0
                 if (
                     url == primary
                     and not primary_off
@@ -475,7 +568,8 @@ class ProxyPool:
     def _record_purchase(self, url: str, lines: list[str]) -> None:
         """记一次回源交付（调用方持 ``self._lock``）：厂商按返回条数计费。"""
         self._stats["ips_returned"] += len(lines)
-        self._ips_unique.update(lines)
+        for proxy in lines:
+            self._remember(self._ips_unique, proxy)
         label = self._source_labels.get(url)
         if label is not None:
             stat = self._source_stats[label]
@@ -489,6 +583,11 @@ class ProxyPool:
         回源慢/超时时不阻塞其他线程的状态读写与失败上报。
         """
         with self._lock:
+            if self._closed:
+                return None
+            if time.monotonic() < self._refill_blocked_until:
+                self._stats["lifetime_refill_suppressed"] += 1
+                return None
             # 负缓存：上一轮回源刚拿到空返回，短时间内直接放弃，避免连环打 API
             if time.monotonic() - self._empty_at < _EMPTY_REFILL_COOLDOWN_SEC:
                 return None
@@ -507,6 +606,10 @@ class ProxyPool:
                 degraded = time.monotonic() < self._prefilter_degraded_until
             fresh = [ip for ip in fetched if ip not in blacklist]
             if fresh:
+                with self._lock:
+                    known = [entry for entry in fresh if self._is_live(entry)]
+                if len(known) == len(fresh):
+                    return self._adopt(fresh, source)
                 if not self._prefilter_enabled(source):
                     # 该源不参与预筛（收费源，淘汰等于浪费配额）
                     self._reset_dead_streak(source)
@@ -521,7 +624,9 @@ class ProxyPool:
                     self._reset_dead_streak(source)
                     return self._adopt(fresh, source)
                 # lenient 模式在降级窗口内改用快筛，仍然过滤，只是判据更短
-                alive = self._prefilter(fresh, source, lenient=degraded)
+                alive = known + self._prefilter(
+                    [entry for entry in fresh if entry not in known], source, lenient=degraded
+                )
                 if alive:
                     self._reset_dead_streak(source)
                     return self._adopt(alive, source)
@@ -529,9 +634,11 @@ class ProxyPool:
             # 不退避会连打正在限流的代理 API，把冷却窗口拖得更长
             self._note_dead_batch(source)
             if round_no < 2:
-                time.sleep(_REFILL_ROUND_BACKOFF_SEC)
-        # 3 轮仍不可用（多源各自失败一次等）：硬用最后一批，避免彻底拿不到代理
-        return self._adopt(fetched, source)
+                budget.pause(_REFILL_ROUND_BACKOFF_SEC)
+        with self._lock:
+            self._empty_at = time.monotonic()
+            self._stats["fetch_empty"] += 1
+        return None
 
     def _note_dead_batch(self, source: str | None) -> None:
         """记一轮"整批不可用"；连续到阈值即熔断该源，冷却期内不再回源。
@@ -590,7 +697,9 @@ class ProxyPool:
             return ips
         t0 = time.monotonic()
         with concurrent.futures.ThreadPoolExecutor(max_workers=self._PREFILTER_WORKERS) as ex:
-            alive_flags = list(ex.map(prober, ips))
+            futures = [ex.submit(copy_context().run, prober, ip) for ip in ips]
+            alive_flags = [future.result() for future in futures]
+        budget.remaining()
         alive = [ip for ip, ok in zip(ips, alive_flags, strict=True) if ok]
         dead = [ip for ip, ok in zip(ips, alive_flags, strict=True) if not ok]
         if dead:
@@ -629,16 +738,41 @@ class ProxyPool:
             self._stats["prefilter_sec"] += time.monotonic() - t0
         return alive
 
-    def _adopt(self, ips: list[str], source: str | None = None) -> str:
-        """把一批回源 IP 写为 current + standby，并给发出的首个计入飞。"""
+    def _adopt(self, ips: list[str], source: str | None = None) -> str | None:
+        """安装批次；有效期从采购开始计，业务领取另行计入占用。"""
         with self._lock:
-            self._current = ips[0]
-            self._standby = ips[1:]
-            # 逐 IP 记采纳时刻：整批共享一个时刻会让它们同时到期（悬崖）
-            now = time.monotonic()
-            self._adopted_at = {ip: now for ip in ips}
-            self._in_flight[ips[0]] = self._in_flight.get(ips[0], 0) + 1
-            self._ips_served.add(ips[0])
+            if self._closed:
+                return None
+            if time.monotonic() >= (
+                self._batch_started_at + self._settings.ttl_sec - self._settings.safety_margin_sec
+            ):
+                return None
+            ips = [ip for ip in ips if ip not in self._failed_at]
+            if not ips:
+                return None
+            if all(self._is_live(entry) for entry in ips):
+                remaining = min(self._remaining_locked(entry) for entry in ips)
+                if remaining <= self._RENEW_LEAD_SEC:
+                    self._refill_blocked_until = max(
+                        self._refill_blocked_until, time.monotonic() + remaining
+                    )
+            old_pool = ([self._current] if self._current else []) + self._standby
+            retained = [entry for entry in old_pool if entry not in ips and self._is_live(entry)]
+            installed = (ips + retained)[: self._settings.num * 2]
+            adopted_at = {
+                ip: self._adopted_at[ip] if self._is_live(ip) else self._batch_started_at
+                for ip in installed
+            }
+            adopted_at.update(
+                {
+                    entry: value
+                    for entry, value in self._adopted_at.items()
+                    if entry not in adopted_at and self._in_flight.get(entry, 0)
+                }
+            )
+            self._current = installed[0]
+            self._standby = installed[1:]
+            self._adopted_at = adopted_at
             self._stats["ips_adopted"] += len(ips)
             label = self._source_labels.get(source) if source else None
             if label is not None:
@@ -649,6 +783,11 @@ class ProxyPool:
         """清除过期失败记录：超过一个 TTL 的 IP 视为可重新尝试（调用方持锁）。"""
         cutoff = time.monotonic() - self._settings.ttl_sec
         self._failed_at = {ip: t for ip, t in self._failed_at.items() if t > cutoff}
+        self._strikes = {
+            ip: count
+            for ip, count in self._strikes.items()
+            if self._is_live(ip) or self._in_flight.get(ip, 0)
+        }
 
 
 @dataclass
@@ -661,6 +800,7 @@ class HostState:
     proxy_successes: int = 0
     proxy_since: float = 0.0
     probe_in_flight: bool = False  # probe 态下是否已放行一个直连探测请求
+    generation: int = 0
 
 
 class ProxyRouter:
@@ -676,6 +816,7 @@ class ProxyRouter:
         self._settings = settings
         self._hosts: dict[str, HostState] = {}
         self._lock = threading.Lock()  # 保护 host 状态机（并发请求共享路由）
+        self._local = threading.local()
         self._stats = {"switches_to_proxy": 0, "probes_issued": 0, "probe_failures": 0}
 
     @property
@@ -708,13 +849,16 @@ class ProxyRouter:
             return "never"
         return self._settings.mode
 
-    def acquire(self, host: str) -> str | None:
+    def acquire(self, host: str, min_lifetime: float = 0.0) -> str | None:
         """取该 host 当前应使用的代理；None 表示直连。"""
         mode = self._effective_mode()
         if mode == "never":
             return None
         if mode == "always":
-            return self._pool.acquire()
+            proxy = self._pool.acquire(min_lifetime)
+            if proxy is None:
+                raise ProxyUnavailableError("代理池暂无可用出口")
+            return proxy
         # auto：锁内只判定模式（瞬时），实际取代理（可能触发回源等待）在锁外。
         # probe 态只放行一个直连探测请求，其余并发请求继续走代理，避免并发探测抖动。
         with self._lock:
@@ -727,14 +871,18 @@ class ProxyRouter:
                 state.probe_in_flight = True
                 self._stats["probes_issued"] += 1
                 use_proxy = False
+            self._local.route = (host, state.generation, state.mode == "probe" and not use_proxy)
         if use_proxy:
-            proxy = self._pool.acquire()
+            proxy = self._pool.acquire(min_lifetime)
             if proxy is not None:
                 return proxy
             # 池空（回源空返回/负缓存窗口）：短暂等待回源产出后再取一次，
             # 不静默退化直连——切到代理意味着直连已被封，退化只会白烧重试预算
-            time.sleep(_POOL_EMPTY_RETRY_SEC)
-            return self._pool.acquire()
+            budget.pause(_POOL_EMPTY_RETRY_SEC)
+            proxy = self._pool.acquire(min_lifetime)
+            if proxy is None:
+                raise ProxyUnavailableError("代理池暂无可用出口")
+            return proxy
         return None
 
     def report_result(
@@ -762,8 +910,25 @@ class ProxyRouter:
                 return
             # auto
             state = self._hosts.setdefault(host, HostState(host))
+            route = getattr(self._local, "route", None)
+            self._local.route = None
+            if route is not None and route[0] == host:
+                if route[1] != state.generation:
+                    if proxy is not None:
+                        if success:
+                            self._pool.report_success(proxy)
+                        else:
+                            self._report_pool_failure(proxy, soft)
+                    return
+                if state.mode == "probe" and proxy is None and not route[2]:
+                    return
             if state.mode == "direct":
-                self._on_direct(state, success, banned)
+                if proxy is None:
+                    self._on_direct(state, success, banned)
+                elif success:
+                    self._pool.report_success(proxy)
+                else:
+                    self._report_pool_failure(proxy, soft)
             elif state.mode == "proxy":
                 self._on_proxy(state, proxy, success, soft)
             elif proxy is not None:
@@ -808,6 +973,14 @@ class ProxyRouter:
             state = self._hosts.get(host)
             if state is None or state.mode != "probe" or proxy is not None:
                 return
+            route = getattr(self._local, "route", None)
+            self._local.route = None
+            if (
+                route is not None
+                and route[0] == host
+                and (route[1] != state.generation or not route[2])
+            ):
+                return
             state.probe_in_flight = False
             self._switch_to_proxy(state)
 
@@ -816,20 +989,29 @@ class ProxyRouter:
         if proxy is not None:
             self._pool.release(proxy)
 
-    def hold(self, proxy: str | None) -> bool:
+    def close(self) -> None:
+        self._pool.close()
+
+    def hold(self, proxy: str | None, min_lifetime: float = 0.0) -> bool:
         """软失败后继续占用同一出口重试（在飞计数 +1）；不可用返回 False。
 
         供传输层"同一 IP 重试一次"使用：省一次 TCP/TLS 握手，也避免重试被
         最少在飞分发到另一个出口、把本轮软失败当成无发生。
         """
-        return self._pool.hold(proxy)
+        return self._pool.hold(proxy, min_lifetime)
+
+    def lifetime_requirement(self, requested: float) -> float:
+        return self._pool.lifetime_requirement(requested)
+
+    def remaining_lifetime(self, proxy: str) -> float:
+        return self._pool.remaining_lifetime(proxy)
 
     def _on_direct(self, state: HostState, success: bool, banned: bool) -> None:
         if success:
             state.direct_fails = 0
             return
         state.direct_fails += 1
-        if banned or state.direct_fails >= self._settings.direct_fails:
+        if self.can_rotate and (banned or state.direct_fails >= self._settings.direct_fails):
             self._switch_to_proxy(state)
 
     def _on_proxy(
@@ -840,8 +1022,9 @@ class ProxyRouter:
         if success:
             self._pool.report_success(proxy)
             state.proxy_successes += 1
-            if self._should_probe(state):
+            if self._should_probe(state) and state.mode != "probe":
                 state.mode = "probe"
+                state.generation += 1
         else:
             state.proxy_successes = 0
             self._report_pool_failure(proxy, soft)
@@ -849,6 +1032,7 @@ class ProxyRouter:
     def _on_probe(self, state: HostState, success: bool) -> None:
         if success:
             state.mode = "direct"
+            state.generation += 1
             state.direct_fails = 0
             state.proxy_successes = 0
         else:
@@ -863,6 +1047,7 @@ class ProxyRouter:
             log.info("host %s 切换到代理模式", state.host)
             self._stats["switches_to_proxy"] += 1
         state.mode = "proxy"
+        state.generation += 1
         state.direct_fails = 0
         state.proxy_successes = 0
         state.probe_in_flight = False

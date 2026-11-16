@@ -53,6 +53,6 @@ def test_should_retry_only_retryable_channel_errors() -> None:
 
 def test_sleep_backoff_actually_sleeps(monkeypatch: pytest.MonkeyPatch) -> None:
     slept: list[float] = []
-    monkeypatch.setattr("em.core.resilience.time.sleep", slept.append)
+    monkeypatch.setattr("em.core.budget.time.sleep", slept.append)
     sleep_backoff(RetryPolicy(backoff_sec=0.2, backoff_cap_sec=2.0), 9)
     assert slept == [2.0]

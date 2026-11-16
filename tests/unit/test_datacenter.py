@@ -392,8 +392,10 @@ def test_read_budget_is_declared() -> None:
 
 def _real_client(body: dict) -> tuple[HttpClient, MagicMock, ProxyRouter]:
     pool_session = MagicMock(spec=requests.Session)
-    pool_session.get.return_value = MagicMock(text="1.1.1.1:8080\n2.2.2.2:8080")
-    ps = ProxySettings(api="http://x", num=2, ttl_sec=30, mode="always", prefilter_sources=0)
+    pool_session.get.return_value = MagicMock(
+        text="1.1.1.1:8080\n2.2.2.2:8080\n3.3.3.3:8080\n4.4.4.4:8080"
+    )
+    ps = ProxySettings(api="http://x", num=4, ttl_sec=30, mode="always", prefilter_sources=0)
     router = ProxyRouter(ProxyPool(ps, pool_session), ps)
     session = MagicMock(spec=requests.Session)
     session.get.return_value = MagicMock(status_code=200, text=json.dumps(body))

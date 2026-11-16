@@ -10,8 +10,9 @@ from typing import Any
 from urllib.parse import urlparse
 
 import requests
+from urllib3.exceptions import ReadTimeoutError
 
-from em.core import defaults
+from em.core import budget, defaults
 from em.core.errors import (
     ChannelError,
     EmptyResponseError,
@@ -19,6 +20,7 @@ from em.core.errors import (
     InvalidContentError,
     NetworkError,
     ProxyConnectError,
+    ProxyUnavailableError,
     UpstreamReadTimeout,
 )
 from em.core.proxy import ProxyRouter, proxy_url
@@ -41,6 +43,18 @@ def _classify(exc: requests.RequestException) -> NetworkError:
     read 档（连接已建立但读超时）多为慢页或瞬时抖动，换 IP 只是再付一次握手并把
     好出口黑掉一个 TTL，因此单独归为软失败，由上层"同 IP 重试一次"消化。
     """
+    pending: list[BaseException] = [exc]
+    visited: set[int] = set()
+    while pending:
+        cause = pending.pop()
+        if id(cause) in visited:
+            continue
+        visited.add(id(cause))
+        if isinstance(cause, (requests.ReadTimeout, ReadTimeoutError)):
+            return UpstreamReadTimeout(str(exc))
+        pending.extend(value for value in cause.args if isinstance(value, BaseException))
+        if cause.__cause__ is not None:
+            pending.append(cause.__cause__)
     if isinstance(exc, requests.ConnectTimeout):
         return ProxyConnectError(str(exc))
     if isinstance(exc, requests.ReadTimeout):
@@ -70,6 +84,7 @@ class HttpClient:
         self._session = session
         self._router = router
         self._policy = policy
+        self._closed = False
         # 重试耗尽时向调用方要一条处置建议（如"出口疑似被封且没配代理源"）挂到异常上。
         # 入参是 (host, 最后一次异常)；文案由应用层给，传输层不认识具体的配置项
         self._exhausted_hint = exhausted_hint
@@ -116,20 +131,37 @@ class HttpClient:
         它是"这个接口需要多久"的声明，与按历史耗时自适应的动态值不是一回事。
         """
         host = urlparse(url).hostname or ""
+        if self._closed:
+            raise RuntimeError("HTTP 客户端已关闭")
         last_exc: ChannelError | None = None
         proxy: str | None = None
         reuse = False  # 软失败（读超时）后沿用同一出口重试：省一次握手，也避免误判淘汰
         reuse_budget = 1  # 每个出口只复用一次，第二次软失败即换 IP
         for attempt in range(self._policy.max_retries + 1):
+            budget.remaining()
+            minimum = sum(
+                budget.timeouts(self._timeout[0], self._read_timeout("proxy", read_timeout))
+            )
             t0 = time.monotonic()
-            if reuse and proxy is not None and self._router.hold(proxy):
-                reuse = False
-                wait = 0.0  # 沿用上一轮的取用，无新的获取等待
-            else:
-                proxy = self._router.acquire(host)
-                reuse = False
-                reuse_budget = 1
-                wait = time.monotonic() - t0
+            try:
+                if reuse and proxy is not None and self._router.hold(proxy, minimum):
+                    reuse = False
+                    wait = 0.0
+                else:
+                    proxy = self._router.acquire(host, minimum)
+                    reuse = False
+                    reuse_budget = 1
+                    wait = time.monotonic() - t0
+            except ProxyUnavailableError as exc:
+                last_exc = exc
+                with self._timing_lock:
+                    self._timing["proxy_wait_sec"] += time.monotonic() - t0
+                if attempt >= self._policy.max_retries:
+                    break
+                delay = sleep_backoff(self._policy, attempt, exc)
+                with self._timing_lock:
+                    self._timing["backoff_sec"] += delay
+                continue
             self._local.last_route = (host, proxy)
             try:
                 t1 = time.monotonic()
@@ -143,6 +175,7 @@ class HttpClient:
                     self._connect_timeout(proxy),
                 )
                 elapsed = time.monotonic() - t1
+                budget.remaining()
                 self._record_timing(proxy, wait, elapsed, failed=False)
                 self._record_rtt(proxy, elapsed)
                 if proxy is not None:
@@ -150,11 +183,20 @@ class HttpClient:
                 self._router.report_result(host, proxy, success=True)
                 return text
             except ChannelError as exc:
-                self._record_timing(proxy, wait, time.monotonic() - t1, failed=True)
+                if isinstance(exc, ProxyUnavailableError):
+                    with self._timing_lock:
+                        self._timing["proxy_wait_sec"] += wait
+                else:
+                    self._record_timing(proxy, wait, time.monotonic() - t1, failed=True)
                 soft = isinstance(exc, UpstreamReadTimeout)
-                self._router.report_result(
-                    host, proxy, success=False, banned=_is_banned(exc), soft=soft
-                )
+                if isinstance(exc, ProxyUnavailableError) or (
+                    isinstance(exc, HttpStatusError) and not _is_banned(exc)
+                ):
+                    self._router.abandon(host, proxy)
+                else:
+                    self._router.report_result(
+                        host, proxy, success=False, banned=_is_banned(exc), soft=soft
+                    )
                 last_exc = exc
                 if not should_retry(exc):
                     raise
@@ -252,6 +294,13 @@ class HttpClient:
         with self._timing_lock:
             return dict(self._timing)
 
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        self._router.close()
+        self._session.close()
+
     def available_proxies(self, url: str) -> int:
         """该 URL 所属 host 的可用出口数（0=直连态或池空）：分页并发按它收敛。"""
         return self._router.available(urlparse(url).hostname or "")
@@ -285,10 +334,16 @@ class HttpClient:
         connect_timeout: float | None = None,
     ) -> str:
         proxies = {"http": proxy_url(proxy), "https": proxy_url(proxy)} if proxy else None
-        timeout = (
+        timeout = budget.timeouts(
             connect_timeout if connect_timeout is not None else self._timeout[0],
             read_timeout if read_timeout is not None else self._timeout[1],
         )
+        if proxy is not None:
+            remaining = self._router.remaining_lifetime(proxy)
+            if remaining <= self._router.lifetime_requirement(sum(timeout)):
+                raise ProxyUnavailableError("代理剩余有效期不足以发起本次请求")
+            connect = min(timeout[0], remaining / 2)
+            timeout = (connect, min(timeout[1], remaining - connect))
         try:
             resp = self._session.get(
                 url, params=params, headers=headers, proxies=proxies, timeout=timeout

@@ -1,5 +1,6 @@
 """配置：从环境变量读取，集中默认值；构造期做 fail-fast 校验。"""
 
+import math
 import os
 from dataclasses import dataclass
 from typing import Literal
@@ -98,6 +99,13 @@ class Settings:
     backoff_jitter_sec: float = defaults.DEFAULT_BACKOFF_JITTER_SEC
 
     def __post_init__(self) -> None:
+        if self.request_timeout_sec <= 0 or self.proxy_timeout_sec <= 0:
+            raise ConfigError("请求与代理超时必须为正")
+        if self.proxy_safety_margin_sec < 0:
+            raise ConfigError("proxy_safety_margin_sec 不能为负")
+        for value in (self.backoff_sec, self.backoff_cap_sec, self.backoff_jitter_sec):
+            if value is not None and not math.isfinite(value):
+                raise ConfigError("退避参数必须是有限数值")
         if self.proxy_num < 1:
             raise ConfigError("proxy_num 必须 >= 1")
         if self.proxy_ttl_sec <= self.proxy_safety_margin_sec:

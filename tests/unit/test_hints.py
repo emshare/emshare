@@ -225,7 +225,7 @@ def _blocked(monkeypatch: pytest.MonkeyPatch, response) -> None:
         return response
 
     monkeypatch.setattr(requests.Session, "get", fake_get)
-    monkeypatch.setattr("em.core.resilience.time.sleep", lambda _s: None)
+    monkeypatch.setattr("em.core.budget.time.sleep", lambda _s: None)
     market_data._reset_client_cache()
 
 
@@ -261,7 +261,7 @@ def test_library_call_error_has_no_hint_when_proxy_source_is_configured(monkeypa
         return MagicMock(status_code=200, text="10.0.0.1:8080\n10.0.0.2:8080")
 
     monkeypatch.setattr(requests.Session, "get", fake_get)
-    monkeypatch.setattr("em.core.resilience.time.sleep", lambda _s: None)
+    monkeypatch.setattr("em.core.budget.time.sleep", lambda _s: None)
     monkeypatch.setattr("em.core.proxy.time.sleep", lambda _s: None)
     monkeypatch.setenv("EM_LEDGER_PATH", "none")
     settings = Settings(proxy_api=_REAL_API, proxy_prefilter=False, max_retries=3)

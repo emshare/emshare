@@ -36,7 +36,7 @@ def test_page_retry_backoff_between_attempts(monkeypatch):
     ps = ProxySettings(api="http://x", num=1, ttl_sec=30, mode="always")
     router = ProxyRouter(ProxyPool(ps, session), ps)
     client = HttpClient(session, router, RetryPolicy(max_retries=0, backoff_sec=0.0), timeout_sec=2)
-    monkeypatch.setattr("em.application.market_data._build_client", lambda s: client)
+    monkeypatch.setattr("em.application.market_data._build_client", lambda s, **kw: client)
     slept: list[float] = []
     monkeypatch.setattr("em.application.market_data.time.sleep", slept.append)
 
@@ -70,6 +70,9 @@ def test_page_deadline_stops_retrying(monkeypatch) -> None:
             raise NetworkError("boom")
 
     class _FakeClient:
+        def close(self) -> None:
+            pass
+
         def timing_stats(self) -> dict[str, float]:
             return {}
 
@@ -82,7 +85,7 @@ def test_page_deadline_stops_retrying(monkeypatch) -> None:
         def evict_last_proxy(self, url: str) -> None:
             raise AssertionError("本用例不应触发淘汰")
 
-    monkeypatch.setattr(md, "_build_client", lambda s: _FakeClient())
+    monkeypatch.setattr(md, "_build_client", lambda s, **kw: _FakeClient())
     monkeypatch.setattr(md.registry, "EastMoneySource", _FakeSource)
 
     with pytest.raises(PageDeadlineExceeded):
@@ -114,6 +117,9 @@ def test_stock_list_all_carries_scope_to_every_page(monkeypatch) -> None:
             return QuotePage(total=250, items=(Quote(code=code, name=code),))
 
     class _FakeClient:
+        def close(self) -> None:
+            pass
+
         def timing_stats(self) -> dict[str, float]:
             from collections import defaultdict
 
@@ -128,7 +134,7 @@ def test_stock_list_all_carries_scope_to_every_page(monkeypatch) -> None:
         def evict_last_proxy(self, url: str) -> None:
             pass
 
-    monkeypatch.setattr(md, "_build_client", lambda s: _FakeClient())
+    monkeypatch.setattr(md, "_build_client", lambda s, **kw: _FakeClient())
     monkeypatch.setattr(md.registry, "EastMoneySource", _FakeSource)
 
     stock_list_all_em(MarketQuery(scope="kc"), max_rounds=1, workers=1)
@@ -287,6 +293,9 @@ def test_ledger_line_uses_page_count_not_record_count(monkeypatch, caplog) -> No
             )
 
     class _FakeClient:
+        def close(self) -> None:
+            pass
+
         def timing_stats(self) -> dict[str, float]:
             return {
                 "direct_requests": 0,
@@ -318,7 +327,7 @@ def test_ledger_line_uses_page_count_not_record_count(monkeypatch, caplog) -> No
         def available_proxies(self, url: str) -> int:
             return 0  # 直连态：不收敛并发
 
-    monkeypatch.setattr("em.application.market_data._build_client", lambda s: _FakeClient())
+    monkeypatch.setattr("em.application.market_data._build_client", lambda s, **kw: _FakeClient())
     monkeypatch.setattr("em.application.market_data.registry.EastMoneySource", _FakeSource)
     saved: list[tuple] = []
     monkeypatch.setattr("em.application.market_data.record_ledger", lambda *a: saved.append(a))

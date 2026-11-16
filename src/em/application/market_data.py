@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import atexit
 import functools
 import logging
 import threading
 import time
+import weakref
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import TYPE_CHECKING, Any
@@ -55,9 +57,11 @@ from em.application.dataframe import (
 from em.application.ledger import record as record_ledger
 from em.application.reports import fetch_report
 from em.channels.eastmoney import config as em_config
+from em.core import budget as budget_module
 from em.core.errors import PageDeadlineExceeded
 from em.core.proxy import ProxyPool, ProxyRouter, ProxySettings, proxy_url
 from em.core.resilience import RetryPolicy
+from em.core.session import BoundedProxyAdapter
 from em.core.settings import Settings
 from em.core.transport import HttpClient
 from em.domain.models import (
@@ -202,7 +206,7 @@ def _make_prober(session: requests.Session, read_timeout: float) -> Callable[[st
                 params=params,
                 headers=em_config.HEADERS,
                 proxies=proxies,
-                timeout=timeout,
+                timeout=budget_module.timeouts(*timeout),
             )
         except requests.RequestException as exc:
             # 区分 connect/read 只能靠日志：判死原因决定该调超时还是该换源
@@ -213,11 +217,10 @@ def _make_prober(session: requests.Session, read_timeout: float) -> Callable[[st
     return probe
 
 
-@functools.lru_cache(maxsize=8)
-def _build_client(settings: Settings) -> HttpClient:
+def _create_client(settings: Settings) -> HttpClient:
     session = requests.Session()
     # 代理 IP 是多 origin 的连接目标：放大连接池避免并发放大时反复建连
-    adapter = requests.adapters.HTTPAdapter(pool_connections=20, pool_maxsize=20)
+    adapter = BoundedProxyAdapter(pool_connections=20, pool_maxsize=20)
     session.mount("http://", adapter)
     session.mount("https://", adapter)
     ps = ProxySettings(
@@ -250,7 +253,7 @@ def _build_client(settings: Settings) -> HttpClient:
         backoff_cap_sec=settings.backoff_cap_sec,
         jitter_sec=settings.backoff_jitter_sec,
     )
-    return HttpClient(
+    client = HttpClient(
         session,
         router,
         policy,
@@ -260,11 +263,31 @@ def _build_client(settings: Settings) -> HttpClient:
         # 重试耗尽时：若是出口类失败且代理用不上，把"该配什么"挂到异常上，库调用也能看到
         exhausted_hint=lambda host, exc: hints.egress_hint(exc, settings, host),
     )
+    with _client_lock:
+        _clients.add(client)
+    return client
+
+
+_cached_client = functools.lru_cache(maxsize=8)(_create_client)
+_client_lock = threading.RLock()
+_clients: weakref.WeakSet[HttpClient] = weakref.WeakSet()
+
+
+def _build_client(settings: Settings, *, isolated: bool = False) -> HttpClient:
+    with _client_lock:
+        return _create_client(settings) if isolated else _cached_client(settings)
 
 
 def _reset_client_cache() -> None:
     """清空 client 缓存（测试用）。"""
-    _build_client.cache_clear()
+    with _client_lock:
+        for client in list(_clients):
+            client.close()
+        _clients.clear()
+        _cached_client.cache_clear()
+
+
+atexit.register(_reset_client_cache)
 
 
 def board_constituent_em(
@@ -349,6 +372,22 @@ def stock_list_all_em(
     max_rounds: int = 5,
     workers: int = _DEFAULT_FETCH_WORKERS,
 ) -> QuotePage:
+    """以独立客户端取全市场快照，任务完成后释放代理与连接资源。"""
+    if workers < 1:
+        raise ValueError("workers 必须 >= 1")
+    started = time.monotonic()
+    client = _build_client(settings or Settings.from_env(), isolated=True)
+    try:
+        result = _stock_list_all(query, max_rounds, workers, client)
+    finally:
+        client.close()
+    _record_snapshot(client, result, started)
+    return result
+
+
+def _stock_list_all(
+    query: MarketQuery | None, max_rounds: int, workers: int, client: HttpClient
+) -> QuotePage:
     """有界并发翻页拉取沪深京 A 股全市场快照（游客 clist 单页上限 100，约 56 页）。
 
     固定按代码（f12）稳定排序翻页——``query.sort`` 在此忽略：f3 等行情排序盘中实时
@@ -362,9 +401,7 @@ def stock_list_all_em(
     """
     if workers < 1:
         raise ValueError("workers 必须 >= 1")
-    started = time.monotonic()  # 端到端墙钟，落进账本用于跨天比较
     query = query or MarketQuery()
-    client = _build_client(settings or Settings.from_env())
     source = registry.EastMoneySource(client)
     seen: dict[str, Quote] = {}
     page_codes: dict[int, set[str]] = {}  # 每页最近一次返回的码集合，用于邻页重叠定位
@@ -401,7 +438,10 @@ def stock_list_all_em(
                 log.info("第%d页超预算（>%.0fs），标记失败交给补漏", page_no, budget)
                 break
             try:
-                page = source.fetch_page(request)
+                with budget_module.request_budget(deadline):
+                    page = source.fetch_page(request)
+            except PageDeadlineExceeded as exc:
+                return exc
             except Exception as exc:  # 传输层已换 IP 重试 10 次，此处兜底整页重试
                 last_exc = exc
                 if attempt < attempts - 1:  # 还有后继尝试才退避，末次失败直接返回
@@ -410,18 +450,22 @@ def stock_list_all_em(
             is_last = page_no == total_pages
             with lock:
                 has_new = any(q.code not in seen for q in page.items)
-            if not page.items and not is_last:
+            if not page.items and (not is_last or total > (page_no - 1) * _CLIST_PAGE_SIZE_MAX):
                 last_exc = ValueError(f"第{page_no}页空返回")
                 continue
             # 非末页“满页零新增”= 代理节点旧快照：淘汰该出口 IP 强制下轮换新，
             # 否则大概率还从同一节点拿到同一份旧快照，重试只是空耗
-            if not is_last and not has_new and dup_used < dup_retries:
+            if not is_last and page_no not in page_codes and not has_new and dup_used < dup_retries:
                 dup_used += 1
                 client.evict_last_proxy(request.url())
                 last_exc = ValueError(f"第{page_no}页返回重复快照")
                 continue
             with lock:
-                total = page.total
+                if page_no == 1 and 1 not in page_codes:
+                    total = page.total
+                elif page.total != total:
+                    last_exc = ValueError(f"第{page_no}页 total={page.total} 与首页 {total} 不一致")
+                    continue
                 codes = set()
                 for quote in page.items:
                     seen.setdefault(quote.code, quote)
@@ -496,6 +540,11 @@ def stock_list_all_em(
 
     if len(seen) < total:
         log.warning("全量拉取不完整：唯一 %d < total %d（代理资源不足）", len(seen), total)
+    return QuotePage(total=total, items=tuple(sorted(seen.values(), key=lambda quote: quote.code)))
+
+
+def _record_snapshot(client: HttpClient, result: QuotePage, started: float) -> None:
+    total_pages = -(-result.total // _CLIST_PAGE_SIZE_MAX)
     # 端到端耗时分解：请求分桶 + 代理获取（回源/预筛）+ 重试退避，每一秒可归因
     ts = client.timing_stats()
     pool = client.proxy_stats()
@@ -527,9 +576,7 @@ def stock_list_all_em(
                 stat.get("adopted", 0),
             )
     # 旁路记账：追加一行 JSONL，供跨天按源比较（写失败只告警，不影响本次结果）
-    record_ledger(pool, ts, total_pages, len(seen), time.monotonic() - started)
-    # 按代码排序输出：并发抓取的 dict 插入序是页完成序，对调用方不稳定
-    return QuotePage(total=total, items=tuple(sorted(seen.values(), key=lambda q: q.code)))
+    record_ledger(pool, ts, total_pages, len(result.items), time.monotonic() - started)
 
 
 def df_board_constituent_em(

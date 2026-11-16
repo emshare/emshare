@@ -15,7 +15,7 @@ from em.core.transport import HttpClient
 def _router_returning(ips: list[str], mode: str = "always") -> ProxyRouter:
     session = MagicMock(spec=requests.Session)
     session.get.return_value = MagicMock(text="\n".join(ips))
-    ps = ProxySettings(api="http://x", num=1, ttl_sec=30, mode=mode)  # type: ignore[arg-type]
+    ps = ProxySettings(api="http://x", num=len(ips), ttl_sec=30, mode=mode)  # type: ignore[arg-type]
     pool = ProxyPool(ps, session)
     return ProxyRouter(pool, ps)
 
@@ -292,7 +292,7 @@ def test_evict_last_proxy_uses_thread_local_route():
         def __init__(self) -> None:
             self.evicted: list[str] = []
 
-        def acquire(self, host: str) -> str | None:
+        def acquire(self, host: str, min_lifetime: float = 0.0) -> str | None:
             return {
                 "worker-A": "1.1.1.1:8080",
                 "worker-B": "2.2.2.2:8080",
@@ -300,6 +300,12 @@ def test_evict_last_proxy_uses_thread_local_route():
 
         def report_result(self, *args: object, **kwargs: object) -> None:
             pass
+
+        def remaining_lifetime(self, proxy: str) -> float:
+            return 27.0
+
+        def lifetime_requirement(self, requested: float) -> float:
+            return min(requested, 13.5)
 
         def report_proxy_failure(self, proxy: str | None) -> None:
             if proxy is not None:

@@ -1,8 +1,9 @@
 """弹性策略：重试参数数据化 + 退避计算 + 是否重试判定。"""
 
-import time
+import random
 from dataclasses import dataclass
 
+from em.core import budget
 from em.core.errors import ChannelError, HttpStatusError
 
 
@@ -29,8 +30,8 @@ class RetryPolicy:
         传 ``exc`` 时按失败类型选档；不传（旧调用/测试）保持指数退避口径。
         """
         if exc is not None and not _is_rate_limited(exc):
-            return self.connect_backoff_sec + self.jitter_sec
-        delay = self.backoff_sec * (2.0**attempt) + self.jitter_sec
+            return self.connect_backoff_sec + random.uniform(0.0, self.jitter_sec)
+        delay = self.backoff_sec * (2.0**attempt) + random.uniform(0.0, self.jitter_sec)
         if self.backoff_cap_sec is not None:
             delay = min(delay, self.backoff_cap_sec)
         return delay
@@ -50,5 +51,5 @@ def sleep_backoff(policy: RetryPolicy, attempt: int, exc: Exception | None = Non
     """退避 sleep 并返回实际等待秒数（0 = 未等待），供上层累计重试耗时。"""
     delay = policy.backoff_for(attempt, exc)
     if delay > 0:
-        time.sleep(delay)
+        budget.pause(delay)
     return delay

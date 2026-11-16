@@ -57,6 +57,10 @@ class NetworkError(ChannelError):
     retryable = True
 
 
+class ProxyUnavailableError(NetworkError):
+    """代理路由暂时没有可用出口；允许重试，但不能隐式改走直连。"""
+
+
 class ProxyConnectError(NetworkError):
     """出口连接不可用（connect 超时 / 被重置 / 远端断链）：换 IP 立刻见效，判死该出口。
 

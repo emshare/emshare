@@ -1,5 +1,6 @@
 """ProxyRouter 状态机行为锁：auto 模式直连↔代理↔探测、always/never、per-host 独立。"""
 
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import MagicMock
 
 import pytest
@@ -142,8 +143,8 @@ def test_auto_probe_only_one_direct_request_in_flight():
     router = ProxyRouter(pool, _settings())
     router._hosts["h"] = HostState("h", mode="probe")
     assert router.acquire("h") is None  # 唯一探测请求走直连
-    assert router.acquire("h") == "9.9.9.9:8080"  # 探测在途，其余走代理
-    assert router.acquire("h") == "9.9.9.9:8080"
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        assert list(executor.map(router.acquire, ["h", "h"])) == ["9.9.9.9:8080", "9.9.9.9:8080"]
     # 探测成功回归直连，单飞标志复位
     router.report_result("h", None, success=True)
     assert router.host_state("h").mode == "direct"
