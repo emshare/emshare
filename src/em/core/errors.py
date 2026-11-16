@@ -19,6 +19,10 @@ class ConfigError(EmError):
     """配置非法：重试无法恢复，立即上抛。"""
 
 
+class ProxyQuotaExceededError(EmError):
+    """首次使用代理的本地预算耗尽；禁止新出口使用，不按网络故障重试。"""
+
+
 class InterfaceNotFoundError(EmError):
     """接口检索未命中：接口名未知。"""
 

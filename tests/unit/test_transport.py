@@ -1,6 +1,7 @@
 """HttpClient 行为锁：重试次数、换 IP、off-by-one 日志边界。"""
 
 import threading
+from contextlib import nullcontext
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,6 +11,7 @@ from em.core.errors import NetworkError
 from em.core.proxy import ProxyPool, ProxyRouter, ProxySettings
 from em.core.resilience import RetryPolicy
 from em.core.transport import HttpClient
+from em.core.usage import UsageOutcome
 
 
 def _router_returning(ips: list[str], mode: str = "always") -> ProxyRouter:
@@ -306,6 +308,12 @@ def test_evict_last_proxy_uses_thread_local_route():
 
         def lifetime_requirement(self, requested: float) -> float:
             return min(requested, 13.5)
+
+        def reserve_usage(self, proxy: str) -> None:
+            pass
+
+        def usage_attempt(self, proxy: str | None):
+            return nullcontext(UsageOutcome())
 
         def report_proxy_failure(self, proxy: str | None) -> None:
             if proxy is not None:

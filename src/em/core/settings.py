@@ -31,6 +31,12 @@ def _bool_env(name: str, default: bool) -> bool:
     return raw.strip().lower() in ("1", "true", "yes", "on")
 
 
+def _optional_int_env(name: str) -> int | None:
+    if not os.getenv(name, "").strip():
+        return None
+    return _int_env(name, 0)
+
+
 def _float_env(name: str, default: float) -> float:
     raw = os.getenv(name)
     if raw is None or raw == "":
@@ -97,8 +103,27 @@ class Settings:
     backoff_sec: float = defaults.DEFAULT_BACKOFF_SEC
     backoff_cap_sec: float | None = defaults.DEFAULT_BACKOFF_CAP_SEC
     backoff_jitter_sec: float = defaults.DEFAULT_BACKOFF_JITTER_SEC
+    proxy_usage_db: str = ""
+    proxy_usage_free_limit: int | None = None
+    proxy_usage_paid_limit: int | None = None
+    proxy_usage_max_new: int | None = None
+    proxy_usage_balance_url: str = ""
+    proxy_usage_balance_refresh_sec: int = 30
 
     def __post_init__(self) -> None:
+        usage_limits = (
+            self.proxy_usage_free_limit,
+            self.proxy_usage_paid_limit,
+            self.proxy_usage_max_new,
+        )
+        if any(value is not None and value < 0 for value in usage_limits):
+            raise ConfigError("代理使用预算不能为负")
+        if (self.proxy_usage_db or any(value is not None for value in usage_limits)) and (
+            not self.proxy_usage_db or None in usage_limits[:2]
+        ):
+            raise ConfigError("使用额度保护须同时配置账本路径、免费和收费初始余额")
+        if self.proxy_usage_balance_refresh_sec < 1:
+            raise ConfigError("额度查询刷新间隔必须 >= 1")
         if self.request_timeout_sec <= 0 or self.proxy_timeout_sec <= 0:
             raise ConfigError("请求与代理超时必须为正")
         if self.proxy_safety_margin_sec < 0:
@@ -140,6 +165,12 @@ class Settings:
         apis = [os.getenv("EM_PROXY_API", defaults.DEFAULT_PROXY_API)]
         apis += [v for k, v in sorted(os.environ.items()) if k.startswith("EM_PROXY_API_")]
         return cls(
+            proxy_usage_db=os.getenv("EM_PROXY_USAGE_DB", "").strip(),
+            proxy_usage_free_limit=_optional_int_env("EM_PROXY_USAGE_FREE_LIMIT"),
+            proxy_usage_paid_limit=_optional_int_env("EM_PROXY_USAGE_PAID_LIMIT"),
+            proxy_usage_max_new=_optional_int_env("EM_PROXY_USAGE_MAX_NEW"),
+            proxy_usage_balance_url=os.getenv("EM_PROXY_BALANCE_URL", "").strip(),
+            proxy_usage_balance_refresh_sec=_int_env("EM_PROXY_BALANCE_REFRESH_SEC", 30),
             proxy_api=",".join(p.strip() for p in apis if p.strip()),
             proxy_enabled=_bool_env("EM_PROXY_ENABLED", True),
             proxy_num=_int_env("EM_PROXY_NUM", 1),

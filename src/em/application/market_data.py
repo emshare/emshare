@@ -10,6 +10,7 @@ import time
 import weakref
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import requests
@@ -58,12 +59,13 @@ from em.application.ledger import record as record_ledger
 from em.application.reports import fetch_report
 from em.channels.eastmoney import config as em_config
 from em.core import budget as budget_module
-from em.core.errors import PageDeadlineExceeded
+from em.core.errors import ConfigError, PageDeadlineExceeded, ProxyQuotaExceededError
 from em.core.proxy import ProxyPool, ProxyRouter, ProxySettings, proxy_url
 from em.core.resilience import RetryPolicy
 from em.core.session import BoundedProxyAdapter
 from em.core.settings import Settings
 from em.core.transport import HttpClient
+from em.core.usage import ProxyUsage, usage_http_result, usage_http_started
 from em.domain.models import (
     BalanceSheet,
     BillboardBranchActive,
@@ -201,23 +203,28 @@ def _make_prober(session: requests.Session, read_timeout: float) -> Callable[[st
     def probe(ip: str) -> bool:
         proxies = {"http": proxy_url(ip), "https": proxy_url(ip)}
         try:
+            timeout_values = budget_module.timeouts(*timeout)
+            usage_http_started()
             resp = session.get(
                 url,
                 params=params,
                 headers=em_config.HEADERS,
                 proxies=proxies,
-                timeout=budget_module.timeouts(*timeout),
+                timeout=timeout_values,
             )
         except requests.RequestException as exc:
+            usage_http_result(error=exc)
             # 区分 connect/read 只能靠日志：判死原因决定该调超时还是该换源
             log.debug("预筛判死 %s: %s: %s", ip, type(exc).__name__, str(exc)[:80])
             return False
+        usage_http_result(status_code=resp.status_code)
         return resp.status_code == 200 and '"rc"' in resp.text
 
     return probe
 
 
 def _create_client(settings: Settings) -> HttpClient:
+    usage = _usage_for(settings)
     session = requests.Session()
     # 代理 IP 是多 origin 的连接目标：放大连接池避免并发放大时反复建连
     adapter = BoundedProxyAdapter(pool_connections=20, pool_maxsize=20)
@@ -245,7 +252,7 @@ def _create_client(settings: Settings) -> HttpClient:
         if settings.proxy_prefilter
         else None
     )
-    pool = ProxyPool(ps, session, prober=prober, fallback_prober=fallback)
+    pool = ProxyPool(ps, session, prober=prober, fallback_prober=fallback, usage=usage)
     router = ProxyRouter(pool, ps)
     policy = RetryPolicy(
         max_retries=settings.max_retries,
@@ -271,6 +278,40 @@ def _create_client(settings: Settings) -> HttpClient:
 _cached_client = functools.lru_cache(maxsize=8)(_create_client)
 _client_lock = threading.RLock()
 _clients: weakref.WeakSet[HttpClient] = weakref.WeakSet()
+_usage_registry: dict[str, tuple[tuple[object, ...], ProxyUsage]] = {}
+
+
+def _usage_for(settings: Settings) -> ProxyUsage | None:
+    if not settings.proxy_usage_db:
+        return None
+    path = str(Path(settings.proxy_usage_db).expanduser().resolve())
+    signature = (
+        settings.proxy_api,
+        settings.proxy_usage_free_limit,
+        settings.proxy_usage_paid_limit,
+        settings.proxy_usage_max_new,
+        settings.proxy_usage_balance_url,
+        settings.proxy_usage_balance_refresh_sec,
+    )
+    with _client_lock:
+        if path in _usage_registry:
+            old_signature, usage = _usage_registry[path]
+            if signature != old_signature:
+                raise ConfigError("当前进程已启用此额度账本，不能通过更换配置重置使用预算")
+            return usage
+        assert settings.proxy_usage_free_limit is not None
+        assert settings.proxy_usage_paid_limit is not None
+        usage = ProxyUsage(
+            path,
+            [url.strip() for url in settings.proxy_api.split(",") if url.strip()],
+            settings.proxy_usage_free_limit,
+            settings.proxy_usage_paid_limit,
+            settings.proxy_usage_max_new,
+            settings.proxy_usage_balance_url,
+            settings.proxy_usage_balance_refresh_sec,
+        )
+        _usage_registry[path] = (signature, usage)
+        return usage
 
 
 def _build_client(settings: Settings, *, isolated: bool = False) -> HttpClient:
@@ -342,11 +383,7 @@ def _effective_workers(workers: int, live_proxies: int) -> int:
 
 
 def _ledger_line(pool: dict[str, Any], pages: int) -> str:
-    """把采购账本拼成一行：厂商按次计费，"买 → 用 → 有产出"必须同屏可见。
-
-    只看 ``ips_adopted`` 会高估效率（它不含预筛淘汰的已付费 IP），因此这里同时给出
-    交付量、去重数、淘汰率与"单有效 IP 页数"——后者才是衡量代理成本的真正指标。
-    """
+    """输出交付、预筛与业务利用率；首次使用预占另记于usage_account_snapshot。"""
     calls = int(pool.get("fetch_calls", 0) or 0)
     returned = int(pool.get("ips_returned", 0) or 0)
     unique = int(pool.get("ips_unique", 0) or 0)
@@ -359,7 +396,7 @@ def _ledger_line(pool: dict[str, Any], pages: int) -> str:
     rejected_pct = 100.0 * rejected / returned if returned else 0.0
     pages_per_ip = pages / productive if productive else 0.0
     return (
-        f"代理账本：采购 {returned}（{calls} 次回源）｜去重 {unique}｜"
+        f"代理账本：提取 {returned}（{calls} 次回源）｜去重 {unique}｜"
         f"预筛淘汰 {rejected}（{rejected_pct:.0f}%）｜进池 {adopted}｜服役 {served}｜"
         f"有产出 {productive}｜单有效 IP {pages_per_ip:.1f} 页｜软失败 {soft}｜"
         f"降级放行 {degraded}"
@@ -442,6 +479,8 @@ def _stock_list_all(
                     page = source.fetch_page(request)
             except PageDeadlineExceeded as exc:
                 return exc
+            except ProxyQuotaExceededError:
+                raise
             except Exception as exc:  # 传输层已换 IP 重试 10 次，此处兜底整页重试
                 last_exc = exc
                 if attempt < attempts - 1:  # 还有后继尝试才退避，末次失败直接返回
@@ -563,7 +602,6 @@ def _record_snapshot(client: HttpClient, result: QuotePage, started: float) -> N
         ts["backoff_sec"],
         ts["failed_attempts"],
     )
-    # 采购账本：与后台"消耗 IP 数"对账的唯一依据（厂商按返回条数计费，用没用到都算）
     log.info("%s", _ledger_line(pool, total_pages))
     for name, stat in sorted((pool.get("source_stats") or {}).items()):
         if stat.get("calls"):

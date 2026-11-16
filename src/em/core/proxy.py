@@ -9,7 +9,9 @@ import logging
 import re
 import threading
 import time
-from collections.abc import Callable
+import uuid
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager, contextmanager
 from contextvars import copy_context
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -18,7 +20,8 @@ from urllib.parse import urlparse
 import requests
 
 from em.core import budget
-from em.core.errors import ConfigError, ProxyUnavailableError
+from em.core.errors import ConfigError, ProxyQuotaExceededError, ProxyUnavailableError
+from em.core.usage import ProxyUsage, UsageLease, UsageOutcome, UsagePhase
 
 log = logging.getLogger(__name__)
 
@@ -56,7 +59,6 @@ class ProxySettings:
     proxy_successes: int = 5
     cooldown_sec: int = 300
     # 参与回源预筛的源数量（按 ``api`` 书写顺序，前 N 个）。
-    # 收费备用源默认不预筛：淘汰等于把付费配额直接扔掉，死 IP 交给业务请求自然淘汰
     prefilter_sources: int = 1
     # 默认降级快筛：实测同窗口对照下失败数 4→1 / 11→5 / 10→0，采购从未更高；
     # adopt（暂停预筛直接放行）保留为回退路径，出问题可用环境变量切回
@@ -100,8 +102,7 @@ def fetch_proxies(
     """从代理源取一批 'ip:port'；采购失败返回空列表，路由决定如何处理。
 
     ``url`` 缺省取 ``settings.api`` 首个源（多源逗号分隔，主源在前）。
-    返回**解析出的全部行**，按 ``num`` 截断由调用方处理——厂商按返回条数计费，
-    重复行与超量行同样计费，账本需要看到原始交付量才能对上后台消耗。
+    返回全部解析条目供交付统计，调用方去重与截断；提取本身不预占使用额度。
     """
     url = url or settings.api.split(",")[0].strip()
     try:
@@ -115,8 +116,6 @@ def fetch_proxies(
     lines = [ln.strip() for ln in text.splitlines() if _PROXY_RE.match(ln.strip())]
     if not lines and text:
         log.warning("代理源返回非预期格式，本轮未获取代理")
-    # 原样返回（不去重）：采购账本要按交付行数对账，重复行同样计费；
-    # 去重只影响"可用名额"，在 _fetch_batch 截断前做
     return lines
 
 
@@ -162,9 +161,14 @@ class ProxyPool:
         session: requests.Session,
         prober: Callable[[str], bool] | None = None,
         fallback_prober: Callable[[str], bool] | None = None,
+        usage: ProxyUsage | None = None,
     ) -> None:
         self._settings = settings
         self._session = session
+        self._usage = usage
+        self.client_id = uuid.uuid4().hex
+        self._usage_leases: dict[str, UsageLease] = {}
+        self._usage_local = threading.local()
         self._prober = prober
         # 降级窗口内使用的快筛（读超时更短）；None 或非 lenient 模式时退回 adopt 行为
         self._fallback_prober = fallback_prober
@@ -197,8 +201,6 @@ class ProxyPool:
         # 连败熔断：某源连续"整批不可用"的次数与冷却截止时刻（逐源，避免拖累备用源）
         self._dead_streak: dict[str, int] = {}
         self._source_dead_until: dict[str, float] = {}
-        # 采购账本：厂商按"返回条数"计费，与是否使用无关，因此把"交付 → 去重 → 进池
-        # → 服役 → 有产出"五段都记下来，否则只能靠后台面板反推消耗了多少配额
         self._ips_unique: set[str] = set()
         self._ips_served: set[str] = set()  # 真正发出过业务请求的 IP
         self._ips_productive: set[str] = set()  # 至少成功过一次业务请求的 IP
@@ -214,12 +216,14 @@ class ProxyPool:
         }
         # 健康指标（只读快照见 stats()）：回源调用/空返回/耗时、采纳 IP 数、失败上报次数
         self._stats = {
+            "usage_filtered": 0,
+            "usage_prefilter_denied": 0,
             "lifetime_filtered": 0,
             "lifetime_hold_rejected": 0,
             "lifetime_refill_suppressed": 0,
             "fetch_calls": 0,
             "fetch_empty": 0,
-            "ips_returned": 0,  # 厂商交付行数合计（计费口径）
+            "ips_returned": 0,
             "ips_adopted": 0,
             "ip_failures": 0,  # 淘汰（硬失败或连续两次软失败）
             "soft_failures": 0,  # 读超时次数（首次软失败不淘汰）
@@ -253,6 +257,7 @@ class ProxyPool:
         快速路径（current/standby 命中）只瞬时持状态锁；需要回源时改用独立的
         ``_refill_lock`` 单飞——回源期间不阻塞其他线程的失败上报与状态读取，
         同样缺 IP 的线程在锁外等待同一批结果，避免并发打代理 API 浪费提取配额。
+        ``min_lifetime`` 为本次请求期望的剩余秒数，准入最多预留半个有效租期。
         """
         if not self._settings.enabled or self._closed:
             return None
@@ -349,6 +354,8 @@ class ProxyPool:
                     proxy = self._refill()
                     # 成功=已换血；失败=继续用旧批次到硬到期（不阻塞业务线程）
                     log.info("代理池后台续期：%s", "成功" if proxy else "失败，沿用旧批次")
+        except ProxyQuotaExceededError:
+            log.info("代理池后台续期停止：首次使用预算耗尽")
         finally:
             with self._lock:
                 self._renewing = False
@@ -378,13 +385,16 @@ class ProxyPool:
                 self._current = None  # current 过期：同批 standby 一并过期
             self._standby = [p for p in self._standby if self._is_live(p)]
             pool_ips = ([self._current] if self._current else []) + self._standby
-            eligible = [
+            live_enough = [
                 entry
                 for entry in pool_ips
                 if self._remaining_locked(entry) > self.lifetime_requirement(min_lifetime)
             ]
-            if len(eligible) != len(pool_ips):
+            if len(live_enough) != len(pool_ips):
                 self._stats["lifetime_filtered"] += 1
+            eligible = [entry for entry in live_enough if self._usage_eligible(entry)]
+            if len(eligible) != len(live_enough):
+                self._stats["usage_filtered"] += 1
             if not eligible:
                 return None
             pick = min(eligible, key=lambda entry: self._in_flight.get(entry, 0))
@@ -392,18 +402,57 @@ class ProxyPool:
             self._standby = [p for p in pool_ips if p != pick]
             self._in_flight[pick] = self._in_flight.get(pick, 0) + 1
             self._remember(self._ips_served, pick)
+            self._usage_local.lease = (pick, self._usage_leases.get(pick))
             return pick
+
+    def _usage_eligible(self, proxy: str) -> bool:
+        if self._usage is None:
+            return True
+        lease = self._usage_leases.get(proxy)
+        return lease is not None and self._usage.can_use(lease)
+
+    def reserve_usage(self, proxy: str, phase: UsagePhase = "business") -> None:
+        """预筛与业务请求共用首次使用预占；必须在实际网络请求之前调用。"""
+        if self._usage is None:
+            return
+        self._usage.reserve(self._usage_lease(proxy, phase), phase, self.client_id)
+
+    def _usage_lease(self, proxy: str, phase: UsagePhase) -> UsageLease:
+        bound = getattr(self._usage_local, "lease", None)
+        with self._lock:
+            lease = (
+                bound[1]
+                if phase == "business" and bound and bound[0] == proxy
+                else self._usage_leases.get(proxy)
+            )
+        if lease is None:
+            raise ProxyQuotaExceededError("代理缺少可核验的来源和租期，拒绝使用")
+        return lease
+
+    @contextmanager
+    def usage_attempt(
+        self, proxy: str | None, phase: UsagePhase = "business"
+    ) -> Iterator[UsageOutcome]:
+        if self._usage is None or proxy is None:
+            yield UsageOutcome()
+            return
+        with self._usage.attempt(self._usage_lease(proxy, phase), phase, self.client_id) as outcome:
+            yield outcome
 
     def release(self, proxy: str | None) -> None:
         """归还取用（与 acquire/refill 发出配对）：在飞计数减一，归零清除。"""
         if proxy is None:
             return
+        bound = getattr(self._usage_local, "lease", None)
+        if bound and bound[0] == proxy:
+            self._usage_local.lease = None
         with self._lock:
             count = self._in_flight.get(proxy, 0) - 1
             if count <= 0:
                 self._in_flight.pop(proxy, None)
                 if proxy != self._current and proxy not in self._standby:
                     self._adopted_at.pop(proxy, None)
+                    self._usage_leases.pop(proxy, None)
             else:
                 self._in_flight[proxy] = count
 
@@ -457,8 +506,11 @@ class ProxyPool:
             if self._remaining_locked(proxy) <= self.lifetime_requirement(min_lifetime):
                 self._stats["lifetime_hold_rejected"] += 1
                 return False
+            if not self._usage_eligible(proxy):
+                return False
             self._in_flight[proxy] = self._in_flight.get(proxy, 0) + 1
             self._remember(self._ips_served, proxy)
+            self._usage_local.lease = (proxy, self._usage_leases.get(proxy))
             return True
 
     def _remember(self, history: set[str], proxy: str) -> None:
@@ -468,17 +520,14 @@ class ProxyPool:
             self._history_truncated = True
 
     def stats(self) -> dict[str, Any]:
-        """只读快照：健康指标 + 采购账本（五段 IP 漏斗与分源统计）。
-
-        厂商按次计费，``fetch_calls × num`` 才是账单口径，``ips_adopted`` 只是
-        "进池数"——两者之差就是预筛淘汰与重复返回带来的浪费。
-        """
+        """健康、交付、业务利用率，以及独立持久化的首次使用预占快照。"""
         with self._lock:
             out: dict[str, Any] = dict(self._stats)
             out["ips_unique"] = len(self._ips_unique)
             out["ips_served"] = len(self._ips_served)
             out["ips_productive"] = len(self._ips_productive)
             out["history_truncated"] = self._history_truncated
+            out["client_id"] = self.client_id
             out["source_stats"] = {k: dict(v) for k, v in self._source_stats.items()}
             # 哪些源参与预筛：未预筛的源"淘汰率恒为 0"是构造出来的，不能与预筛源比质量
             out["prefiltered"] = (
@@ -490,7 +539,10 @@ class ProxyPool:
                 if self._prober is not None
                 else []
             )
-            return out
+        if self._usage is not None:
+            out["usage"] = self._usage.snapshot()
+            out["usage_client"] = self._usage.client_audit(self.client_id)["summary"]
+        return out
 
     def _is_live(self, proxy: str | None) -> bool:
         """按该 IP 自己的采纳时刻判断是否过期（调用方持 ``_lock``）。"""
@@ -515,9 +567,14 @@ class ProxyPool:
         # 单源配置必须忽略降级窗口，否则窗口内 urls 为空、整段时间一个 IP 都拿不到
         primary_off = self._has_backup and now < self._primary_off_until
         primary = self._apis[0] if self._apis else ""
+        permitted = {url for url in self._apis if self._usage is None or self._usage.can_start(url)}
+        if self._usage is not None and not permitted:
+            raise ProxyQuotaExceededError("所有配置来源的首次使用预算均已耗尽")
         with self._lock:
             urls: list[str] = []
             for url in self._apis:
+                if url not in permitted:
+                    continue
                 if primary_off and url == primary:
                     continue
                 if url in self._source_dead_until:
@@ -534,14 +591,20 @@ class ProxyPool:
             budget.remaining()
             t0 = time.monotonic()
             lines = fetch_proxies(self._settings, self._session, url)
-            # 计费按原始交付量算；去重只影响可用名额——同一 IP 重复返回不该占掉 num，
-            # 但它确实被计费了，所以"交付"与"进池"要分开记账
             ips = list(dict.fromkeys(lines))[: self._settings.num]
             elapsed = time.monotonic() - t0
             with self._lock:
                 self._stats["fetch_calls"] += 1
                 self._stats["refill_sec"] += elapsed
                 self._record_purchase(url, lines)
+            if self._usage is not None:
+                expires = time.time() + self._settings.ttl_sec - elapsed
+                batch_id = self._usage.record_delivery(url, self.client_id, len(lines))
+                leases = {
+                    proxy: self._usage.register(url, proxy, expires, batch_id) for proxy in ips
+                }
+                with self._lock:
+                    self._usage_leases.update(leases)
             if ips:
                 self._batch_started_at = t0
                 if (
@@ -566,7 +629,7 @@ class ProxyPool:
         return [], None
 
     def _record_purchase(self, url: str, lines: list[str]) -> None:
-        """记一次回源交付（调用方持 ``self._lock``）：厂商按返回条数计费。"""
+        """记录解析交付数（调用方持状态锁），不代表首次使用或实际扣费。"""
         self._stats["ips_returned"] += len(lines)
         for proxy in lines:
             self._remember(self._ips_unique, proxy)
@@ -609,9 +672,9 @@ class ProxyPool:
                 with self._lock:
                     known = [entry for entry in fresh if self._is_live(entry)]
                 if len(known) == len(fresh):
+                    self._reset_dead_streak(source)
                     return self._adopt(fresh, source)
                 if not self._prefilter_enabled(source):
-                    # 该源不参与预筛（收费源，淘汰等于浪费配额）
                     self._reset_dead_streak(source)
                     return self._adopt(fresh, source)
                 if degraded and not self._lenient:
@@ -632,6 +695,8 @@ class ProxyPool:
                     return self._adopt(alive, source)
             # 本批不可用（整批黑名单/筛死）：计入连败，短退避后再拉下一轮。
             # 不退避会连打正在限流的代理 API，把冷却窗口拖得更长
+            if self._usage is not None and source is not None and not self._usage.can_start(source):
+                continue
             self._note_dead_batch(source)
             if round_no < 2:
                 budget.pause(_REFILL_ROUND_BACKOFF_SEC)
@@ -673,8 +738,7 @@ class ProxyPool:
     def _prefilter_enabled(self, source: str | None) -> bool:
         """该源是否参与预筛：``prefilter_sources`` 限定前 N 个源（书写顺序）。
 
-        免费主源死 IP 率高，筛掉能省业务重试；收费备用源本身质量较好且按个计费，
-        预筛淘汰等于把买来的 IP 直接扔掉，因此默认只筛主源。
+        预筛也属于代理使用，由统一预占入口计量；不开预筛时首次使用发生在业务请求前。
         """
         if self._prober is None:
             return False
@@ -695,13 +759,28 @@ class ProxyPool:
         prober = self._fallback_prober if use_fallback else self._prober
         if prober is None:
             return ips
+
+        def probe(proxy: str) -> bool | None:
+            budget.remaining()
+            try:
+                with self.usage_attempt(proxy, "prefilter") as outcome:
+                    accepted = prober(proxy)
+                    outcome.accepted = accepted
+                    return accepted
+            except ProxyQuotaExceededError:
+                with self._lock:
+                    self._stats["usage_prefilter_denied"] += 1
+                return None
+            except ProxyUnavailableError:
+                return None
+
         t0 = time.monotonic()
         with concurrent.futures.ThreadPoolExecutor(max_workers=self._PREFILTER_WORKERS) as ex:
-            futures = [ex.submit(copy_context().run, prober, ip) for ip in ips]
+            futures = [ex.submit(copy_context().run, probe, ip) for ip in ips]
             alive_flags = [future.result() for future in futures]
         budget.remaining()
         alive = [ip for ip, ok in zip(ips, alive_flags, strict=True) if ok]
-        dead = [ip for ip, ok in zip(ips, alive_flags, strict=True) if not ok]
+        dead = [ip for ip, ok in zip(ips, alive_flags, strict=True) if ok is False]
         if dead:
             now = time.monotonic()
             with self._lock:
@@ -747,7 +826,7 @@ class ProxyPool:
                 self._batch_started_at + self._settings.ttl_sec - self._settings.safety_margin_sec
             ):
                 return None
-            ips = [ip for ip in ips if ip not in self._failed_at]
+            ips = [ip for ip in ips if ip not in self._failed_at and self._usage_eligible(ip)]
             if not ips:
                 return None
             if all(self._is_live(entry) for entry in ips):
@@ -763,6 +842,13 @@ class ProxyPool:
                 ip: self._adopted_at[ip] if self._is_live(ip) else self._batch_started_at
                 for ip in installed
             }
+            if self._usage is not None:
+                for entry in installed:
+                    lease = self._usage_leases[entry]
+                    lease_start = (
+                        time.monotonic() + lease.expires_at - time.time() - self._settings.ttl_sec
+                    )
+                    adopted_at[entry] = min(adopted_at[entry], lease_start)
             adopted_at.update(
                 {
                     entry: value
@@ -773,6 +859,9 @@ class ProxyPool:
             self._current = installed[0]
             self._standby = installed[1:]
             self._adopted_at = adopted_at
+            self._usage_leases = {
+                entry: lease for entry, lease in self._usage_leases.items() if entry in adopted_at
+            }
             self._stats["ips_adopted"] += len(ips)
             label = self._source_labels.get(source) if source else None
             if label is not None:
@@ -1005,6 +1094,12 @@ class ProxyRouter:
 
     def remaining_lifetime(self, proxy: str) -> float:
         return self._pool.remaining_lifetime(proxy)
+
+    def reserve_usage(self, proxy: str) -> None:
+        self._pool.reserve_usage(proxy)
+
+    def usage_attempt(self, proxy: str | None) -> AbstractContextManager[UsageOutcome]:
+        return self._pool.usage_attempt(proxy)
 
     def _on_direct(self, state: HostState, success: bool, banned: bool) -> None:
         if success:

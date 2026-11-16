@@ -25,6 +25,7 @@ from em.core.errors import (
 )
 from em.core.proxy import ProxyRouter, proxy_url
 from em.core.resilience import RetryPolicy, should_retry, sleep_backoff
+from em.core.usage import usage_http_result, usage_http_started
 
 log = logging.getLogger(__name__)
 
@@ -129,6 +130,7 @@ class HttpClient:
         不通过视为出口代理劫持，按失败上报并换 IP 重试——避免 200 错误页被误记为成功。
         ``read_timeout`` 是端点级读预算下限（大响应体用），**允许超过静态上限**：
         它是"这个接口需要多久"的声明，与按历史耗时自适应的动态值不是一回事。
+        代理请求仍受剩余租期和外层 deadline 限制，实际超时可能低于端点提示。
         """
         host = urlparse(url).hostname or ""
         if self._closed:
@@ -298,8 +300,10 @@ class HttpClient:
         if self._closed:
             return
         self._closed = True
-        self._router.close()
-        self._session.close()
+        try:
+            self._router.close()
+        finally:
+            self._session.close()
 
     def available_proxies(self, url: str) -> int:
         """该 URL 所属 host 的可用出口数（0=直连态或池空）：分页并发按它收敛。"""
@@ -344,16 +348,28 @@ class HttpClient:
                 raise ProxyUnavailableError("代理剩余有效期不足以发起本次请求")
             connect = min(timeout[0], remaining / 2)
             timeout = (connect, min(timeout[1], remaining - connect))
-        try:
-            resp = self._session.get(
-                url, params=params, headers=headers, proxies=proxies, timeout=timeout
-            )
-        except requests.RequestException as exc:
-            raise _classify(exc) from exc
-        if resp.status_code != 200:
-            raise HttpStatusError(resp.status_code)
-        if not resp.text:
-            raise EmptyResponseError("空响应(Empty reply)")
-        if validator is not None and not validator(resp.text):
-            raise InvalidContentError(f"响应体未通过协议校验: {resp.text[:80]!r}")
-        return resp.text
+        with self._router.usage_attempt(proxy) as outcome:
+            timeout = budget.timeouts(*timeout)
+            if proxy is not None:
+                remaining = self._router.remaining_lifetime(proxy)
+                if remaining <= 0:
+                    raise ProxyUnavailableError("额度预占后代理租期已到期")
+                connect = min(timeout[0], remaining / 2)
+                timeout = (connect, min(timeout[1], remaining - connect))
+            try:
+                usage_http_started()
+                resp = self._session.get(
+                    url, params=params, headers=headers, proxies=proxies, timeout=timeout
+                )
+            except requests.RequestException as exc:
+                usage_http_result(error=exc)
+                raise _classify(exc) from exc
+            usage_http_result(status_code=resp.status_code)
+            if resp.status_code != 200:
+                raise HttpStatusError(resp.status_code)
+            if not resp.text:
+                raise EmptyResponseError("空响应(Empty reply)")
+            if validator is not None and not validator(resp.text):
+                raise InvalidContentError(f"响应体未通过协议校验: {resp.text[:80]!r}")
+            outcome.accepted = True
+            return resp.text

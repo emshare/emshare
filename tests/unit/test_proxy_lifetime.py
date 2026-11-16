@@ -254,3 +254,19 @@ def test_pool_overlap_and_live_lease_metadata_are_bounded(clock, monkeypatch):
     pool.release(oldest)
     assert oldest not in pool._adopted_at
     assert pool._in_flight == {}
+
+
+def test_known_live_delivery_resets_streak_without_reprobing(clock, monkeypatch):
+    _client, pool, supplier, _business = make_client(monkeypatch, ["192.0.2.1:80", "192.0.2.1:80"])
+    prober = MagicMock(return_value=True)
+    pool._prober = prober
+    proxy = pool.acquire()
+    pool.release(proxy)
+    source = pool._apis[0]
+    pool._dead_streak[source] = 1
+    clock[0] = 25
+    pool._renew_worker()
+    assert prober.call_count == 1
+    assert supplier.get.call_count == 2
+    assert source not in pool._dead_streak
+    assert pool.remaining_lifetime(proxy) == 2

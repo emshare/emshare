@@ -47,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"账本：{path}｜最近 {len(rows)} 次运行")
     print(
-        f"总页数 {pages}｜采购 {returned}｜进池 {adopted}｜有产出 {productive}"
+        f"总页数 {pages}｜提取 {returned}｜进池 {adopted}｜有产出 {productive}"
         f"｜单有效 IP {pages / max(productive, 1):.1f} 页"
         f"｜失败 {failed}｜熔断 {trips}｜降级放行 {degraded}"
     )

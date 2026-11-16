@@ -205,7 +205,6 @@ def test_build_client_wires_prober_to_business_session() -> None:
 
 
 def test_ledger_line_reports_purchase_funnel() -> None:
-    # 与后台"消耗 IP 数"对账的口径：采购 = 回源次数 × 每次交付，而不是进池数
     pool = {
         "fetch_calls": 3,
         "ips_returned": 15,
@@ -217,7 +216,7 @@ def test_ledger_line_reports_purchase_funnel() -> None:
         "soft_failures": 2,
     }
     line = _ledger_line(pool, pages=56)
-    assert "采购 15（3 次回源）" in line
+    assert "提取 15（3 次回源）" in line
     assert "去重 14" in line
     assert "预筛淘汰 9（60%）" in line
     assert "进池 6" in line
@@ -229,7 +228,7 @@ def test_ledger_line_reports_purchase_funnel() -> None:
 def test_ledger_line_handles_empty_pool() -> None:
     # 全程直连（代理未启用）时不能除零，账本行仍要可读
     line = _ledger_line({}, pages=0)
-    assert "采购 0" in line
+    assert "提取 0" in line
     assert "单有效 IP 0.0 页" in line
 
 
