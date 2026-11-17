@@ -17,6 +17,7 @@ from em.application.market_data import (
     stock_trends_em,
 )
 from em.application.resolve import resolve_board, resolve_code
+from em.core.settings import Settings
 from em.domain.models import (
     BoardFundFlowSeries,
     FundFlowSeries,
@@ -40,13 +41,18 @@ def kline_by_name(
     adjust: str = "qfq",
     beg: str = "0",
     end: str = "20500101",
+    settings: Settings | None = None,
 ) -> KlineSeries | None:
     """按中文名取 K 线（``resolve_code`` → ``stock_kline_em``）。查不到返回 ``None``。"""
-    ref = resolve_code(name)
+    settings = settings or Settings.from_env()
+    ref = resolve_code(name, settings=settings)
     if ref is None:
         return None
     return stock_kline_em(
-        KlineQuery(code=ref.code, market=ref.market, period=period, adjust=adjust, beg=beg, end=end)
+        KlineQuery(
+            code=ref.code, market=ref.market, period=period, adjust=adjust, beg=beg, end=end
+        ),
+        settings=settings,
     )
 
 
@@ -56,22 +62,28 @@ def trends_by_name(
     ndays: int = 1,
     iscr: int = 0,
     iscca: int = 0,
+    settings: Settings | None = None,
 ) -> TrendSeries | None:
     """按中文名取分时行情（``resolve_code`` → ``stock_trends_em``）。查不到返回 ``None``。"""
-    ref = resolve_code(name)
+    settings = settings or Settings.from_env()
+    ref = resolve_code(name, settings=settings)
     if ref is None:
         return None
     return stock_trends_em(
-        TrendQuery(code=ref.code, market=ref.market, ndays=ndays, iscr=iscr, iscca=iscca)
+        TrendQuery(code=ref.code, market=ref.market, ndays=ndays, iscr=iscr, iscca=iscca),
+        settings=settings,
     )
 
 
-def stock_fund_flow_by_name(name: str) -> FundFlowSeries | None:
+def stock_fund_flow_by_name(
+    name: str, *, settings: Settings | None = None
+) -> FundFlowSeries | None:
     """按中文名取个股历史资金流。查不到返回 ``None``。"""
-    ref = resolve_code(name)
+    settings = settings or Settings.from_env()
+    ref = resolve_code(name, settings=settings)
     if ref is None:
         return None
-    return stock_fund_flow_em(FundFlowQuery(code=ref.code, market=ref.market))
+    return stock_fund_flow_em(FundFlowQuery(code=ref.code, market=ref.market), settings=settings)
 
 
 def board_constituent_by_name(
@@ -80,17 +92,24 @@ def board_constituent_by_name(
     period: str = "10d",
     page: int = 1,
     size: int = 8,
+    settings: Settings | None = None,
 ) -> QuotePage | None:
     """按中文名取板块成分股（``resolve_board`` → ``board_constituent_em``）。查不到返回 ``None``。"""
-    ref = resolve_board(name)
+    settings = settings or Settings.from_env()
+    ref = resolve_board(name, settings=settings)
     if ref is None:
         return None
-    return board_constituent_em(BoardQuery(board=ref.code, period=period, page=page, size=size))
+    return board_constituent_em(
+        BoardQuery(board=ref.code, period=period, page=page, size=size), settings=settings
+    )
 
 
-def board_fund_flow_by_name(name: str) -> BoardFundFlowSeries | None:
+def board_fund_flow_by_name(
+    name: str, *, settings: Settings | None = None
+) -> BoardFundFlowSeries | None:
     """按中文名取板块历史资金流。查不到返回 ``None``。"""
-    ref = resolve_board(name)
+    settings = settings or Settings.from_env()
+    ref = resolve_board(name, settings=settings)
     if ref is None:
         return None
-    return board_fund_flow_em(BoardFundFlowQuery(board=ref.code))
+    return board_fund_flow_em(BoardFundFlowQuery(board=ref.code), settings=settings)

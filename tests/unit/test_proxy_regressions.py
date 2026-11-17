@@ -378,7 +378,7 @@ def test_each_snapshot_has_isolated_accounting_and_closes_session(monkeypatch):
         "record_ledger",
         lambda pool, timing, *args: rows.append(timing["direct_requests"]),
     )
-    with patch.object(market_data.requests, "Session", side_effect=sessions):
+    with patch.object(market_data, "ExplicitProxySession", side_effect=sessions):
         market_data.stock_list_all_em(settings=Settings(proxy_mode="never"))
         market_data.stock_list_all_em(settings=Settings(proxy_mode="never"))
     assert rows == [1, 1]

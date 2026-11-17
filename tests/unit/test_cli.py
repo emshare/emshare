@@ -317,6 +317,7 @@ class _FakeSettings:
         self.proxy_enabled = proxy_enabled
         self.proxy_mode = proxy_mode
         self.proxy_api = proxy_api
+        self.fixed_proxy = None
 
 
 def test_is_egress_failure_classifies_correctly() -> None:

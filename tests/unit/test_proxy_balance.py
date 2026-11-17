@@ -40,7 +40,7 @@ def fake_provider(monkeypatch, total=10, used=9):
     session = MagicMock()
     session.__enter__.return_value = session
     session.get.return_value = response
-    monkeypatch.setattr("em.core.usage.requests.Session", lambda: session)
+    monkeypatch.setattr("em.core.usage.ExplicitProxySession", lambda: session)
     return session, response
 
 
@@ -208,7 +208,6 @@ def test_non_200_and_redirect_are_not_valid_snapshots(tmp_path, monkeypatch):
     manager = make_usage(tmp_path)
     assert manager.refresh_balance(force=True) is None
     assert session.get.call_args.kwargs["allow_redirects"] is False
-    assert session.trust_env is False
 
 
 def test_balance_cache_returns_copy_and_avoids_extra_queries(tmp_path, monkeypatch):

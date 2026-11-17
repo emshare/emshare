@@ -73,6 +73,16 @@ class ProxyConnectError(NetworkError):
     """
 
 
+class RemoteDisconnectError(ProxyConnectError):
+    """目标未响应即断连/重置；只是疑似限流信号，不等同于已确认封禁。"""
+
+
+class EgressRetryStopped(NetworkError):
+    """当前调用同一出口连续疑似限流或固定代理失败；页级与整轮不得再兜底。"""
+
+    retryable = False
+
+
 class UpstreamReadTimeout(NetworkError):
     """连接已建立但读取超时：多为慢页或瞬时抖动，按软失败处理（同 IP 重试一次）。
 

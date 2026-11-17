@@ -2,11 +2,12 @@
 
 import math
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from em.core import defaults
 from em.core.errors import ConfigError
+from em.core.fixed_proxy import validate_proxy_url
 
 ProxyMode = Literal["auto", "always", "never"]
 _VALID_MODES = ("auto", "always", "never")
@@ -109,8 +110,27 @@ class Settings:
     proxy_usage_max_new: int | None = None
     proxy_usage_balance_url: str = ""
     proxy_usage_balance_refresh_sec: int = 30
+    proxy_usage_free_daily_limit: int = 0
+    proxy_url: str = field(default="", repr=False)
 
     def __post_init__(self) -> None:
+        validate_proxy_url(self.proxy_url)
+        if self.proxy_url and self.proxy_api.strip():
+            raise ConfigError("proxy_url 与 proxy_api（含备用源）不能同时配置")
+        if self.proxy_url and (
+            self.proxy_usage_db
+            or self.proxy_usage_free_daily_limit
+            or self.proxy_usage_balance_url
+            or any(
+                v is not None
+                for v in (
+                    self.proxy_usage_free_limit,
+                    self.proxy_usage_paid_limit,
+                    self.proxy_usage_max_new,
+                )
+            )
+        ):
+            raise ConfigError("固定代理不能配置动态代理的采购额度或余额查询")
         usage_limits = (
             self.proxy_usage_free_limit,
             self.proxy_usage_paid_limit,
@@ -124,6 +144,11 @@ class Settings:
             raise ConfigError("使用额度保护须同时配置账本路径、免费和收费初始余额")
         if self.proxy_usage_balance_refresh_sec < 1:
             raise ConfigError("额度查询刷新间隔必须 >= 1")
+        if self.proxy_usage_free_daily_limit < 0 or (
+            self.proxy_usage_free_daily_limit
+            and (not self.proxy_usage_db or not self.proxy_usage_balance_url)
+        ):
+            raise ConfigError("免费每日额度须非负且同时配置余额接口与使用账本")
         if self.request_timeout_sec <= 0 or self.proxy_timeout_sec <= 0:
             raise ConfigError("请求与代理超时必须为正")
         if self.proxy_safety_margin_sec < 0:
@@ -158,6 +183,15 @@ class Settings:
         if self.backoff_jitter_sec < 0:
             raise ConfigError("backoff_jitter_sec 不能为负")
 
+    @property
+    def fixed_proxy(self) -> str | None:
+        """实际启用的固定出口；never 和总开关优先。"""
+        return (
+            self.proxy_url
+            if self.proxy_url and self.proxy_enabled and self.proxy_mode != "never"
+            else None
+        )
+
     @classmethod
     def from_env(cls) -> "Settings":
         # 多源代理：EM_PROXY_API 为主源，EM_PROXY_API_* 后缀 KEY（如 _BACKUP）按名拼接为备用源，
@@ -165,12 +199,14 @@ class Settings:
         apis = [os.getenv("EM_PROXY_API", defaults.DEFAULT_PROXY_API)]
         apis += [v for k, v in sorted(os.environ.items()) if k.startswith("EM_PROXY_API_")]
         return cls(
+            proxy_url=os.getenv("EM_PROXY_URL", "").strip(),
             proxy_usage_db=os.getenv("EM_PROXY_USAGE_DB", "").strip(),
             proxy_usage_free_limit=_optional_int_env("EM_PROXY_USAGE_FREE_LIMIT"),
             proxy_usage_paid_limit=_optional_int_env("EM_PROXY_USAGE_PAID_LIMIT"),
             proxy_usage_max_new=_optional_int_env("EM_PROXY_USAGE_MAX_NEW"),
             proxy_usage_balance_url=os.getenv("EM_PROXY_BALANCE_URL", "").strip(),
             proxy_usage_balance_refresh_sec=_int_env("EM_PROXY_BALANCE_REFRESH_SEC", 30),
+            proxy_usage_free_daily_limit=_int_env("EM_PROXY_USAGE_FREE_DAILY_LIMIT", 0),
             proxy_api=",".join(p.strip() for p in apis if p.strip()),
             proxy_enabled=_bool_env("EM_PROXY_ENABLED", True),
             proxy_num=_int_env("EM_PROXY_NUM", 1),

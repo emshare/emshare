@@ -291,7 +291,7 @@ def test_missing_source_mapping_fails_before_session_construction(tmp_path, monk
         proxy_usage_paid_limit=5,
     )
     session = MagicMock()
-    monkeypatch.setattr(market_data.requests, "Session", session)
+    monkeypatch.setattr(market_data, "ExplicitProxySession", session)
     with pytest.raises(ConfigError):
         market_data._create_client(settings)
     session.assert_not_called()
@@ -494,7 +494,7 @@ def test_balance_refresh_parses_count_package_without_network_in_unit(tmp_path, 
     session = MagicMock()
     session.get.return_value = response
     session.__enter__.return_value = session
-    monkeypatch.setattr("em.core.usage.requests.Session", lambda: session)
+    monkeypatch.setattr("em.core.usage.ExplicitProxySession", lambda: session)
     result = manager.refresh_balance(force=True)
     assert result["available"] == 852
     assert result["total"] == 8000
@@ -513,7 +513,7 @@ def test_remote_balance_can_tighten_local_capacity(tmp_path, monkeypatch):
     session = MagicMock()
     session.get.return_value = response
     session.__enter__.return_value = session
-    monkeypatch.setattr("em.core.usage.requests.Session", lambda: session)
+    monkeypatch.setattr("em.core.usage.ExplicitProxySession", lambda: session)
     assert not manager.can_start(PAID)
 
 

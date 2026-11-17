@@ -9,6 +9,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import parse_qs, urlsplit
@@ -17,8 +18,60 @@ import requests
 
 from em.core import budget
 from em.core.errors import ConfigError, ProxyQuotaExceededError, ProxyUnavailableError
+from em.core.session import ExplicitProxySession
 
 UsagePhase = Literal["prefilter", "business"]
+_BEIJING = timezone(timedelta(hours=8))
+
+
+def _quota_day(timestamp: float | None = None) -> str:
+    return (
+        datetime.fromtimestamp(time.time() if timestamp is None else timestamp, _BEIJING)
+        .date()
+        .isoformat()
+    )
+
+
+def _package_counts(package: dict[str, Any]) -> tuple[int, int]:
+    if package.get("valid") not in (True, "true"):
+        raise ValueError("套餐失效")
+    numbers = []
+    for name in ("num", "use"):
+        value = package.get(name)
+        if isinstance(value, bool) or not isinstance(value, (int, str)):
+            raise ValueError("次数字段必须为非负整数")
+        text = str(value).strip()
+        if not text.isascii() or not text.isdigit():
+            raise ValueError("次数字段必须为非负整数")
+        numbers.append(int(text))
+    total, used = numbers
+    if used > total:
+        raise ValueError("已用次数超过总额")
+    return total, used
+
+
+def _free_balance(payload: Any, day: str) -> tuple[int, int, float] | None:
+    if not isinstance(payload, dict) or payload.get("success") not in (True, "true"):
+        return None
+    packages = payload.get("data")
+    if not isinstance(packages, list):
+        return None
+    free = [
+        entry for entry in packages if isinstance(entry, dict) and entry.get("type") == "免费套餐"
+    ]
+    if len(free) != 1:
+        return None
+    try:
+        total, used = _package_counts(free[0])
+        expires = datetime.strptime(free[0]["enddate"], "%Y/%m/%d %H:%M:%S").replace(
+            tzinfo=_BEIJING
+        )
+        expected = datetime.fromisoformat(day).replace(tzinfo=_BEIJING) + timedelta(days=1)
+        if expires != expected:
+            return None
+        return total, used, expires.timestamp()
+    except (ValueError, TypeError, KeyError):
+        return None
 
 
 @dataclass(frozen=True)
@@ -69,19 +122,7 @@ def _count_balance(payload: Any) -> tuple[int, int]:
     ]
     if len(counts) != 1 or counts[0].get("valid") not in (True, "true"):
         raise ValueError("次数套餐缺失、失效或不唯一")
-    numbers = []
-    for name in ("num", "use"):
-        value = counts[0].get(name)
-        if isinstance(value, bool) or not isinstance(value, (int, str)):
-            raise ValueError("次数字段必须为非负整数")
-        text = str(value).strip()
-        if not text.isascii() or not text.isdigit():
-            raise ValueError("次数字段必须为非负整数")
-        numbers.append(int(text))
-    total, used = numbers
-    if used > total:
-        raise ValueError("已用次数超过总额")
-    return total, used
+    return _package_counts(counts[0])
 
 
 class ProxyUsage:
@@ -96,14 +137,19 @@ class ProxyUsage:
         max_new: int | None = None,
         balance_url: str = "",
         balance_refresh_sec: int = 30,
+        free_daily_limit: int = 0,
     ) -> None:
         if min(free_limit, paid_limit) < 0 or (max_new is not None and max_new < 0):
             raise ConfigError("代理使用额度不能为负")
+        if free_daily_limit < 0 or (free_daily_limit and not balance_url):
+            raise ConfigError("免费每日额度须为非负数，启用时必须配置余额接口")
+        self.free_daily_limit = free_daily_limit
         self.path = Path(path).expanduser().resolve()
         self.balance_url = balance_url.strip()
         self.balance_refresh_sec = max(balance_refresh_sec, 1)
         self._balance_lock = threading.Lock()
         self._balance_checked_at = -float("inf")
+        self._balance_day = ""
         self._remote_payload: dict[str, Any] | None = None
         self.sources: dict[str, str] = {}
         kinds: dict[str, str] = {}
@@ -187,6 +233,27 @@ class ProxyUsage:
             connection.execute("""CREATE TABLE IF NOT EXISTS remote_limits (
                 account_id TEXT PRIMARY KEY, ceiling INTEGER NOT NULL, total INTEGER NOT NULL,
                 used INTEGER NOT NULL, queried REAL NOT NULL, checked REAL NOT NULL)""")
+            connection.execute("""CREATE TABLE IF NOT EXISTS free_daily_limits (
+                source TEXT NOT NULL, day TEXT NOT NULL, ceiling INTEGER NOT NULL,
+                reserved INTEGER NOT NULL DEFAULT 0, total INTEGER NOT NULL, used INTEGER NOT NULL,
+                queried REAL NOT NULL, checked REAL NOT NULL, expires REAL NOT NULL,
+                valid INTEGER NOT NULL, PRIMARY KEY(source,day))""")
+            connection.execute("""CREATE TABLE IF NOT EXISTS free_daily_uses (
+                source TEXT NOT NULL, day TEXT NOT NULL, lease_token TEXT NOT NULL,
+                PRIMARY KEY(source,day,lease_token))""")
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(remote_limits)")}
+            if "scope" not in columns:
+                connection.execute(
+                    "ALTER TABLE remote_limits ADD COLUMN scope TEXT NOT NULL DEFAULT 'account'"
+                )
+            connection.execute("""UPDATE remote_limits SET ceiling=MAX(0,ceiling-
+                COALESCE((SELECT reserved FROM accounts WHERE source=remote_limits.account_id||':free'),0)),
+                scope='paid' WHERE scope='account'""")
+            attempt_columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(usage_attempts)")
+            }
+            if "quota_day" not in attempt_columns:
+                connection.execute("ALTER TABLE usage_attempts ADD COLUMN quota_day TEXT")
             for source, kind in kinds.items():
                 quota = free_limit if kind == "free" else paid_limit
                 connection.execute(
@@ -239,16 +306,46 @@ class ProxyUsage:
         run = connection.execute(
             "SELECT quota,reserved FROM runs WHERE id=?", (self.run_id,)
         ).fetchone()
-        available = account[0] - account[1] if account is not None else 0
-        remote = self._remote_capacity(connection)
-        if remote is not None:
-            available = min(available, remote)
+        if self._daily_source(source):
+            available = self._daily_remaining(connection, source)
+        else:
+            available = account[0] - account[1] if account is not None else 0
+            if source.endswith(":paid"):
+                remote = self._remote_capacity(connection)
+                if remote is not None:
+                    available = min(available, remote)
         return available > 0 and (run[0] is None or run[1] < run[0])
+
+    def _daily_source(self, source: str) -> bool:
+        return bool(self.free_daily_limit) and source.endswith(":free")
+
+    def _daily_remaining(self, connection: sqlite3.Connection, source: str) -> int:
+        row = connection.execute(
+            """SELECT ceiling,reserved,valid,used FROM free_daily_limits
+            WHERE source=? AND day=? AND expires>?""",
+            (source, _quota_day(), time.time()),
+        ).fetchone()
+        if row is None or not row[2]:
+            return 0
+        return max(0, min(int(row[0]), self.free_daily_limit) - int(row[1]))
+
+    def _already_reserved(
+        self, connection: sqlite3.Connection, lease: UsageLease, reserved: int
+    ) -> bool:
+        if not self._daily_source(lease.source):
+            return bool(reserved)
+        return (
+            connection.execute(
+                "SELECT 1 FROM free_daily_uses WHERE source=? AND day=? AND lease_token=?",
+                (lease.source, _quota_day(), lease.token),
+            ).fetchone()
+            is not None
+        )
 
     def _reserved_total(self, connection: sqlite3.Connection) -> int:
         row = connection.execute(
-            "SELECT COALESCE(SUM(reserved),0) FROM accounts WHERE source IN (?,?)",
-            (f"{self.account_id}:free", f"{self.account_id}:paid"),
+            "SELECT COALESCE(SUM(reserved),0) FROM accounts WHERE source=?",
+            (f"{self.account_id}:paid",),
         ).fetchone()
         return int(row[0])
 
@@ -264,20 +361,36 @@ class ProxyUsage:
             return None
         with budget.acquire_lock(self._balance_lock):
             now = time.monotonic()
-            if not force and now - self._balance_checked_at < self.balance_refresh_sec:
+            day = _quota_day()
+            if (
+                not force
+                and now - self._balance_checked_at < self.balance_refresh_sec
+                and (not self.free_daily_limit or self._balance_day == day)
+            ):
                 return dict(self._remote_payload) if self._remote_payload is not None else None
             with self._transaction() as connection:
                 reserved_before = self._reserved_total(connection)
+                free_before_row = connection.execute(
+                    "SELECT reserved FROM free_daily_limits WHERE source=? AND day=?",
+                    (f"{self.account_id}:free", day),
+                ).fetchone()
+                free_reserved_before = free_before_row[0] if free_before_row else 0
             query_started = time.time()
             try:
-                with requests.Session() as session:
-                    session.trust_env = False
+                with ExplicitProxySession() as session:
                     response = session.get(
                         self.balance_url, timeout=budget.timeouts(3.0, 8.0), allow_redirects=False
                     )
                 if response.status_code != 200:
                     raise ValueError("余额接口未返回HTTP200")
-                total, used = _count_balance(response.json())
+                payload = response.json()
+                free_package = _free_balance(payload, day)
+                try:
+                    paid_package = _count_balance(payload)
+                except ValueError:
+                    if free_package is None or not self.free_daily_limit:
+                        raise
+                    paid_package = None
             except (
                 OSError,
                 ValueError,
@@ -286,32 +399,74 @@ class ProxyUsage:
                 requests.RequestException,
             ):
                 self._balance_checked_at = time.monotonic()
+                self._balance_day = day
                 return dict(self._remote_payload) if self._remote_payload is not None else None
             checked_at = time.time()
-            ceiling = reserved_before + total - used
             with self._transaction() as connection:
-                connection.execute(
-                    """INSERT INTO remote_limits VALUES (?,?,?,?,?,?)
+                if paid_package is not None:
+                    total, used = paid_package
+                    ceiling = reserved_before + total - used
+                    connection.execute(
+                        """INSERT INTO remote_limits(account_id,ceiling,total,used,queried,checked,scope)
+                    VALUES (?,?,?,?,?,?,'paid')
                     ON CONFLICT(account_id) DO UPDATE SET
                     ceiling=MIN(remote_limits.ceiling,excluded.ceiling),
                     total=CASE WHEN excluded.queried>=remote_limits.queried THEN excluded.total ELSE remote_limits.total END,
                     used=CASE WHEN excluded.queried>=remote_limits.queried THEN excluded.used ELSE remote_limits.used END,
                     checked=CASE WHEN excluded.queried>=remote_limits.queried THEN excluded.checked ELSE remote_limits.checked END,
                     queried=MAX(remote_limits.queried,excluded.queried)""",
-                    (self.account_id, ceiling, total, used, query_started, checked_at),
-                )
+                        (self.account_id, ceiling, total, used, query_started, checked_at),
+                    )
                 saved = connection.execute(
                     "SELECT total,used,checked FROM remote_limits WHERE account_id=?",
                     (self.account_id,),
                 ).fetchone()
-            self._remote_payload = {
-                "available": saved[0] - saved[1],
-                "total": saved[0],
-                "used": saved[1],
-                "checked_at": saved[2],
-            }
+                if self.free_daily_limit and _quota_day(checked_at) == day:
+                    free_source = f"{self.account_id}:free"
+                    if free_package is not None:
+                        free_total, free_used, expires = free_package
+                        ceiling_free = free_reserved_before + max(
+                            0, min(free_total, self.free_daily_limit) - free_used
+                        )
+                        connection.execute(
+                            """INSERT INTO free_daily_limits
+                            (source,day,ceiling,total,used,queried,checked,expires,valid)
+                            VALUES (?,?,?,?,?,?,?,?,1)
+                            ON CONFLICT(source,day) DO UPDATE SET
+                            ceiling=MIN(free_daily_limits.ceiling,excluded.ceiling),
+                            total=excluded.total,used=excluded.used,queried=excluded.queried,
+                            checked=excluded.checked,expires=excluded.expires,valid=1
+                            WHERE excluded.queried>=free_daily_limits.queried""",
+                            (
+                                free_source,
+                                day,
+                                ceiling_free,
+                                free_total,
+                                free_used,
+                                query_started,
+                                checked_at,
+                                expires,
+                            ),
+                        )
+                    else:
+                        connection.execute(
+                            """UPDATE free_daily_limits SET valid=0,queried=?,checked=?
+                            WHERE source=? AND day=? AND queried<=?""",
+                            (query_started, checked_at, free_source, day, query_started),
+                        )
+            self._remote_payload = (
+                {
+                    "available": saved[0] - saved[1],
+                    "total": saved[0],
+                    "used": saved[1],
+                    "checked_at": saved[2],
+                }
+                if saved is not None
+                else None
+            )
             self._balance_checked_at = time.monotonic()
-            return dict(self._remote_payload)
+            self._balance_day = day
+            return dict(self._remote_payload) if self._remote_payload is not None else None
 
     def can_start(self, api: str) -> bool:
         self.refresh_balance()
@@ -373,7 +528,10 @@ class ProxyUsage:
             return (
                 row is not None
                 and row[1] > time.time()
-                and (bool(row[0]) or self._capacity(connection, lease.source))
+                and (
+                    self._already_reserved(connection, lease, row[0])
+                    or self._capacity(connection, lease.source)
+                )
             )
 
     def reserve(self, lease: UsageLease, phase: UsagePhase, client_id: str = "") -> str:
@@ -396,7 +554,9 @@ class ProxyUsage:
             ).fetchone()
             if client_id and delivery is None:
                 raise ProxyQuotaExceededError("当前客户端缺少代理交付记录，拒绝使用")
-            if not row[0]:
+            first_use = not self._already_reserved(connection, lease, row[0])
+            quota_day = _quota_day() if self._daily_source(lease.source) else None
+            if first_use:
                 if not self._capacity(connection, lease.source):
                     raise ProxyQuotaExceededError("代理首次使用预算已耗尽")
                 connection.execute(
@@ -404,6 +564,15 @@ class ProxyUsage:
                 )
                 connection.execute("UPDATE runs SET reserved=reserved+1 WHERE id=?", (self.run_id,))
                 connection.execute("UPDATE leases SET reserved=1 WHERE token=?", (lease.token,))
+                if quota_day is not None:
+                    connection.execute(
+                        "UPDATE free_daily_limits SET reserved=reserved+1 WHERE source=? AND day=?",
+                        (lease.source, quota_day),
+                    )
+                    connection.execute(
+                        "INSERT INTO free_daily_uses VALUES (?,?,?)",
+                        (lease.source, quota_day, lease.token),
+                    )
             first_phase_use = not row[2 if phase == "prefilter" else 3]
             if phase == "prefilter":
                 connection.execute(
@@ -422,8 +591,8 @@ class ProxyUsage:
             attempt_id = uuid.uuid4().hex
             connection.execute(
                 """INSERT INTO usage_attempts
-                (id,run_id,client_id,batch_id,lease_token,source,identity,phase,first_use,started)
-                VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                (id,run_id,client_id,batch_id,lease_token,source,identity,phase,first_use,started,quota_day)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     attempt_id,
                     self.run_id,
@@ -433,8 +602,9 @@ class ProxyUsage:
                     lease.source,
                     row[4],
                     phase,
-                    int(not row[0]),
+                    int(first_use),
                     time.time(),
+                    quota_day,
                 ),
             )
         return attempt_id
@@ -489,7 +659,7 @@ class ProxyUsage:
                 for row in connection.execute(
                     """SELECT id,run_id,client_id,batch_id,
                 lease_token,substr(source,instr(source,':')+1) AS source,identity,phase,first_use,
-                started,finished,elapsed,state,sent,status_code,error_type,accepted
+                started,finished,elapsed,state,sent,status_code,error_type,accepted,quota_day
                 FROM usage_attempts WHERE client_id=? ORDER BY started,id""",
                     (client_id,),
                 )
@@ -521,6 +691,16 @@ class ProxyUsage:
                 "SELECT total,used,checked FROM remote_limits WHERE account_id=?",
                 (self.account_id,),
             ).fetchone()
+            free_row = connection.execute(
+                """SELECT day,total,used,reserved,checked,expires,valid
+                FROM free_daily_limits WHERE source=? AND day=?""",
+                (f"{self.account_id}:free", _quota_day()),
+            ).fetchone()
+            free_remaining = (
+                self._daily_remaining(connection, f"{self.account_id}:free")
+                if self.free_daily_limit
+                else None
+            )
         active = set(self.sources.values())
         return {
             "basis": "local_first_use_reservations_not_provider_billing",
@@ -528,7 +708,9 @@ class ProxyUsage:
                 row[1]: {
                     "initial": row[2],
                     "reserved": row[3],
-                    "remaining": row[2] - row[3],
+                    "remaining": free_remaining
+                    if row[1] == "free" and self.free_daily_limit
+                    else row[2] - row[3],
                     "prefilter_used": row[4],
                     "business_used": row[5],
                     "prefilter_attempts": row[6],
@@ -547,4 +729,17 @@ class ProxyUsage:
             if remote_row is not None
             else None,
             "remote_guard_remaining": remote_capacity,
+            "free_daily": {
+                "enabled": bool(self.free_daily_limit),
+                "day": _quota_day(),
+                "timezone": "Asia/Shanghai",
+                "limit": self.free_daily_limit,
+                "remaining": free_remaining,
+                "observed_total": free_row[1] if free_row else None,
+                "observed_used": free_row[2] if free_row else None,
+                "reserved_today": free_row[3] if free_row else 0,
+                "checked_at": free_row[4] if free_row else None,
+                "valid_until": free_row[5] if free_row else None,
+                "valid": bool(free_row and free_row[6]),
+            },
         }

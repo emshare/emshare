@@ -21,6 +21,7 @@ import requests
 
 from em.core import budget
 from em.core.errors import ConfigError, ProxyQuotaExceededError, ProxyUnavailableError
+from em.core.session import ExplicitProxySession
 from em.core.usage import ProxyUsage, UsageLease, UsageOutcome, UsagePhase
 
 log = logging.getLogger(__name__)
@@ -97,7 +98,7 @@ def proxy_url(entry: str) -> str:
 
 
 def fetch_proxies(
-    settings: ProxySettings, session: requests.Session, url: str | None = None
+    settings: ProxySettings, session: ExplicitProxySession, url: str | None = None
 ) -> list[str]:
     """从代理源取一批 'ip:port'；采购失败返回空列表，路由决定如何处理。
 
@@ -158,7 +159,7 @@ class ProxyPool:
     def __init__(
         self,
         settings: ProxySettings,
-        session: requests.Session,
+        session: ExplicitProxySession,
         prober: Callable[[str], bool] | None = None,
         fallback_prober: Callable[[str], bool] | None = None,
         usage: ProxyUsage | None = None,

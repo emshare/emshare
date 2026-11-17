@@ -56,6 +56,8 @@ def egress_hint(exc: BaseException, settings: Settings, host: str = "") -> str |
     """
     if not is_egress_failure(exc):
         return None
+    if settings.fixed_proxy:
+        return "固定代理请求失败；请检查代理服务、认证和上游限制。此配置不会自动更换 IP 或采购动态代理。"
     gap = _proxy_gap(settings)
     if gap is None:
         return None

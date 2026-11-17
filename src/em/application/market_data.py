@@ -56,13 +56,21 @@ from em.application.dataframe import (
     to_trend_dataframe,
 )
 from em.application.ledger import record as record_ledger
+from em.application.pagination import PageRetryGuard
 from em.application.reports import fetch_report
 from em.channels.eastmoney import config as em_config
+from em.channels.eastmoney.network import disconnect_may_be_limited
 from em.core import budget as budget_module
-from em.core.errors import ConfigError, PageDeadlineExceeded, ProxyQuotaExceededError
+from em.core.errors import (
+    ConfigError,
+    EgressRetryStopped,
+    PageDeadlineExceeded,
+    ProxyQuotaExceededError,
+)
+from em.core.fixed_proxy import FixedProxyRouter
 from em.core.proxy import ProxyPool, ProxyRouter, ProxySettings, proxy_url
 from em.core.resilience import RetryPolicy
-from em.core.session import BoundedProxyAdapter
+from em.core.session import BoundedProxyAdapter, ExplicitProxySession
 from em.core.settings import Settings
 from em.core.transport import HttpClient
 from em.core.usage import ProxyUsage, usage_http_result, usage_http_started
@@ -185,7 +193,7 @@ _PROXY_PROBE_MAX_SEC = 3.0
 _PROXY_PROBE_LENIENT_SEC = 1.5
 
 
-def _make_prober(session: requests.Session, read_timeout: float) -> Callable[[str], bool]:
+def _make_prober(session: ExplicitProxySession, read_timeout: float) -> Callable[[str], bool]:
     """构造回源预筛回调：用业务 Session 探测，把已建立的连接预热给业务请求。
 
     ``requests`` 的 ``HTTPAdapter`` 按 (代理, 目标 host) 缓存连接池，探测与业务请求
@@ -224,36 +232,40 @@ def _make_prober(session: requests.Session, read_timeout: float) -> Callable[[st
 
 
 def _create_client(settings: Settings) -> HttpClient:
-    usage = _usage_for(settings)
-    session = requests.Session()
+    usage = None if settings.proxy_url else _usage_for(settings)
+    session = ExplicitProxySession()
     # 代理 IP 是多 origin 的连接目标：放大连接池避免并发放大时反复建连
     adapter = BoundedProxyAdapter(pool_connections=20, pool_maxsize=20)
     session.mount("http://", adapter)
     session.mount("https://", adapter)
-    ps = ProxySettings(
-        api=settings.proxy_api,
-        enabled=settings.proxy_enabled,
-        num=settings.proxy_num,
-        ttl_sec=settings.proxy_ttl_sec,
-        safety_margin_sec=settings.proxy_safety_margin_sec,
-        timeout_sec=settings.proxy_timeout_sec,
-        mode=settings.proxy_mode,
-        direct_fails=settings.proxy_direct_fails,
-        proxy_successes=settings.proxy_proxy_successes,
-        cooldown_sec=settings.proxy_cooldown_sec,
-        prefilter_sources=settings.proxy_prefilter_sources,
-        degraded_mode=settings.proxy_degraded_mode,
-    )
-    probe_read = min(float(settings.request_timeout_sec), _PROXY_PROBE_MAX_SEC)
-    prober = _make_prober(session, probe_read) if settings.proxy_prefilter else None
-    # 降级快筛只在 lenient 模式下由池子选用；adopt 模式仍走"暂停预筛"的老行为
-    fallback = (
-        _make_prober(session, min(probe_read, _PROXY_PROBE_LENIENT_SEC))
-        if settings.proxy_prefilter
-        else None
-    )
-    pool = ProxyPool(ps, session, prober=prober, fallback_prober=fallback, usage=usage)
-    router = ProxyRouter(pool, ps)
+    router: ProxyRouter | FixedProxyRouter
+    if settings.proxy_url:
+        router = FixedProxyRouter(settings.fixed_proxy)
+    else:
+        ps = ProxySettings(
+            api=settings.proxy_api,
+            enabled=settings.proxy_enabled,
+            num=settings.proxy_num,
+            ttl_sec=settings.proxy_ttl_sec,
+            safety_margin_sec=settings.proxy_safety_margin_sec,
+            timeout_sec=settings.proxy_timeout_sec,
+            mode=settings.proxy_mode,
+            direct_fails=settings.proxy_direct_fails,
+            proxy_successes=settings.proxy_proxy_successes,
+            cooldown_sec=settings.proxy_cooldown_sec,
+            prefilter_sources=settings.proxy_prefilter_sources,
+            degraded_mode=settings.proxy_degraded_mode,
+        )
+        probe_read = min(float(settings.request_timeout_sec), _PROXY_PROBE_MAX_SEC)
+        prober = _make_prober(session, probe_read) if settings.proxy_prefilter else None
+        # 降级快筛只在 lenient 模式下由池子选用；adopt 模式仍走"暂停预筛"的老行为
+        fallback = (
+            _make_prober(session, min(probe_read, _PROXY_PROBE_LENIENT_SEC))
+            if settings.proxy_prefilter
+            else None
+        )
+        pool = ProxyPool(ps, session, prober=prober, fallback_prober=fallback, usage=usage)
+        router = ProxyRouter(pool, ps)
     policy = RetryPolicy(
         max_retries=settings.max_retries,
         backoff_sec=settings.backoff_sec,
@@ -269,6 +281,7 @@ def _create_client(settings: Settings) -> HttpClient:
         dynamic_timeout=settings.request_dynamic_timeout,
         # 重试耗尽时：若是出口类失败且代理用不上，把"该配什么"挂到异常上，库调用也能看到
         exhausted_hint=lambda host, exc: hints.egress_hint(exc, settings, host),
+        disconnect_may_be_limited=disconnect_may_be_limited,
     )
     with _client_lock:
         _clients.add(client)
@@ -292,6 +305,7 @@ def _usage_for(settings: Settings) -> ProxyUsage | None:
         settings.proxy_usage_max_new,
         settings.proxy_usage_balance_url,
         settings.proxy_usage_balance_refresh_sec,
+        settings.proxy_usage_free_daily_limit,
     )
     with _client_lock:
         if path in _usage_registry:
@@ -309,6 +323,7 @@ def _usage_for(settings: Settings) -> ProxyUsage | None:
             settings.proxy_usage_max_new,
             settings.proxy_usage_balance_url,
             settings.proxy_usage_balance_refresh_sec,
+            settings.proxy_usage_free_daily_limit,
         )
         _usage_registry[path] = (signature, usage)
         return usage
@@ -444,6 +459,7 @@ def _stock_list_all(
     page_codes: dict[int, set[str]] = {}  # 每页最近一次返回的码集合，用于邻页重叠定位
     lock = threading.Lock()
     total = 0
+    retry_guard = PageRetryGuard()
 
     def fetch_one(
         page_no: int, total_pages: int, dup_retries: int, budget: float | None = None
@@ -475,11 +491,11 @@ def _stock_list_all(
                 log.info("第%d页超预算（>%.0fs），标记失败交给补漏", page_no, budget)
                 break
             try:
-                with budget_module.request_budget(deadline):
+                with retry_guard.attempt(), budget_module.request_budget(deadline):
                     page = source.fetch_page(request)
             except PageDeadlineExceeded as exc:
                 return exc
-            except ProxyQuotaExceededError:
+            except (ProxyQuotaExceededError, EgressRetryStopped):
                 raise
             except Exception as exc:  # 传输层已换 IP 重试 10 次，此处兜底整页重试
                 last_exc = exc

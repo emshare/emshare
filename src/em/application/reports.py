@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import TypeVar
 
 from em.application import registry
+from em.application.pagination import PageRetryGuard
 from em.channels.eastmoney.datacenter import ReportChunk
 from em.channels.eastmoney.request import DatacenterRequest
 from em.core.errors import ChannelError
@@ -79,7 +80,8 @@ def _fetch_round(
     request: DatacenterRequest[T],
 ) -> list[ReportChunk[T]]:
     """取一轮：首页定总页数，其余页并发取；返回按页号排列的各页。"""
-    first = _fetch_page(source, request)
+    retry_guard = PageRetryGuard()
+    first = _fetch_page(source, request, retry_guard)
     if first.pages <= 1:
         return [first]
     workers = _effective_workers(
@@ -87,17 +89,22 @@ def _fetch_round(
     )
     pages = range(2, first.pages + 1)
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        rest = list(pool.map(lambda page: _fetch_page(source, request.with_page(page)), pages))
+        rest = list(
+            pool.map(lambda page: _fetch_page(source, request.with_page(page), retry_guard), pages)
+        )
     return [first, *rest]
 
 
-def _fetch_page(source: registry.EastMoneySource, request: DatacenterRequest[T]) -> ReportChunk[T]:
+def _fetch_page(
+    source: registry.EastMoneySource, request: DatacenterRequest[T], retry_guard: PageRetryGuard
+) -> ReportChunk[T]:
     """取单页：传输层已换 IP 重试，耗尽后页级再兜底一次；查询写错等非渠道异常直接上抛。"""
     for attempt in range(1, _PAGE_ATTEMPTS + 1):
         try:
-            return source.fetch_report_page(request)
-        except ChannelError:
-            if attempt == _PAGE_ATTEMPTS:
+            with retry_guard.attempt():
+                return source.fetch_report_page(request)
+        except ChannelError as exc:
+            if not exc.retryable or attempt == _PAGE_ATTEMPTS:
                 raise
             log.info(
                 "报表 %s 第 %d 页失败，%.1fs 后重取",

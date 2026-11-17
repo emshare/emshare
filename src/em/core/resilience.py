@@ -13,7 +13,7 @@ class RetryPolicy:
 
     退避按失败类型分两档：
     - 封禁信号（403/429）：服务端在限流，指数退避并封顶，避免顶风请求；
-    - 其余（连接失败/超时/空响应/坏内容）：换的是全新出口 IP，固定极短等待即可，
+    - 其余（连接失败/超时/空响应/坏内容）：固定短等待，
       不做指数惩罚，避免把代理 IP（TTL 仅数十秒）在长退避里拖过期。
     """
 
@@ -21,7 +21,7 @@ class RetryPolicy:
     backoff_sec: float = 0.2
     backoff_cap_sec: float | None = None
     jitter_sec: float = 0.0
-    # 连接/内容类失败（每次都是新 IP）的固定退避
+    # 连接/内容类失败的固定退避；无法换出口时的连续疑似限流由传输层提前终止
     connect_backoff_sec: float = 0.1
 
     def backoff_for(self, attempt: int, exc: Exception | None = None) -> float:
