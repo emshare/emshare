@@ -202,7 +202,8 @@ class HttpClient:
                     self._connect_timeout(proxy),
                 )
                 elapsed = time.monotonic() - t1
-                budget.remaining()
+                # 此处不查预算：请求已成功，出口与路由必须如实记账；
+                # 是否超期由外层 request_budget 在退出时裁决
                 self._record_timing(proxy, wait, elapsed, failed=False)
                 self._record_rtt(proxy, elapsed)
                 if proxy is not None:

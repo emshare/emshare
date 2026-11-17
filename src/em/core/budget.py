@@ -33,6 +33,25 @@ def request_budget(deadline: float) -> Iterator[None]:
         _deadline.reset(token)
 
 
+def deadline() -> float | None:
+    """当前上下文的绝对截止时刻；无预算返回 None。"""
+    return _deadline.get()
+
+
+@contextmanager
+def detached() -> Iterator[None]:
+    """暂时脱离调用方预算：用于结果会写入共享状态的操作（如代理回源与预筛）。
+
+    这类操作若继承某个调用方所剩无几的预算，会用被压短的超时得出错误结论
+    （把健康 IP 判死、熔断代理源），并让所有其他调用方一起承担。
+    """
+    token = _deadline.set(None)
+    try:
+        yield
+    finally:
+        _deadline.reset(token)
+
+
 def timeouts(connect: float, read: float) -> tuple[float, float]:
     available = remaining()
     if available is None:

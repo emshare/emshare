@@ -1,6 +1,7 @@
 """代理审查问题的正确性回归：全部使用假网络与可控时钟。"""
 
 import threading
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -415,3 +416,80 @@ def test_history_has_explicit_bounded_lower_bound(monkeypatch):
         pool.report_success(f"192.0.2.{number}:80")
     assert pool.stats()["ips_productive"] == 2
     assert pool.stats()["history_truncated"] is True
+
+
+def test_auto_starved_proxy_mode_probes_direct_after_cooldown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """代理源失效时 host 不得永久卡在代理态：冷却后放行直连探测并据结果回退。"""
+    from em.core import proxy as proxy_module
+    from em.core.errors import ProxyUnavailableError
+    from em.core.proxy import ProxyPool, ProxyRouter, ProxySettings
+
+    clock = [1000.0]
+    monkeypatch.setattr(proxy_module.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(proxy_module.time, "sleep", lambda s: None)
+    monkeypatch.setattr(proxy_module, "fetch_proxies", lambda *a, **k: [])
+    settings = ProxySettings(api="http://api", cooldown_sec=300)
+    router = ProxyRouter(ProxyPool(settings, None), settings)  # type: ignore[arg-type]
+
+    assert router.acquire("h") is None
+    router.report_result("h", None, success=False)
+    with pytest.raises(ProxyUnavailableError):
+        router.acquire("h")  # 冷却期内不直连
+    clock[0] += 301
+    assert router.acquire("h") is None  # 饿死探测
+    router.report_result("h", None, success=False)
+    state = router.host_state("h")
+    assert state is not None and state.mode == "proxy"
+    with pytest.raises(ProxyUnavailableError):
+        router.acquire("h")  # 探测失败重置冷却
+    clock[0] += 301
+    assert router.acquire("h") is None
+    router.report_result("h", None, success=True)
+    assert state.mode == "direct"
+
+
+def test_refill_ignores_caller_deadline_for_shared_verdicts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """快到期的调用方触发回源时，预筛不得用被压短的超时把健康 IP 判死。"""
+    from em.core import budget
+    from em.core import proxy as proxy_module
+    from em.core.proxy import ProxyPool, ProxySettings
+
+    monkeypatch.setattr(proxy_module, "fetch_proxies", lambda *a, **k: ["1.1.1.1:80"])
+    seen: list[tuple[float, float]] = []
+
+    def prober(ip: str) -> bool:
+        seen.append(budget.timeouts(1.0, 3.0))
+        return seen[-1] == (1.0, 3.0)
+
+    pool = ProxyPool(ProxySettings(api="http://api"), None, prober=prober)  # type: ignore[arg-type]
+    with budget.request_budget(time.monotonic() + 0.5):
+        assert pool.acquire() == "1.1.1.1:80"
+    stats = pool.stats()
+    assert seen == [(1.0, 3.0)]
+    assert stats["prefilter_rejected"] == 0 and stats["source_breaker_trips"] == 0
+
+
+def test_success_past_deadline_is_still_reported_to_router() -> None:
+    """请求成功但恰好越过 deadline：成功仍要记到路由/出口上，不能当作无结论丢弃。"""
+    from em.core.fixed_proxy import FixedProxyRouter
+    from em.core.transport import HttpClient
+
+    session = MagicMock(spec=requests.Session)
+    router = MagicMock(spec=FixedProxyRouter)
+    router.acquire.return_value = None
+    client = HttpClient(session, router, RetryPolicy(max_retries=0))
+    deadline = time.monotonic() + 0.2
+
+    def slow(*args: object, **kwargs: object) -> MagicMock:
+        time.sleep(0.25)
+        return MagicMock(status_code=200, text="ok")
+
+    session.get.side_effect = slow
+    with pytest.raises(PageDeadlineExceeded), request_budget(deadline):
+        client.get_text("http://target.test", {}, {})
+    router.report_result.assert_called_once_with("target.test", None, success=True)
+    router.abandon.assert_not_called()

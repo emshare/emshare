@@ -31,7 +31,7 @@ def make_client(monkeypatch, batches, retries=4):
     supplier.get.side_effect = [MagicMock(text=batch) for batch in batches]
     settings = ProxySettings(api="http://supplier.test", mode="always", num=2)
     pool = ProxyPool(settings, supplier)
-    monkeypatch.setattr(pool, "_maybe_renew", lambda: None)
+    monkeypatch.setattr(pool, "_maybe_renew", lambda *_: None)
     business = MagicMock(spec=requests.Session)
     business.get.return_value = MagicMock(status_code=200, text="ok")
     client = HttpClient(
@@ -272,3 +272,42 @@ def test_known_live_delivery_resets_streak_without_reprobing(clock, monkeypatch)
     assert supplier.get.call_count == 2
     assert source not in pool._dead_streak
     assert pool.remaining_lifetime(proxy) == 2
+
+
+def test_empty_refill_only_costs_negative_cache_not_whole_lease(clock, monkeypatch):
+    """回源一次空返回后，过了 1s 负缓存就应能再回源，而不是封锁到旧 IP 硬到期。"""
+    client, pool, supplier, _business = make_client(
+        monkeypatch, ["192.0.2.1:80", "", "192.0.2.2:80"]
+    )
+    client.get_text("http://target.test", {}, {})
+    clock[0] = 22
+    assert pool.acquire(6) is None  # 旧 IP 剩 5s 不够，回源空返回
+    clock[0] = 23.5
+    assert pool.acquire(6) == "192.0.2.2:80"
+    pool.release("192.0.2.2:80")
+    assert supplier.get.call_count == 3
+    assert pool.stats()["lifetime_refill_suppressed"] == 0
+
+
+def test_renew_fires_before_ip_stops_meeting_lifetime_need(clock, monkeypatch):
+    """续期窗口按"准入需求 + 提前量"计：IP 不满足准入之前新批次就应就绪。"""
+    supplier = MagicMock(spec=requests.Session)
+    supplier.get.side_effect = [MagicMock(text="192.0.2.1:80"), MagicMock(text="192.0.2.2:80")]
+    pool = ProxyPool(ProxySettings(api="http://supplier.test"), supplier)
+    need = pool.lifetime_requirement(6)
+    assert pool.acquire(6) == "192.0.2.1:80"
+    pool.release("192.0.2.1:80")
+    clock[0] = 17.9  # 剩 9.1s > 6 + 3
+    assert not pool._renew_due(need)
+    clock[0] = 18.1  # 剩 8.9s：仍可用，但已进入续期窗口
+    assert pool._renew_due(need)
+    assert not pool._renew_due()  # 无需求时仍是硬到期前 3s
+    assert pool.acquire(6) == "192.0.2.1:80"  # 触发后台续期，旧 IP 照常发放
+    pool.release("192.0.2.1:80")
+    assert pool._renew_thread is not None
+    pool._renew_thread.join(5)  # 等后台续期完成（不能用 close：它会让在途续期放弃）
+    assert supplier.get.call_count == 2
+    assert not pool._renew_due(need)
+    clock[0] = 21.5  # 旧 IP 剩 5.5s 已不满足准入，新 IP 无缝接上
+    assert pool.acquire(6) == "192.0.2.2:80"
+    assert supplier.get.call_count == 2

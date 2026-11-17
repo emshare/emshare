@@ -255,29 +255,17 @@ class ProxyPool:
         proxy = self._take_live(min_lifetime)
         if proxy is not None:
             # 快路径命中后顺便触发后台续期：旧 IP 继续发放，业务线程不等回源
-            self._maybe_renew()
+            self._maybe_renew(self.lifetime_requirement(min_lifetime))
             return proxy
         with budget.acquire_lock(self._refill_lock):
             # double-check：等待回源期间可能已有其他线程填充
             proxy = self._take_live(min_lifetime)
             if proxy is not None:
                 return proxy
+            # 回源无产出不在此封锁：空返回有 1s 负缓存、整批不可用有熔断；
+            # 只有"源重复交付在池 IP"才抑制回源到其到期（见 _refill_rounds）
             self._refill()
-            proxy = self._take_live(min_lifetime)
-            if proxy is None and min_lifetime > 0:
-                with self._lock:
-                    expiries = [
-                        adopted + self._settings.ttl_sec - self._settings.safety_margin_sec
-                        for entry, adopted in self._adopted_at.items()
-                        if self._is_live(entry)
-                    ]
-                    self._refill_blocked_until = max(
-                        self._refill_blocked_until,
-                        min(expiries)
-                        if expiries
-                        else time.monotonic() + _EMPTY_REFILL_COOLDOWN_SEC,
-                    )
-            return proxy
+            return self._take_live(min_lifetime)
 
     def lifetime_requirement(self, requested: float) -> float:
         """准入最多预留半个租期；实际 I/O 超时另受剩余租期限制。"""
@@ -296,8 +284,8 @@ class ProxyPool:
             adopted + self._settings.ttl_sec - self._settings.safety_margin_sec - time.monotonic()
         )
 
-    def _maybe_renew(self) -> None:
-        """临近过期时起一个后台线程续期（单飞）。
+    def _maybe_renew(self, need: float = 0.0) -> None:
+        """在池 IP 即将满足不了 ``need`` 秒租期需求时起一个后台线程续期（单飞）。
 
         续期不占用业务线程：新批次就绪前旧 IP 照常发放，失败也只是不换血——
         已经证明有产出的旧 IP 比"退化到没 IP"更值钱。
@@ -308,15 +296,16 @@ class ProxyPool:
                 self._closed
                 or self._renewing
                 or now < self._renew_after
-                or not self._renew_due_locked(now)
+                or not self._renew_due_locked(now, need)
             ):
                 return
-            self._renewing = True
             self._renew_after = now + self._RENEW_RETRY_SEC
-            self._renew_thread = threading.Thread(
-                target=self._renew_worker, name="proxy-renew", daemon=True
+            worker = threading.Thread(
+                target=self._renew_worker, args=(need,), name="proxy-renew", daemon=True
             )
-            self._renew_thread.start()
+            worker.start()  # 启动失败时不置位，避免 _renewing 永久卡住
+            self._renewing = True
+            self._renew_thread = worker
 
     def close(self) -> None:
         with self._lock:
@@ -325,33 +314,47 @@ class ProxyPool:
         if worker is not None:
             worker.join()
 
-    def _renew_due_locked(self, now: float) -> bool:
-        """是否有在池 IP 已进入续期窗口（调用方持 ``_lock``）。"""
-        lead = self._settings.ttl_sec - self._settings.safety_margin_sec - self._RENEW_LEAD_SEC
-        if lead <= 0:
+    def _renew_due_locked(self, now: float, need: float = 0.0) -> bool:
+        """在池 IP 是否都已进入续期窗口（调用方持 ``_lock``）。
+
+        窗口按"剩余租期 <= 请求的准入需求 + 回源提前量"计：准入要求剩余租期大于
+        ``need``，若只在硬到期前才续期，IP 在不满足准入之后、续期之前这段时间
+        对业务不可用，所有 worker 都会退回阻塞式回源。
+        """
+        capacity = self._settings.ttl_sec - self._settings.safety_margin_sec
+        if capacity <= self._RENEW_LEAD_SEC:
             return False  # TTL 太短，提前量覆盖不了回源成本：退回阻塞式换血，避免连环续期
+        threshold = need + self._RENEW_LEAD_SEC
+        if threshold > capacity * 0.75:
+            threshold = self._RENEW_LEAD_SEC  # 租期相对需求太短：提前续期等于刚买就再买
         pool = [
             entry
             for entry in ([self._current] if self._current else []) + self._standby
             if self._is_live(entry)
         ]
-        return bool(pool) and all(now >= self._adopted_at[entry] + lead for entry in pool)
+        return bool(pool) and all(self._remaining_locked(entry) <= threshold for entry in pool)
 
-    def _renew_worker(self) -> None:
+    def _renew_worker(self, need: float = 0.0) -> None:
         try:
             with self._refill_lock:
                 # double-check：排队等锁期间可能已有别的线程完成续期
-                if self._renew_due():
+                if self._renew_due(need):
                     proxy = self._refill()
                     # 成功=已换血；失败=继续用旧批次到硬到期（不阻塞业务线程）
                     log.info("代理池后台续期：%s", "成功" if proxy else "失败，沿用旧批次")
+                    if proxy is None:
+                        # 续期窗口变长后，失败重试要相应放慢，避免窗口内每秒打一次代理 API
+                        with self._lock:
+                            self._renew_after = max(
+                                self._renew_after, time.monotonic() + self._RENEW_LEAD_SEC
+                            )
         finally:
             with self._lock:
                 self._renewing = False
 
-    def _renew_due(self) -> bool:
+    def _renew_due(self, need: float = 0.0) -> bool:
         with self._lock:
-            return self._renew_due_locked(time.monotonic())
+            return self._renew_due_locked(time.monotonic(), need)
 
     def available(self) -> int:
         """当前可分发（未到硬到期）的 IP 数。
@@ -571,7 +574,17 @@ class ProxyPool:
 
         调用方已持 ``_refill_lock``；网络请求在 ``_lock`` 外发起，
         回源慢/超时时不阻塞其他线程的状态读写与失败上报。
+
+        回源与预筛脱离调用方预算、按自身固定超时执行：黑名单、熔断、降级窗口都是
+        全池共享状态，不能由某个快到期的调用方用被压短的超时来写。调用方预算只决定
+        "是否再开下一轮"——已开始的一轮跑完并照常入池，超期由调用方自己的下一次
+        预算检查抛出。
         """
+        caller_deadline = budget.deadline()
+        with budget.detached():
+            return self._refill_rounds(caller_deadline)
+
+    def _refill_rounds(self, caller_deadline: float | None) -> str | None:
         with self._lock:
             if self._closed:
                 return None
@@ -585,6 +598,8 @@ class ProxyPool:
         fetched: list[str] = []
         source: str | None = None
         for round_no in range(3):
+            if round_no and caller_deadline is not None and time.monotonic() >= caller_deadline:
+                return None  # 调用方已超期：不再替它开新一轮，也不记空返回负缓存
             fetched, source = self._fetch_batch()
             if not fetched:
                 with self._lock:
@@ -599,6 +614,18 @@ class ProxyPool:
                 with self._lock:
                     known = [entry for entry in fresh if self._is_live(entry)]
                 if len(known) == len(fresh):
+                    # 重复交付：源在这些 IP 到期前多半还给同一批，再回源只是重复采购。
+                    # 抑制到其中最早的到期时刻；旧 IP 仍可服务租期需求更短的请求
+                    with self._lock:
+                        expiries = [
+                            time.monotonic() + self._remaining_locked(entry)
+                            for entry in known
+                            if self._is_live(entry)
+                        ]
+                        if expiries:
+                            self._refill_blocked_until = max(
+                                self._refill_blocked_until, min(expiries)
+                            )
                     self._reset_dead_streak(source)
                     return self._adopt(fresh, source)
                 if not self._prefilter_enabled(source):
@@ -874,10 +901,35 @@ class ProxyRouter:
             # 不静默退化直连——切到代理意味着直连已被封，退化只会白烧重试预算
             budget.pause(_POOL_EMPTY_RETRY_SEC)
             proxy = self._pool.acquire(min_lifetime)
-            if proxy is None:
-                raise ProxyUnavailableError("代理池暂无可用出口")
-            return proxy
+            if proxy is not None:
+                return proxy
+            if self._starved_probe(host):
+                return None
+            raise ProxyUnavailableError("代理池暂无可用出口")
         return None
+
+    def _starved_probe(self, host: str) -> bool:
+        """代理态拿不到出口且冷却期已过：放行一个直连探测（单飞）。
+
+        常规探测由"代理成功数达标"触发；代理源失效/余额耗尽/熔断时成功数永远为 0，
+        该 host 会永久卡在代理态，即使直连早已恢复。此处补上"饿死"时的回退入口：
+        探测成功回直连，失败则重置冷却（``_switch_to_proxy``），不会连环直连。
+        """
+        with self._lock:
+            state = self._hosts.get(host)
+            if (
+                state is None
+                or state.mode != "proxy"
+                or time.monotonic() - state.proxy_since < self._settings.cooldown_sec
+            ):
+                return False
+            state.mode = "probe"
+            state.generation += 1
+            state.probe_in_flight = True
+            self._stats["probes_issued"] += 1
+            self._local.route = (host, state.generation, True)
+            log.info("host %s 代理池无出口且冷却期已过，放行一次直连探测", host)
+            return True
 
     def report_result(
         self,
