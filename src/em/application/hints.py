@@ -52,7 +52,7 @@ def _env_file_status() -> str:
 def egress_hint(exc: BaseException, settings: Settings, host: str = "") -> str | None:
     """出口类失败且代理用不上时返回一段多行提示；其余情况返回 None。
 
-    代理配好了仍然失败（代理全死、额度用尽等）不在此列：那不是"缺配置"能解释的。
+    代理配好了仍然失败（例如代理全死）不在此列：那不是"缺配置"能解释的。
     """
     if not is_egress_failure(exc):
         return None

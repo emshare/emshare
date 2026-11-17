@@ -167,6 +167,9 @@ def test_requests_body_timeout_uses_soft_failure_class():
     raw.stream.side_effect = ReadTimeoutError(None, "/body", "timeout")
     response = requests.Response()
     response.raw = raw
+    # 已观察到响应体读取；未知阶段的 ReadTimeout 不再默认视为软失败。
+    error = raw.stream.side_effect
+    error._em_network_phase = "response_body"
     with pytest.raises(requests.ConnectionError) as caught:
         _ = response.content
     assert isinstance(_classify(caught.value), UpstreamReadTimeout)

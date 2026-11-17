@@ -67,7 +67,9 @@ def test_soft_retry_rejects_closing_lease(clock, monkeypatch):
         attempts.append(kwargs["proxies"]["http"])
         if len(attempts) == 1:
             clock[0] += 3
-            raise requests.ReadTimeout("delay")
+            error = requests.ReadTimeout("delay")
+            error._em_network_phase = "response_headers"
+            raise error
         return MagicMock(status_code=200, text="ok")
 
     business.get.side_effect = send

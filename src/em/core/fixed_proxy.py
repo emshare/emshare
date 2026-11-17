@@ -1,11 +1,9 @@
 """固定出口路由：没有采购、TTL、淘汰或自动换 IP；与动态池共用传输层。"""
 
-from contextlib import AbstractContextManager, nullcontext
 from typing import Any
 from urllib.parse import urlsplit
 
 from em.core.errors import ConfigError
-from em.core.usage import UsageOutcome
 
 
 def validate_proxy_url(value: str) -> None:
@@ -53,9 +51,6 @@ class FixedProxyRouter:
 
     def lifetime_requirement(self, requested: float) -> float:
         return requested
-
-    def usage_attempt(self, proxy: str | None) -> AbstractContextManager[UsageOutcome]:
-        return nullcontext(UsageOutcome())
 
     def report_result(
         self, host: str, proxy: str | None, success: bool, banned: bool = False, soft: bool = False

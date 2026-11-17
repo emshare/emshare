@@ -27,20 +27,17 @@ NETWORK_FILES = {
     "core/session.py",
     "core/transport.py",
     "core/proxy.py",
-    "core/usage.py",
     "application/market_data.py",
     "application/resolve.py",
 }
 CREATORS = {
     ("application/market_data.py", "_create_client"),
     ("application/resolve.py", "_session"),
-    ("core/usage.py", "ProxyUsage.refresh_balance"),
 }
 SENDERS = {
     ("core/transport.py", "HttpClient._attempt"),
     ("core/proxy.py", "fetch_proxies"),
     ("application/market_data.py", "_make_prober.probe"),
-    ("core/usage.py", "ProxyUsage.refresh_balance"),
     ("application/resolve.py", "_search"),
 }
 
@@ -91,9 +88,19 @@ class NetworkBoundary(ast.NodeVisitor):
         if root in {"httpx", "aiohttp", "curl_cffi", "socket"} or name.startswith("urllib.request"):
             self.reject(node, "禁止旁路网络实现")
         if root == "urllib3" and not (
-            self.filename == "core/transport.py" and name == "urllib3.exceptions.ReadTimeoutError"
+            (self.filename == "core/transport.py" and name == "urllib3.exceptions.ReadTimeoutError")
+            or (
+                self.filename == "core/session.py"
+                and name
+                in {
+                    "urllib3.connection.HTTPConnection",
+                    "urllib3.connection.HTTPSConnection",
+                    "urllib3.connectionpool.HTTPConnectionPool",
+                    "urllib3.connectionpool.HTTPSConnectionPool",
+                }
+            )
         ):
-            self.reject(node, "urllib3 只允许传输层引用 ReadTimeoutError")
+            self.reject(node, "urllib3 仅允许受控会话扩展连接/连接池、传输层引用读取异常")
         if name.startswith("http.client") and not (
             self.filename == "core/transport.py" and name == "http.client.RemoteDisconnected"
         ):

@@ -29,8 +29,7 @@ from em.core.errors import (
 from em.core.fixed_proxy import FixedProxyRouter
 from em.core.proxy import ProxyRouter, proxy_url
 from em.core.resilience import RetryPolicy, should_retry, sleep_backoff
-from em.core.session import ExplicitProxySession
-from em.core.usage import usage_http_result, usage_http_started
+from em.core.session import ExplicitProxySession, network_failure_phase
 
 log = logging.getLogger(__name__)
 
@@ -45,9 +44,8 @@ def _is_banned(exc: Exception) -> bool:
 def _classify(exc: requests.RequestException) -> NetworkError:
     """把 requests 异常按"换 IP 是否有用"分档，供池子决定淘汰力度。
 
-    connect 档（连接超时/被拒/远端断链/TLS 失败）说明出口不可用，换 IP 立刻见效；
-    read 档（连接已建立但读超时）多为慢页或瞬时抖动，换 IP 只是再付一次握手并把
-    好出口黑掉一个 TTL，因此单独归为软失败，由上层"同 IP 重试一次"消化。
+    受控连接先提供阶段证据；CONNECT/TLS 也可能被 requests 包成 ReadTimeout。
+    仅响应头/体读取超时视为软失败，未知阶段不推断建链完成。
     """
     pending: list[BaseException] = [exc]
     visited: set[int] = set()
@@ -58,26 +56,34 @@ def _classify(exc: requests.RequestException) -> NetworkError:
             continue
         visited.add(id(cause))
         chain.append(cause)
-        if isinstance(cause, (requests.ReadTimeout, ReadTimeoutError)):
-            return UpstreamReadTimeout(str(exc))
         pending.extend(value for value in cause.args if isinstance(value, BaseException))
         if cause.__cause__ is not None:
             pending.append(cause.__cause__)
         if cause.__context__ is not None:
             pending.append(cause.__context__)
-    if isinstance(exc, requests.ConnectTimeout):
-        return ProxyConnectError(str(exc))
-    if isinstance(exc, requests.ReadTimeout):
-        return UpstreamReadTimeout(str(exc))
-    if isinstance(exc, requests.ConnectionError):
+    phase = network_failure_phase(exc)
+    classified: NetworkError
+    if phase in {"tcp", "proxy_connect", "proxy_tls", "tls", "request_send"}:
+        classified = ProxyConnectError(str(exc))
+    elif any(isinstance(e, (requests.ReadTimeout, ReadTimeoutError)) for e in chain):
+        classified = (
+            UpstreamReadTimeout(str(exc))
+            if phase in {"response_headers", "response_body"}
+            else NetworkError(str(exc))
+        )
+    elif isinstance(exc, requests.ConnectionError):
         # 代理隧道和 TLS 失败也会包断连，不能拿它们判定目标疑似限流。
         if not any(
             isinstance(e, (requests.exceptions.ProxyError, requests.exceptions.SSLError))
             for e in chain
         ) and any(isinstance(e, (RemoteDisconnected, ConnectionResetError)) for e in chain):
-            return RemoteDisconnectError(str(exc))
-        return ProxyConnectError(str(exc))
-    return NetworkError(str(exc))
+            classified = RemoteDisconnectError(str(exc))
+        else:
+            classified = ProxyConnectError(str(exc))
+    else:
+        classified = NetworkError(str(exc))
+    classified.network_phase = phase
+    return classified
 
 
 class HttpClient:
@@ -255,8 +261,9 @@ class HttpClient:
                 # 没有代理源可换时只是原样重试，写"换 IP"会让没配代理的人以为代理在工作
                 how = "同 IP " if reuse else ("换 IP " if self._router.can_rotate else "")
                 log.warning(
-                    "请求失败(%s): %s，%s重试 [%d/%d]",
+                    "请求失败(%s, stage=%s): %s，%s重试 [%d/%d]",
                     type(exc).__name__,
+                    getattr(exc, "network_phase", "unknown"),
                     str(exc)[:120],
                     how,
                     attempt + 1,
@@ -397,35 +404,30 @@ class HttpClient:
                 raise ProxyUnavailableError("代理剩余有效期不足以发起本次请求")
             connect = min(timeout[0], remaining / 2)
             timeout = (connect, min(timeout[1], remaining - connect))
-        with self._router.usage_attempt(proxy) as outcome:
-            timeout = budget.timeouts(*timeout)
-            if proxy is not None:
-                remaining = self._router.remaining_lifetime(proxy)
-                if remaining <= 0:
-                    raise ProxyUnavailableError("额度预占后代理租期已到期")
-                connect = min(timeout[0], remaining / 2)
-                timeout = (connect, min(timeout[1], remaining - connect))
-            try:
-                usage_http_started()
-                resp = self._session.get(
-                    url, params=params, headers=headers, proxies=proxies, timeout=timeout
-                )
-            except requests.RequestException as exc:
-                usage_http_result(error=exc)
-                classified = _classify(exc)
-                if proxy is not None and isinstance(self._router, FixedProxyRouter):
-                    # requests 的异常可能含代理 URL/用户名密码；不把原始异常链带入日志或回溯。
-                    classified.args = (f"固定出口请求失败（{type(exc).__name__}）",)
-                    raise classified from None
-                raise classified from exc
-            usage_http_result(status_code=resp.status_code)
-            if resp.status_code != 200:
-                raise HttpStatusError(resp.status_code)
-            if not resp.text:
-                raise EmptyResponseError("空响应(Empty reply)")
-            if validator is not None and not validator(resp.text):
-                if proxy is not None and isinstance(self._router, FixedProxyRouter):
-                    raise InvalidContentError("固定出口响应体未通过协议校验")
-                raise InvalidContentError(f"响应体未通过协议校验: {resp.text[:80]!r}")
-            outcome.accepted = True
-            return resp.text
+        timeout = budget.timeouts(*timeout)
+        if proxy is not None:
+            remaining = self._router.remaining_lifetime(proxy)
+            if remaining <= 0:
+                raise ProxyUnavailableError("代理租期已到期")
+            connect = min(timeout[0], remaining / 2)
+            timeout = (connect, min(timeout[1], remaining - connect))
+        try:
+            resp = self._session.get(
+                url, params=params, headers=headers, proxies=proxies, timeout=timeout
+            )
+        except requests.RequestException as exc:
+            classified = _classify(exc)
+            if proxy is not None and isinstance(self._router, FixedProxyRouter):
+                # requests 的异常可能含代理 URL/用户名密码；不把原始异常链带入日志或回溯。
+                classified.args = (f"固定出口请求失败（{type(exc).__name__}）",)
+                raise classified from None
+            raise classified from exc
+        if resp.status_code != 200:
+            raise HttpStatusError(resp.status_code)
+        if not resp.text:
+            raise EmptyResponseError("空响应(Empty reply)")
+        if validator is not None and not validator(resp.text):
+            if proxy is not None and isinstance(self._router, FixedProxyRouter):
+                raise InvalidContentError("固定出口响应体未通过协议校验")
+            raise InvalidContentError(f"响应体未通过协议校验: {resp.text[:80]!r}")
+        return resp.text

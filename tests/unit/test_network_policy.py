@@ -1,6 +1,5 @@
 """拦截真实 Session 下的适配器发送：验证路由、重定向和 CA 最终参数。"""
 
-import json
 import socket
 from urllib.parse import urlsplit
 
@@ -10,7 +9,6 @@ import requests
 from em.application import market_data, resolve
 from em.core.session import ExplicitProxySession
 from em.core.settings import Settings
-from em.core.usage import ProxyUsage
 
 TARGET = "https://push2.eastmoney.com/test-policy"
 SUPPLIER = "https://supplier.test/get"
@@ -115,37 +113,6 @@ def test_auto_switch_and_recovery_probe_respect_actual_route(wire):
         client.close()
     assert [request.url for request, _ in calls] == [TARGET, SUPPLIER, TARGET, TARGET]
     assert [dict(kwargs["proxies"]) for _, kwargs in calls] == [{}, {}, PROXIES, {}]
-
-
-def test_balance_is_direct_preserves_ca_and_disables_redirects(wire, tmp_path, monkeypatch):
-    calls, replies = wire
-    monkeypatch.setenv("CURL_CA_BUNDLE", "/custom/fallback.pem")
-    replies.append(
-        (
-            200,
-            json.dumps(
-                {
-                    "success": "true",
-                    "data": [{"type": "次数套餐", "num": "10", "use": "1", "valid": "true"}],
-                }
-            ),
-            {},
-        )
-    )
-    manager = ProxyUsage(
-        str(tmp_path / "usage.sqlite3"),
-        ["https://api.xiequ.cn/VAD/GetIp.aspx?uid=test&vkey=test&type=2"],
-        0,
-        100,
-        100,
-        "https://op.xiequ.cn/ApiUser.aspx?act=suitdt&uid=test&ukey=test",
-    )
-    assert manager.refresh_balance(force=True)["available"] == 9
-    replies.append((302, "", {"Location": "https://elsewhere.test/balance"}))
-    manager.refresh_balance(force=True)
-    assert len(calls) == 2
-    assert all(not kwargs["proxies"] for _, kwargs in calls)
-    assert all(kwargs["verify"] == "/custom/fallback.pem" for _, kwargs in calls)
 
 
 def test_name_search_uses_same_direct_and_ca_policy(wire, monkeypatch):

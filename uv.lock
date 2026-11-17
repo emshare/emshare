@@ -401,6 +401,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "requests" },
+    { name = "urllib3" },
 ]
 
 [package.optional-dependencies]
@@ -423,6 +424,7 @@ dev = [
 requires-dist = [
     { name = "pandas", marker = "extra == 'pandas'", specifier = ">=2.0" },
     { name = "requests", specifier = ">=2.31" },
+    { name = "urllib3", specifier = ">=2.0,<3" },
 ]
 provides-extras = ["pandas"]
 

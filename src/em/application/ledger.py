@@ -1,7 +1,4 @@
-"""代理观测账本落盘：每次全量拉取追加一行 JSONL，供跨天比较交付与使用。
-
-usage_account_snapshot是持久化使用预占的累计快照，不能跨行相加。
-交付数、首次使用预占和供应商实际扣费分别计量，不互相替代。
+"""代理观测账本落盘：每次全量拉取追加一行 JSONL，供跨天比较交付质量。
 
 写入失败只告警：账本是旁路观测，任何磁盘问题都不该影响取数。
 默认按 XDG 落到用户数据目录，不再写进调用方的当前工作目录。
@@ -58,9 +55,6 @@ def build_row(
         "ips_returned": int(pool.get("ips_returned", 0) or 0),
         "ips_unique": int(pool.get("ips_unique", 0) or 0),
         "history_truncated": bool(pool.get("history_truncated", False)),
-        "usage_account_snapshot": pool.get("usage"),
-        "usage_client": pool.get("usage_client"),
-        "client_id": pool.get("client_id"),
         "prefilter_rejected": int(pool.get("prefilter_rejected", 0) or 0),
         "ips_adopted": int(pool.get("ips_adopted", 0) or 0),
         "ips_served": int(pool.get("ips_served", 0) or 0),

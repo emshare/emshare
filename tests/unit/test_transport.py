@@ -1,7 +1,6 @@
 """HttpClient 行为锁：重试次数、换 IP、off-by-one 日志边界。"""
 
 import threading
-from contextlib import nullcontext
 from unittest.mock import MagicMock
 
 import pytest
@@ -11,7 +10,12 @@ from em.core.errors import NetworkError
 from em.core.proxy import ProxyPool, ProxyRouter, ProxySettings
 from em.core.resilience import RetryPolicy
 from em.core.transport import HttpClient
-from em.core.usage import UsageOutcome
+
+
+def _response_read_timeout(message):
+    error = requests.ReadTimeout(message)
+    error._em_network_phase = "response_headers"
+    return error
 
 
 def _router_returning(ips: list[str], mode: str = "always") -> ProxyRouter:
@@ -309,12 +313,6 @@ def test_evict_last_proxy_uses_thread_local_route():
         def lifetime_requirement(self, requested: float) -> float:
             return min(requested, 13.5)
 
-        def reserve_usage(self, proxy: str) -> None:
-            pass
-
-        def usage_attempt(self, proxy: str | None):
-            return nullcontext(UsageOutcome())
-
         def report_proxy_failure(self, proxy: str | None) -> None:
             if proxy is not None:
                 self.evicted.append(proxy)
@@ -369,7 +367,7 @@ def test_read_timeout_retries_same_proxy_once() -> None:
     # 读超时多为慢页/抖动：同一出口重试一次（省一次握手），IP 不淘汰
     session = MagicMock(spec=requests.Session)
     session.get.side_effect = [
-        requests.ReadTimeout("slow"),
+        _response_read_timeout("slow"),
         MagicMock(status_code=200, text="ok"),
     ]
     client, router = _always_client(session)
@@ -384,8 +382,8 @@ def test_two_read_timeouts_switch_proxy() -> None:
     # 同一出口连续两次读超时才淘汰换 IP：软失败有额度，不是无限复用
     session = MagicMock(spec=requests.Session)
     session.get.side_effect = [
-        requests.ReadTimeout("slow"),
-        requests.ReadTimeout("slow"),
+        _response_read_timeout("slow"),
+        _response_read_timeout("slow"),
         MagicMock(status_code=200, text="ok"),
     ]
     client, router = _always_client(session)
@@ -417,6 +415,7 @@ def test_request_exception_classification_order() -> None:
     from em.core.transport import _classify
 
     assert isinstance(_classify(requests.ConnectTimeout("t")), ProxyConnectError)
-    assert isinstance(_classify(requests.ReadTimeout("t")), UpstreamReadTimeout)
+    assert isinstance(_classify(_response_read_timeout("t")), UpstreamReadTimeout)
+    assert type(_classify(requests.ReadTimeout("unobserved"))) is NetworkError
     assert isinstance(_classify(requests.ConnectionError("c")), ProxyConnectError)
     assert isinstance(_classify(requests.RequestException("x")), NetworkError)

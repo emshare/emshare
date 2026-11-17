@@ -26,7 +26,6 @@ def isolated(monkeypatch, clean_em_env):
         raise AssertionError("fixed proxy must not purchase/probe/contact network")
 
     monkeypatch.setattr(socket.socket, "connect", deny)
-    monkeypatch.setattr(market_data, "_usage_for", deny)
     monkeypatch.setattr(market_data, "ProxyPool", deny)
     monkeypatch.setattr(market_data, "_make_prober", deny)
     monkeypatch.setattr("em.core.transport.sleep_backoff", lambda *args: 0.0)
@@ -115,19 +114,6 @@ def test_backup_source_also_conflicts(monkeypatch):
     monkeypatch.setenv("EM_PROXY_API_BACKUP", "http://supplier.test")
     with pytest.raises(ConfigError, match="不能同时配置"):
         Settings.from_env()
-
-
-@pytest.mark.parametrize(
-    "option",
-    [
-        {"proxy_usage_db": "usage.sqlite3"},
-        {"proxy_usage_max_new": 2},
-        {"proxy_usage_balance_url": "https://supplier.test/balance"},
-    ],
-)
-def test_dynamic_budget_cannot_be_attached_to_fixed_proxy(option):
-    with pytest.raises(ConfigError, match="固定代理不能配置"):
-        Settings(proxy_url=URL, **option)
 
 
 @pytest.mark.parametrize(
@@ -297,12 +283,10 @@ def test_convenience_passes_same_settings_to_search_and_data(monkeypatch):
     assert fetch.call_args.kwargs["settings"] is settings
 
 
-def test_fixed_router_has_no_ttl_or_usage_reservation():
+def test_fixed_router_has_no_ttl_or_rotation():
     router = FixedProxyRouter(URL)
     assert router.remaining_lifetime(URL) == float("inf")
     assert not router.can_rotate
-    with router.usage_attempt(URL) as outcome:
-        assert outcome is not None
 
 
 def test_proxy_auth_encoding_is_passed_to_proxy_adapter():

@@ -142,7 +142,7 @@ def test_dynamic_route_still_switches_and_replaces_bad_proxy(monkeypatch):
     supplier = MagicMock(text="192.0.2.1:80\n192.0.2.2:80")
     client, session = make_client(
         monkeypatch,
-        [disconnected(), disconnected(), supplier, disconnected(), ok()],
+        [disconnected(), supplier, disconnected(), ok()],
         proxy_api="https://supplier.test",
         proxy_num=2,
     )
@@ -150,7 +150,6 @@ def test_dynamic_route_still_switches_and_replaces_bad_proxy(monkeypatch):
         client.get_text(TARGET, {}, {})
         business = [c.kwargs["proxies"] for c in session.get.call_args_list if c.args[0] == TARGET]
         assert business == [
-            None,
             None,
             {"http": "http://192.0.2.1:80", "https": "http://192.0.2.1:80"},
             {"http": "http://192.0.2.2:80", "https": "http://192.0.2.2:80"},
@@ -165,6 +164,7 @@ def test_classifier_handles_context_and_cycles():
     error.__context__.__cause__ = error
     assert isinstance(_classify(error), RemoteDisconnectError)
     error.__context__ = requests.ReadTimeout("slow")
+    error.__context__._em_network_phase = "response_headers"
     assert isinstance(_classify(error), UpstreamReadTimeout)
 
 

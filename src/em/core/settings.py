@@ -32,12 +32,6 @@ def _bool_env(name: str, default: bool) -> bool:
     return raw.strip().lower() in ("1", "true", "yes", "on")
 
 
-def _optional_int_env(name: str) -> int | None:
-    if not os.getenv(name, "").strip():
-        return None
-    return _int_env(name, 0)
-
-
 def _float_env(name: str, default: float) -> float:
     raw = os.getenv(name)
     if raw is None or raw == "":
@@ -94,7 +88,7 @@ class Settings:
     proxy_prefilter: bool = defaults.DEFAULT_PROXY_PREFILTER
     proxy_prefilter_sources: int = 1
     proxy_degraded_mode: DegradedMode = "lenient"
-    proxy_direct_fails: int = 2
+    proxy_direct_fails: int = 1
     proxy_proxy_successes: int = 5
     proxy_cooldown_sec: int = 300
     request_timeout_sec: int = defaults.DEFAULT_TIMEOUT_SEC
@@ -104,51 +98,12 @@ class Settings:
     backoff_sec: float = defaults.DEFAULT_BACKOFF_SEC
     backoff_cap_sec: float | None = defaults.DEFAULT_BACKOFF_CAP_SEC
     backoff_jitter_sec: float = defaults.DEFAULT_BACKOFF_JITTER_SEC
-    proxy_usage_db: str = ""
-    proxy_usage_free_limit: int | None = None
-    proxy_usage_paid_limit: int | None = None
-    proxy_usage_max_new: int | None = None
-    proxy_usage_balance_url: str = ""
-    proxy_usage_balance_refresh_sec: int = 30
-    proxy_usage_free_daily_limit: int = 0
     proxy_url: str = field(default="", repr=False)
 
     def __post_init__(self) -> None:
         validate_proxy_url(self.proxy_url)
         if self.proxy_url and self.proxy_api.strip():
             raise ConfigError("proxy_url 与 proxy_api（含备用源）不能同时配置")
-        if self.proxy_url and (
-            self.proxy_usage_db
-            or self.proxy_usage_free_daily_limit
-            or self.proxy_usage_balance_url
-            or any(
-                v is not None
-                for v in (
-                    self.proxy_usage_free_limit,
-                    self.proxy_usage_paid_limit,
-                    self.proxy_usage_max_new,
-                )
-            )
-        ):
-            raise ConfigError("固定代理不能配置动态代理的采购额度或余额查询")
-        usage_limits = (
-            self.proxy_usage_free_limit,
-            self.proxy_usage_paid_limit,
-            self.proxy_usage_max_new,
-        )
-        if any(value is not None and value < 0 for value in usage_limits):
-            raise ConfigError("代理使用预算不能为负")
-        if (self.proxy_usage_db or any(value is not None for value in usage_limits)) and (
-            not self.proxy_usage_db or None in usage_limits[:2]
-        ):
-            raise ConfigError("使用额度保护须同时配置账本路径、免费和收费初始余额")
-        if self.proxy_usage_balance_refresh_sec < 1:
-            raise ConfigError("额度查询刷新间隔必须 >= 1")
-        if self.proxy_usage_free_daily_limit < 0 or (
-            self.proxy_usage_free_daily_limit
-            and (not self.proxy_usage_db or not self.proxy_usage_balance_url)
-        ):
-            raise ConfigError("免费每日额度须非负且同时配置余额接口与使用账本")
         if self.request_timeout_sec <= 0 or self.proxy_timeout_sec <= 0:
             raise ConfigError("请求与代理超时必须为正")
         if self.proxy_safety_margin_sec < 0:
@@ -200,13 +155,6 @@ class Settings:
         apis += [v for k, v in sorted(os.environ.items()) if k.startswith("EM_PROXY_API_")]
         return cls(
             proxy_url=os.getenv("EM_PROXY_URL", "").strip(),
-            proxy_usage_db=os.getenv("EM_PROXY_USAGE_DB", "").strip(),
-            proxy_usage_free_limit=_optional_int_env("EM_PROXY_USAGE_FREE_LIMIT"),
-            proxy_usage_paid_limit=_optional_int_env("EM_PROXY_USAGE_PAID_LIMIT"),
-            proxy_usage_max_new=_optional_int_env("EM_PROXY_USAGE_MAX_NEW"),
-            proxy_usage_balance_url=os.getenv("EM_PROXY_BALANCE_URL", "").strip(),
-            proxy_usage_balance_refresh_sec=_int_env("EM_PROXY_BALANCE_REFRESH_SEC", 30),
-            proxy_usage_free_daily_limit=_int_env("EM_PROXY_USAGE_FREE_DAILY_LIMIT", 0),
             proxy_api=",".join(p.strip() for p in apis if p.strip()),
             proxy_enabled=_bool_env("EM_PROXY_ENABLED", True),
             proxy_num=_int_env("EM_PROXY_NUM", 1),
@@ -217,7 +165,7 @@ class Settings:
             proxy_prefilter=_bool_env("EM_PROXY_PREFILTER", defaults.DEFAULT_PROXY_PREFILTER),
             proxy_prefilter_sources=_int_env("EM_PROXY_PREFILTER_SOURCES", 1),
             proxy_degraded_mode=_degraded_env("EM_PROXY_DEGRADED_MODE", "lenient"),
-            proxy_direct_fails=_int_env("EM_PROXY_DIRECT_FAILS", 2),
+            proxy_direct_fails=_int_env("EM_PROXY_DIRECT_FAILS", 1),
             proxy_proxy_successes=_int_env("EM_PROXY_PROXY_SUCCESSES", 5),
             proxy_cooldown_sec=_int_env("EM_PROXY_COOLDOWN_SEC", 300),
             request_timeout_sec=_int_env("EM_REQUEST_TIMEOUT_SEC", defaults.DEFAULT_TIMEOUT_SEC),
