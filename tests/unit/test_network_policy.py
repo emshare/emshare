@@ -187,3 +187,45 @@ def test_ca_is_read_at_request_time_and_session_verify_is_preserved(wire, monkey
         "/second.pem",
         "/session.pem",
     ]
+
+
+def test_name_search_switches_to_dynamic_proxy_when_direct_is_banned(wire):
+    """配了动态代理源时名称搜索走业务路由：直连被封（403）即切代理，此后保持代理。"""
+    calls, replies = wire
+    replies.append((403, "blocked", {}))
+    settings = Settings(proxy_mode="auto", proxy_api=SUPPLIER, proxy_prefilter=False, max_retries=2)
+    resolve.reset_resolve_cache()
+    try:
+        assert resolve.resolve_code("离线测试名称", settings=settings) is None
+        assert resolve.resolve_board("另一个名称", settings=settings) is None
+        assert resolve.resolve_code("离线测试名称", settings=settings) is None  # 命中缓存
+    finally:
+        market_data._reset_client_cache()
+        resolve.reset_resolve_cache()
+    hosts = [urlsplit(request.url).hostname for request, _ in calls]
+    assert hosts == [
+        "searchapi.eastmoney.com",
+        "supplier.test",
+        "searchapi.eastmoney.com",
+        "searchapi.eastmoney.com",
+    ]
+    assert [dict(kwargs["proxies"]) for _, kwargs in calls] == [{}, {}, PROXIES, PROXIES]
+
+
+def test_name_search_stays_direct_when_not_banned_or_mode_never(wire):
+    calls, _ = wire
+    resolve.reset_resolve_cache()
+    try:
+        for mode in ("auto", "never"):
+            settings = Settings(proxy_mode=mode, proxy_api=SUPPLIER, proxy_prefilter=False)
+            assert resolve.resolve_code("离线测试名称", settings=settings) is None
+    finally:
+        market_data._reset_client_cache()
+        if resolve._session.cache_info().currsize:
+            resolve._session().close()
+        resolve._session.cache_clear()
+        resolve.reset_resolve_cache()
+    assert [urlsplit(request.url).hostname for request, _ in calls] == [
+        "searchapi.eastmoney.com"
+    ] * 2
+    assert not any(kwargs["proxies"] for _, kwargs in calls)

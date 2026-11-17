@@ -9,7 +9,8 @@
 | 行情、历史数据、报表等业务取数 | `application/market_data.py::_create_client` 创建并注入 | `core/transport.py::HttpClient._attempt` | 动态 `ProxyRouter` 或固定 `FixedProxyRouter` 决定出口；经过重试、预算和统计 |
 | 代理供应商提取 | 与业务客户端共享受控会话，但不经过业务路由 | `core/proxy.py::fetch_proxies` | 直连，不依赖待采购的代理 |
 | 代理预筛 | `_create_client` 向 `_make_prober` 注入同一会话 | `application/market_data.py::_make_prober.probe` | 使用待验证的显式代理，不得经过自动路由重新选出口 |
-| 名称搜索 | `application/resolve.py::_session` 创建并缓存独立会话 | `application/resolve.py::_search` | 默认直连；设置固定代理后使用固定出口，不进入动态代理采购链路 |
+| 名称搜索（无动态代理源、代理关闭或 never） | `application/resolve.py::_session` 创建并缓存独立会话 | `application/resolve.py::_search` | 默认直连；设置固定代理后使用固定出口 |
+| 名称搜索（配置了动态代理源） | 复用业务客户端（`_create_client`） | `core/transport.py::HttpClient._attempt` | 与业务取数同一路由：auto 先直连，被封或直连失败切代理并自动探测回直连；always 全程代理 |
 
 固定代理直接复用业务传输入口和名称搜索入口，不增加会话创建点或底层发送函数。固定路由不构造代理池；供应商提取继续保持直连。
 
