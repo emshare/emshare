@@ -595,3 +595,17 @@ def test_generated_env_is_loaded_by_the_next_run(empty_cwd) -> None:
     s = Settings.from_env()
     assert "YOUR_UID" in s.proxy_api
     assert s.proxy_num == 5
+
+
+def test_main_market_all_incomplete_snapshot_returns_1(monkeypatch, capsys) -> None:
+    from em.core.errors import IncompleteSnapshotError
+
+    def partial(query: MarketQuery):
+        raise IncompleteSnapshotError(QuotePage(total=5580, items=_quotes(3)), 3, 5580)
+
+    monkeypatch.setattr("em.cli.stock_list_all_em", partial)
+    monkeypatch.setattr("em.cli.Settings.from_env", lambda: _FakeSettings(True, "auto"))
+    assert main(["--preset", "market-all"]) == 1
+    captured = capsys.readouterr()
+    assert "全市场快照不完整：已取 3 / 5580 条" in captured.err
+    assert "共 5580 条" not in captured.out

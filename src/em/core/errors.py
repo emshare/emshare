@@ -45,6 +45,23 @@ class PageDeadlineExceeded(EmError):
     """
 
 
+class IncompleteSnapshotError(EmError):
+    """全市场快照补漏后仍缺数据：不把残缺结果当作完整快照返回。
+
+    ``partial`` 是已取到的部分（结构与正常返回相同），``fetched`` / ``total`` 为已取条数
+    与上游总量。调用方可以据此重试，或明确选择使用这份不完整的数据。
+    """
+
+    def __init__(self, partial: object, fetched: int, total: int) -> None:
+        super().__init__(
+            f"全市场快照不完整：已取 {fetched} / {total} 条（多为代理出口不足或上游限流）；"
+            "已取到的部分在异常的 partial 属性里"
+        )
+        self.partial = partial
+        self.fetched = fetched
+        self.total = total
+
+
 class ChannelError(EmError):
     """上游渠道异常基类。"""
 

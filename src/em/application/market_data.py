@@ -62,6 +62,7 @@ from em.channels.eastmoney.network import disconnect_may_be_limited
 from em.core import budget as budget_module
 from em.core.errors import (
     EgressRetryStopped,
+    IncompleteSnapshotError,
     PageDeadlineExceeded,
 )
 from em.core.fixed_proxy import FixedProxyRouter
@@ -398,7 +399,11 @@ def stock_list_all_em(
     max_rounds: int = 5,
     workers: int = _DEFAULT_FETCH_WORKERS,
 ) -> QuotePage:
-    """以独立客户端取全市场快照，任务完成后释放代理与连接资源。"""
+    """以独立客户端取全市场快照，任务完成后释放代理与连接资源。
+
+    补漏后仍缺数据时抛 ``IncompleteSnapshotError``（已取到的部分在其 ``partial`` 属性里），
+    不把残缺结果当作完整快照返回——落库场景下静默少数据比报错更糟。
+    """
     if workers < 1:
         raise ValueError("workers 必须 >= 1")
     started = time.monotonic()
@@ -409,6 +414,8 @@ def stock_list_all_em(
     finally:
         client.close()
     _record_snapshot(client, result, started)
+    if len(result.items) < result.total:
+        raise IncompleteSnapshotError(result, len(result.items), result.total)
     return result
 
 

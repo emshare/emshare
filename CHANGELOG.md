@@ -4,6 +4,7 @@
 
 ## 未发布
 
+- **行为变更**：`stock_list_all_em` / `df_stock_list_all_em` 补漏后仍缺数据时抛 `IncompleteSnapshotError`，不再只记一条警告并返回残缺结果；已取到的部分在异常的 `partial` 属性里，`fetched` / `total` 为已取条数与上游总量。命令行 `--preset market-all` 相应以失败退出。
 - 预筛够用即停：新增 `Settings.proxy_prefilter_target` / `EM_PROXY_PREFILTER_TARGET`（默认 1），探到指定数量的活 IP 即停止探测，同批其余 IP 留作预留，在池 IP 失效或并发挤不下时再按需探测，仍只把探活通过的 IP 交给业务。代理按"发出过请求的 IP"计费时，顺序请求场景可少付未用到的 IP；设为 0 恢复整批全探。全市场快照会用上整批出口，始终整批探测，行为不变。
 - 代理池统计新增 `ips_touched`（发出过请求的 IP 数，含探测）、`prefilter_skipped`、`reserve_adopted`。
 

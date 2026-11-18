@@ -53,6 +53,18 @@ print(page.total, len(page.items))  # 5580 5580
 assert [q.code for q in page.items] == sorted(q.code for q in page.items)
 ```
 
+补漏后仍缺数据时（多为代理出口不足或上游限流）抛 `IncompleteSnapshotError`，不把残缺结果当作完整快照返回；已取到的部分在异常的 `partial` 属性里（`QuotePage`，`df_` 版本同样是 `QuotePage`）：
+
+```python
+from em.core.errors import IncompleteSnapshotError
+
+try:
+    page = stock_list_all_em()
+except IncompleteSnapshotError as exc:
+    print(exc.fetched, exc.total)  # 已取条数 / 上游总量
+    partial = exc.partial  # 需要时可明确选择使用这份不完整的数据
+```
+
 ## 数据示例（领域模型）
 
 ```

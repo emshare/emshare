@@ -10,7 +10,13 @@ from urllib3.exceptions import ReadTimeoutError
 
 from em.application import market_data
 from em.core.budget import request_budget
-from em.core.errors import ConfigError, HttpStatusError, PageDeadlineExceeded, ProxyUnavailableError
+from em.core.errors import (
+    ConfigError,
+    HttpStatusError,
+    IncompleteSnapshotError,
+    PageDeadlineExceeded,
+    ProxyUnavailableError,
+)
 from em.core.proxy import ProxyPool, ProxyRouter, ProxySettings
 from em.core.resilience import RetryPolicy
 from em.core.session import BoundedProxyAdapter
@@ -345,8 +351,12 @@ def test_empty_last_page_does_not_erase_expected_total(monkeypatch):
     monkeypatch.setattr(market_data, "_build_client", lambda *args, **kwargs: client)
     monkeypatch.setattr(market_data.registry, "EastMoneySource", lambda _: source)
     monkeypatch.setattr(market_data, "record_ledger", lambda *args: None)
-    result = market_data.stock_list_all_em(max_rounds=1, workers=1)
+    with pytest.raises(IncompleteSnapshotError) as caught:
+        market_data.stock_list_all_em(max_rounds=1, workers=1)
+    # 残缺结果不当作完整快照返回，但已取到的部分随异常带出
+    result = caught.value.partial
     assert result.total == 200 and len(result.items) == 100
+    assert (caught.value.fetched, caught.value.total) == (100, 200)
     assert source.fetch_page.call_count > 2
     client.close.assert_called_once()
 
@@ -493,3 +503,23 @@ def test_success_past_deadline_is_still_reported_to_router() -> None:
         client.get_text("http://target.test", {}, {})
     router.report_result.assert_called_once_with("target.test", None, success=True)
     router.abandon.assert_not_called()
+
+
+def test_complete_snapshot_returns_normally_and_incomplete_error_is_not_retryable(monkeypatch):
+    pages = {
+        1: QuotePage(200, tuple(Quote(code=f"{n:03d}", name="x") for n in range(100))),
+        2: QuotePage(200, tuple(Quote(code=f"{n:03d}", name="x") for n in range(100, 200))),
+    }
+    source = MagicMock()
+    source.fetch_page.side_effect = lambda request: pages[request.page]
+    client = fake_snapshot_client()
+    monkeypatch.setattr(market_data, "_build_client", lambda *args, **kwargs: client)
+    monkeypatch.setattr(market_data.registry, "EastMoneySource", lambda _: source)
+    monkeypatch.setattr(market_data, "record_ledger", lambda *args: None)
+    result = market_data.stock_list_all_em(workers=1)
+    assert len(result.items) == result.total == 200
+    # 不是渠道异常：不会被传输层或页级兜底当作可重试失败吞掉
+    from em.core.errors import ChannelError, EmError
+
+    assert issubclass(IncompleteSnapshotError, EmError)
+    assert not issubclass(IncompleteSnapshotError, ChannelError)

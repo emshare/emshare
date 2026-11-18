@@ -137,7 +137,11 @@ def test_stock_list_all_carries_scope_to_every_page(monkeypatch) -> None:
     monkeypatch.setattr(md, "_build_client", lambda s, **kw: _FakeClient())
     monkeypatch.setattr(md.registry, "EastMoneySource", _FakeSource)
 
-    stock_list_all_em(MarketQuery(scope="kc"), max_rounds=1, workers=1)
+    from em.core.errors import IncompleteSnapshotError
+
+    # 替身每页只回 1 条（total=250），快照必然不完整；本用例只关心各页带的 scope
+    with pytest.raises(IncompleteSnapshotError):
+        stock_list_all_em(MarketQuery(scope="kc"), max_rounds=1, workers=1)
 
     assert len(seen_fs) >= 3  # total=250、每页 100 → 至少 3 页
     assert set(seen_fs) == {expected}
