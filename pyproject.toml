@@ -6,8 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "emshare"
 version = "0.1.1"
 description = "行情数据接口：A 股 / 港股 / 指数 / 基金的行情、K 线、资金流、龙虎榜、财报，可选 pandas DataFrame"
-# PyPI 项目页显示的是面向使用者的 README.pypi.md；README.md 是开发文档，不上项目页
-readme = "README.pypi.md"
+# GitHub 首页与 PyPI 项目页共用面向使用者的 README.md；开发文档 README.dev.md 只留本地，不入库
+readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"

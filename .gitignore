@@ -24,3 +24,6 @@ build/
 
 # 采购账本（每次全量拉取追加一行，本地观测数据）
 .em_ledger.jsonl
+
+# 开发文档只留本地，不推送
+README.dev.md
