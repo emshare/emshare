@@ -832,3 +832,121 @@ def test_hold_reuses_ip_and_keeps_in_flight_paired() -> None:
     assert pool._in_flight == {}
     pool.report_failure(proxy)  # 淘汰后不可续用
     assert pool.hold(proxy) is False
+
+
+def _target_pool(batches: list[list[str]], alive: set[str], target: int | None, num: int = 5):
+    session = MagicMock()
+    session.get.side_effect = [MagicMock(text="\n".join(batch)) for batch in batches]
+    probed: list[str] = []
+
+    def prober(ip: str) -> bool:
+        probed.append(ip)
+        return ip in alive
+
+    settings = ProxySettings(api="http://api", num=num)
+    pool = ProxyPool(
+        settings, session, prober=prober, fallback_prober=prober, prefilter_target=target
+    )
+    return pool, probed
+
+
+def test_prefilter_target_stops_probing_once_enough_alive() -> None:
+    """够用即停：探到 1 个活 IP 后不再探测其余；池里只有已验证的，其余留作预留。"""
+    batch = [f"10.0.0.{i}:80" for i in range(1, 6)]
+    pool, probed = _target_pool([batch], alive={batch[1], batch[3]}, target=1)
+    assert pool.acquire() == batch[1]
+    assert probed == batch[:2]  # 第 1 个死、第 2 个活，后 3 个没探
+    pool.release(batch[1])
+    for _ in range(3):
+        assert pool.acquire() == batch[1]
+        pool.release(batch[1])
+    stats = pool.stats()
+    assert stats["prefilter_rejected"] == 1 and stats["prefilter_skipped"] == 3
+    assert stats["ips_touched"] == 2
+    assert pool.available() == 1
+
+
+def test_prefilter_target_replaces_failed_ip_from_reserve_before_refetching() -> None:
+    """在池 IP 失效后先探预留：业务只会拿到探活通过的 IP，且不必再打代理源。"""
+    batch = [f"10.0.0.{i}:80" for i in range(1, 6)]
+    pool, probed = _target_pool([batch], alive={batch[0], batch[3]}, target=1)
+    assert pool.acquire() == batch[0]
+    pool.report_failure(batch[0])
+    pool.release(batch[0])
+    assert pool.acquire() == batch[3]
+    assert probed == [batch[0], batch[1], batch[2], batch[3]]
+    stats = pool.stats()
+    assert stats["fetch_calls"] == 1 and stats["reserve_adopted"] == 1
+    assert stats["degraded_events"] == 0 and stats["source_breaker_trips"] == 0
+
+
+def test_prefilter_target_dead_reserve_falls_back_to_source_without_penalty() -> None:
+    first = [f"10.0.0.{i}:80" for i in range(1, 4)]
+    second = [f"10.0.1.{i}:80" for i in range(1, 4)]
+    pool, _ = _target_pool([first, second], alive={first[0], second[0]}, target=1, num=3)
+    assert pool.acquire() == first[0]
+    pool.report_failure(first[0])
+    pool.release(first[0])
+    assert pool.acquire() == second[0]  # 预留两个全死 → 回源；不记整批全死
+    stats = pool.stats()
+    assert stats["fetch_calls"] == 2 and stats["degraded_events"] == 0
+    assert stats["source_breaker_trips"] == 0
+
+
+def test_prefilter_target_reserve_expires_at_half_lease(monkeypatch: pytest.MonkeyPatch) -> None:
+    from em.core import proxy as proxy_module
+
+    clock = [1000.0]
+    monkeypatch.setattr(proxy_module.time, "monotonic", lambda: clock[0])
+    first = [f"10.0.0.{i}:80" for i in range(1, 4)]
+    second = [f"10.0.1.{i}:80" for i in range(1, 4)]
+    pool, probed = _target_pool([first, second], alive=set(first + second), target=1, num=3)
+    assert pool.acquire() == first[0]
+    clock[0] += 14  # 过了租期一半：预留剩余租期已不满足准入，不值得再探
+    pool.report_failure(first[0])
+    pool.release(first[0])
+    assert pool.acquire() == second[0]
+    assert probed == [first[0], second[0]]
+
+
+def test_prefilter_target_expands_from_reserve_under_concurrency() -> None:
+    batch = [f"10.0.0.{i}:80" for i in range(1, 6)]
+    pool, probed = _target_pool([batch], alive=set(batch), target=1)
+    for _ in range(2):
+        assert pool.acquire() == batch[0]
+    assert pool._renew_thread is None  # 每出口 2 个并发以内不扩容
+    assert pool.acquire() == batch[0]  # 第 3 个并发：后台从预留探一个补进池
+    assert pool._renew_thread is not None
+    pool._renew_thread.join(5)
+    assert probed == batch[:2] and pool.available() == 2
+    assert pool.acquire() == batch[1]
+
+
+def test_prefilter_target_probes_in_waves_until_enough() -> None:
+    batch = [f"10.0.0.{i}:80" for i in range(1, 6)]
+    pool, probed = _target_pool([batch], alive={batch[0], batch[3]}, target=2)
+    assert pool.acquire() == batch[0]
+    assert probed == batch[:4]  # 首波 2 个得 1 活，再探 1 个死，再探 1 个活，第 5 个不探
+    assert pool.stats()["prefilter_skipped"] == 1 and pool.available() == 2
+
+
+def test_prefilter_target_all_dead_batch_still_counts_as_dead_batch() -> None:
+    first = [f"10.0.0.{i}:80" for i in range(1, 6)]
+    second = [f"10.0.1.{i}:80" for i in range(1, 6)]
+    pool, probed = _target_pool([first, second], alive={second[2]}, target=1)
+    assert pool.acquire() == second[2]
+    assert probed == first + second[:3]
+    stats = pool.stats()
+    assert stats["degraded_events"] == 1 and stats["prefilter_rejected"] == 7
+
+
+def test_prefilter_target_none_probes_whole_batch() -> None:
+    batch = [f"10.0.0.{i}:80" for i in range(1, 6)]
+    pool, probed = _target_pool([batch], alive={batch[0]}, target=None)
+    assert pool.acquire() == batch[0]
+    assert sorted(probed) == batch and pool.stats()["prefilter_skipped"] == 0
+
+
+def test_prefilter_target_must_be_positive() -> None:
+    with pytest.raises(ConfigError):
+        ProxyPool(ProxySettings(api="http://api"), MagicMock(), prefilter_target=0)

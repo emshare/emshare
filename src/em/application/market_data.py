@@ -223,7 +223,12 @@ def _make_prober(session: ExplicitProxySession, read_timeout: float) -> Callable
     return probe
 
 
-def _create_client(settings: Settings) -> HttpClient:
+def _create_client(settings: Settings, probe_all: bool = False) -> HttpClient:
+    """``probe_all``：预筛整批全探，忽略 ``proxy_prefilter_target``。
+
+    代理按"发出过请求的 IP"计费，顺序请求只需探到够用的活 IP；并发任务会把整批
+    出口都用上，分波探测省不下计费、只会拖慢冷启动，因此整批并发探测。
+    """
     session = ExplicitProxySession()
     # 代理 IP 是多 origin 的连接目标：放大连接池避免并发放大时反复建连
     adapter = BoundedProxyAdapter(pool_connections=20, pool_maxsize=20)
@@ -255,7 +260,17 @@ def _create_client(settings: Settings) -> HttpClient:
             if settings.proxy_prefilter
             else None
         )
-        pool = ProxyPool(ps, session, prober=prober, fallback_prober=fallback)
+        pool = ProxyPool(
+            ps,
+            session,
+            prober=prober,
+            fallback_prober=fallback,
+            prefilter_target=(
+                None
+                if probe_all or settings.proxy_prefilter_target == 0
+                else settings.proxy_prefilter_target
+            ),
+        )
         router = ProxyRouter(pool, ps)
     policy = RetryPolicy(
         max_retries=settings.max_retries,
@@ -284,9 +299,13 @@ _client_lock = threading.RLock()
 _clients: weakref.WeakSet[HttpClient] = weakref.WeakSet()
 
 
-def _build_client(settings: Settings, *, isolated: bool = False) -> HttpClient:
+def _build_client(
+    settings: Settings, *, isolated: bool = False, probe_all: bool = False
+) -> HttpClient:
     with _client_lock:
-        return _create_client(settings) if isolated else _cached_client(settings)
+        if isolated:
+            return _create_client(settings, probe_all)
+        return _cached_client(settings)
 
 
 def _reset_client_cache() -> None:
@@ -383,7 +402,8 @@ def stock_list_all_em(
     if workers < 1:
         raise ValueError("workers 必须 >= 1")
     started = time.monotonic()
-    client = _build_client(settings or Settings.from_env(), isolated=True)
+    # 并发翻页会用上整批出口：预筛整批并发探测，不分波
+    client = _build_client(settings or Settings.from_env(), isolated=True, probe_all=True)
     try:
         result = _stock_list_all(query, max_rounds, workers, client)
     finally:

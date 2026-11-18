@@ -29,6 +29,7 @@ def test_env_example_parses_to_valid_settings(clean_em_env) -> None:
     assert s.proxy_proxy_successes == 5
     assert s.proxy_cooldown_sec == 300
     assert s.proxy_prefilter_sources == 1  # 收费备用源默认不预筛
+    assert s.proxy_prefilter_target == 1  # 探到 1 个活 IP 即停，其余留作预留
     assert s.proxy_degraded_mode == "lenient"  # 全死后改用 1.5s 快筛，不再放行未验证 IP
 
 

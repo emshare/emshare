@@ -152,6 +152,8 @@ class ProxyPool:
     # 续期失败后的重试间隔：空返回已有 1s 负缓存，这里再退避一次避免每个 acquire 都起线程
     _RENEW_RETRY_SEC = 1.0
     _HISTORY_LIMIT = 8192
+    # 并发溢出：在池 IP 的在飞数都超过它时，从预留里再探一个补进池
+    _SPILL_IN_FLIGHT = 2
 
     def __init__(
         self,
@@ -159,7 +161,15 @@ class ProxyPool:
         session: ExplicitProxySession,
         prober: Callable[[str], bool] | None = None,
         fallback_prober: Callable[[str], bool] | None = None,
+        prefilter_target: int | None = None,
     ) -> None:
+        # 预筛目标：探到这么多个活 IP 就停，其余不探测、留作预留（不进池）。
+        # 代理按"经该 IP 发出过请求"计费（探测与连接失败都算），整批全探等于整批计费。
+        # 池里只放已验证的 IP；在池 IP 失效或并发挤不下时，再从预留里按需探测补充。
+        # None = 整批全探（旧行为）
+        if prefilter_target is not None and prefilter_target < 1:
+            raise ConfigError("prefilter_target 必须 >= 1")
+        self._prefilter_target = prefilter_target
         self._settings = settings
         self._session = session
         self._prober = prober
@@ -197,6 +207,11 @@ class ProxyPool:
         self._ips_unique: set[str] = set()
         self._ips_served: set[str] = set()  # 真正发出过业务请求的 IP
         self._ips_productive: set[str] = set()  # 至少成功过一次业务请求的 IP
+        self._ips_touched: set[str] = set()  # 发出过请求的 IP（探测或业务，计费口径）
+        # 预留：已提取但未探测的 IP（提取不计费）；与其批次的采购时刻、来源一并保存
+        self._reserve: list[str] = []
+        self._reserve_started = 0.0
+        self._reserve_source: str | None = None
         self._history_truncated = False
         # 分源账本：主备顺序目前是静态配置，质量（淘汰率）只能靠分源统计判断
         self._source_labels = {
@@ -219,6 +234,8 @@ class ProxyPool:
             "ip_failures": 0,  # 淘汰（硬失败或连续两次软失败）
             "soft_failures": 0,  # 读超时次数（首次软失败不淘汰）
             "prefilter_rejected": 0,  # 预筛判死未进池的 IP 数
+            "prefilter_skipped": 0,  # 已够用而未探测、转入预留的 IP 数
+            "reserve_adopted": 0,  # 之后从预留里探活补进池的 IP 数
             "prefilter_lenient_rejected": 0,  # 其中由降级快筛判死的（用于评估降级策略）
             "degraded_adopted": 0,  # adopt 模式下未探测就进池的 IP 数（降级策略的暴露面）
             "degraded_events": 0,  # 整批全死进入降级窗口的次数（两种模式的共同触发口径）
@@ -296,7 +313,7 @@ class ProxyPool:
                 self._closed
                 or self._renewing
                 or now < self._renew_after
-                or not self._renew_due_locked(now, need)
+                or not (self._renew_due_locked(now, need) or self._expand_due_locked())
             ):
                 return
             self._renew_after = now + self._RENEW_RETRY_SEC
@@ -348,9 +365,28 @@ class ProxyPool:
                             self._renew_after = max(
                                 self._renew_after, time.monotonic() + self._RENEW_LEAD_SEC
                             )
+                elif self._expand_due():
+                    self._adopt_from_reserve(1)
         finally:
             with self._lock:
                 self._renewing = False
+
+    def _expand_due_locked(self) -> bool:
+        """在池 IP 都已挤满且还有预留可探（调用方持 ``_lock``）。"""
+        if not self._reserve:
+            return False
+        pool = [
+            entry
+            for entry in ([self._current] if self._current else []) + self._standby
+            if self._is_live(entry)
+        ]
+        return bool(pool) and all(
+            self._in_flight.get(entry, 0) > self._SPILL_IN_FLIGHT for entry in pool
+        )
+
+    def _expand_due(self) -> bool:
+        with self._lock:
+            return self._expand_due_locked()
 
     def _renew_due(self, need: float = 0.0) -> bool:
         with self._lock:
@@ -391,6 +427,7 @@ class ProxyPool:
             self._standby = [p for p in pool_ips if p != pick]
             self._in_flight[pick] = self._in_flight.get(pick, 0) + 1
             self._remember(self._ips_served, pick)
+            self._remember(self._ips_touched, pick)
             return pick
 
     def release(self, proxy: str | None) -> None:
@@ -458,6 +495,7 @@ class ProxyPool:
                 return False
             self._in_flight[proxy] = self._in_flight.get(proxy, 0) + 1
             self._remember(self._ips_served, proxy)
+            self._remember(self._ips_touched, proxy)
             return True
 
     def _remember(self, history: set[str], proxy: str) -> None:
@@ -473,6 +511,7 @@ class ProxyPool:
             out["ips_unique"] = len(self._ips_unique)
             out["ips_served"] = len(self._ips_served)
             out["ips_productive"] = len(self._ips_productive)
+            out["ips_touched"] = len(self._ips_touched)
             out["history_truncated"] = self._history_truncated
             out["source_stats"] = {k: dict(v) for k, v in self._source_stats.items()}
             # 哪些源参与预筛：未预筛的源"淘汰率恒为 0"是构造出来的，不能与预筛源比质量
@@ -588,6 +627,11 @@ class ProxyPool:
         with self._lock:
             if self._closed:
                 return None
+        # 先用预留：同批里还没探测过的 IP，不必再打一次代理源
+        proxy = self._adopt_from_reserve()
+        if proxy is not None:
+            return proxy
+        with self._lock:
             if time.monotonic() < self._refill_blocked_until:
                 self._stats["lifetime_refill_suppressed"] += 1
                 return None
@@ -641,10 +685,18 @@ class ProxyPool:
                     self._reset_dead_streak(source)
                     return self._adopt(fresh, source)
                 # lenient 模式在降级窗口内改用快筛，仍然过滤，只是判据更短
-                alive = known + self._prefilter(
-                    [entry for entry in fresh if entry not in known], source, lenient=degraded
+                rest = [entry for entry in fresh if entry not in known]
+                need = (
+                    None if self._prefilter_target is None else self._prefilter_target - len(known)
                 )
+                probed, unprobed = self._prefilter(rest, source, lenient=degraded, need=need)
+                alive = known + probed
                 if alive:
+                    with self._lock:
+                        self._stats["prefilter_skipped"] += len(unprobed)
+                        self._reserve = unprobed
+                        self._reserve_started = self._batch_started_at
+                        self._reserve_source = source
                     self._reset_dead_streak(source)
                     return self._adopt(alive, source)
             # 本批不可用（整批黑名单/筛死）：计入连败，短退避后再拉下一轮。
@@ -656,6 +708,42 @@ class ProxyPool:
             self._empty_at = time.monotonic()
             self._stats["fetch_empty"] += 1
         return None
+
+    def _adopt_from_reserve(self, count: int | None = None) -> str | None:
+        """从预留里探测并补进池（调用方持 ``_refill_lock``）；探到 ``count`` 个活的即停。
+
+        预留只在批次租期的前半段有效：再晚探到的 IP 剩余租期已不满足准入，白付一次计费。
+        预留探完全死不算"整批不可用"——该批已经交付过活 IP，不触发降级窗口与熔断。
+        """
+        if self._prober is None or self._prefilter_target is None:
+            return None
+        with self._lock:
+            now = time.monotonic()
+            capacity = self._settings.ttl_sec - self._settings.safety_margin_sec
+            if now >= self._reserve_started + capacity / 2:
+                self._reserve = []
+            candidates = [
+                ip for ip in self._reserve if ip not in self._failed_at and not self._is_live(ip)
+            ]
+            self._reserve = []
+            source, started = self._reserve_source, self._reserve_started
+            degraded = now < self._prefilter_degraded_until
+        if not candidates:
+            return None
+        alive, rest = self._prefilter(
+            candidates,
+            source,
+            lenient=degraded,
+            need=count or self._prefilter_target,
+            remnant=True,
+        )
+        with self._lock:
+            self._reserve = rest
+            self._stats["reserve_adopted"] += len(alive)
+        if not alive:
+            return None
+        self._batch_started_at = started
+        return self._adopt(alive, source)
 
     def _note_dead_batch(self, source: str | None) -> None:
         """记一轮"整批不可用"；连续到阈值即熔断该源，冷却期内不再回源。
@@ -694,9 +782,18 @@ class ProxyPool:
         return self._source_index.get(source or "", 0) < self._settings.prefilter_sources
 
     def _prefilter(
-        self, ips: list[str], source: str | None = None, lenient: bool = False
-    ) -> list[str]:
-        """回源预筛：并发探测批次 IP，判死的记黑名单不进池；无 prober 原样返回。
+        self,
+        ips: list[str],
+        source: str | None = None,
+        lenient: bool = False,
+        need: int | None = None,
+        remnant: bool = False,
+    ) -> tuple[list[str], list[str]]:
+        """回源预筛：探测批次 IP，判死的记黑名单不进池；返回 ``(探活通过, 未探测)``。
+
+        ``need`` 为还需要的活 IP 数：按"还差几个就并发探几个"分波探测，够数即停，
+        剩余 IP 不探测（不产生计费）原样返回；``None`` 表示整批全探。无 prober 时
+        全部按通过返回。
 
         判死即等同一次失败上报（黑名单 TTL 内不再取用）。整批全死时进入降级窗口：
         ``adopt`` 模式窗口内完全不探测，``lenient`` 模式窗口内改用快筛继续过滤——
@@ -707,7 +804,9 @@ class ProxyPool:
         use_fallback = lenient and self._fallback_prober is not None
         prober = self._fallback_prober if use_fallback else self._prober
         if prober is None:
-            return ips
+            return ips, []
+        if need is not None and need <= 0:
+            return [], ips
 
         def probe(proxy: str) -> bool | None:
             budget.remaining()
@@ -717,12 +816,25 @@ class ProxyPool:
                 return None
 
         t0 = time.monotonic()
+        pending = list(ips)
+        alive: list[str] = []
+        dead: list[str] = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=self._PREFILTER_WORKERS) as ex:
-            futures = [ex.submit(copy_context().run, probe, ip) for ip in ips]
-            alive_flags = [future.result() for future in futures]
+            while pending and (need is None or len(alive) < need):
+                size = len(pending) if need is None else need - len(alive)
+                wave, pending = pending[:size], pending[size:]
+                with self._lock:
+                    for ip in wave:
+                        self._remember(self._ips_touched, ip)
+                futures = [ex.submit(copy_context().run, probe, ip) for ip in wave]
+                for ip, future in zip(wave, futures, strict=True):
+                    ok = future.result()
+                    if ok:
+                        alive.append(ip)
+                    elif ok is False:
+                        dead.append(ip)
         budget.remaining()
-        alive = [ip for ip, ok in zip(ips, alive_flags, strict=True) if ok]
-        dead = [ip for ip, ok in zip(ips, alive_flags, strict=True) if ok is False]
+        probed = len(ips) - len(pending)
         if dead:
             now = time.monotonic()
             with self._lock:
@@ -734,7 +846,7 @@ class ProxyPool:
                 label = self._source_labels.get(source) if source else None
                 if label is not None:
                     self._source_stats[label]["rejected"] += len(dead)
-                if not alive:
+                if not alive and not remnant:
                     # 整批全死：进入降级窗口，窗口长度按处置方式区分
                     window = (
                         self._PREFILTER_LENIENT_WINDOW_SEC
@@ -752,12 +864,12 @@ class ProxyPool:
                 "预筛%s淘汰 %d/%d 个死 IP（本批存活 %d）",
                 "(快筛)" if lenient else "",
                 len(dead),
-                len(ips),
+                probed,
                 len(alive),
             )
         with self._lock:
             self._stats["prefilter_sec"] += time.monotonic() - t0
-        return alive
+        return alive, pending
 
     def _adopt(self, ips: list[str], source: str | None = None) -> str | None:
         """安装批次；有效期从采购开始计，业务领取另行计入占用。"""

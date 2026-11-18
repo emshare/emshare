@@ -87,6 +87,8 @@ class Settings:
     proxy_mode: ProxyMode = "auto"
     proxy_prefilter: bool = defaults.DEFAULT_PROXY_PREFILTER
     proxy_prefilter_sources: int = 1
+    # 预筛探到这么多个活 IP 就停，其余留作预留按需再探；0 = 整批全探
+    proxy_prefilter_target: int = 1
     proxy_degraded_mode: DegradedMode = "lenient"
     proxy_direct_fails: int = 1
     proxy_proxy_successes: int = 5
@@ -119,6 +121,8 @@ class Settings:
             raise ConfigError(f"proxy_mode 必须是 {','.join(_VALID_MODES)}")
         if self.proxy_prefilter_sources < 0:
             raise ConfigError("proxy_prefilter_sources 不能为负")
+        if self.proxy_prefilter_target < 0:
+            raise ConfigError("proxy_prefilter_target 不能为负")
         if self.proxy_degraded_mode not in _VALID_DEGRADED:
             raise ConfigError(f"proxy_degraded_mode 必须是 {','.join(_VALID_DEGRADED)}")
         if self.proxy_direct_fails < 1:
@@ -164,6 +168,7 @@ class Settings:
             proxy_mode=_mode_env("EM_PROXY_MODE", "auto"),
             proxy_prefilter=_bool_env("EM_PROXY_PREFILTER", defaults.DEFAULT_PROXY_PREFILTER),
             proxy_prefilter_sources=_int_env("EM_PROXY_PREFILTER_SOURCES", 1),
+            proxy_prefilter_target=_int_env("EM_PROXY_PREFILTER_TARGET", 1),
             proxy_degraded_mode=_degraded_env("EM_PROXY_DEGRADED_MODE", "lenient"),
             proxy_direct_fails=_int_env("EM_PROXY_DIRECT_FAILS", 1),
             proxy_proxy_successes=_int_env("EM_PROXY_PROXY_SUCCESSES", 5),
