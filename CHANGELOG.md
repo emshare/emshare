@@ -2,7 +2,7 @@
 
 版本号遵循语义化版本。PyPI 发行名为 `emshare`，导入名为 `em`。
 
-## [0.1.2] - 2026-11-18
+## [0.1.2] - 2026-11-19
 
 - 包元数据新增项目链接（主页、仓库、问题反馈、更新日志），PyPI 项目页侧边栏可直接跳到 GitHub。
 - **行为变更**：`stock_list_all_em` / `df_stock_list_all_em` 补漏后仍缺数据时抛 `IncompleteSnapshotError`，不再只记一条警告并返回残缺结果；已取到的部分在异常的 `partial` 属性里，`fetched` / `total` 为已取条数与上游总量。命令行 `--preset market-all` 相应以失败退出。
