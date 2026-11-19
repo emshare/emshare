@@ -1,5 +1,15 @@
 # emshare
 
+[![Python](https://img.shields.io/pypi/pyversions/emshare)](https://pypi.org/project/emshare/)
+[![PyPI](https://img.shields.io/pypi/v/emshare)](https://pypi.org/project/emshare/)
+[![Downloads](https://img.shields.io/pypi/dm/emshare)](https://pypi.org/project/emshare/)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Publish to PyPI](https://github.com/emshare/emshare/actions/workflows/publish.yml/badge.svg)](https://github.com/emshare/emshare/actions/workflows/publish.yml)
+[![License](https://img.shields.io/pypi/l/emshare)](https://github.com/emshare/emshare/blob/main/LICENSE)
+[![Stars](https://img.shields.io/github/stars/emshare/emshare)](https://github.com/emshare/emshare/stargazers)
+[![Forks](https://img.shields.io/github/forks/emshare/emshare)](https://github.com/emshare/emshare/network/members)
+[![Issues](https://img.shields.io/github/issues/emshare/emshare)](https://github.com/emshare/emshare/issues)
+
 行情数据的 Python 接口：A 股 / 港股 / 指数 / 场内基金的行情列表、K 线、分时、资金流、板块、涨跌停股池、盘口异动、龙虎榜、大宗交易、业绩与财务报表。
 
 - 返回带类型标注的数据对象；装上 pandas 后，每个接口都有返回 `DataFrame`（中文列名）的 `df_` 版本
