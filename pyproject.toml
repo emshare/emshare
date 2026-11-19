@@ -32,6 +32,13 @@ pandas = ["pandas>=2.0"]
 [project.scripts]
 emshare = "em.cli:main"
 
+# PyPI 项目页侧边栏的链接
+[project.urls]
+Homepage = "https://github.com/emshare/emshare"
+Repository = "https://github.com/emshare/emshare"
+Issues = "https://github.com/emshare/emshare/issues"
+Changelog = "https://github.com/emshare/emshare/blob/main/CHANGELOG.md"
+
 
 [dependency-groups]
 dev = [
